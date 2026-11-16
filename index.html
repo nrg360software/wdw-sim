@@ -116,7 +116,22 @@ button:focus-visible,select:focus-visible{outline:2px solid var(--gold);outline-
 .callout{background:rgba(182,156,255,.12);border:1px solid rgba(182,156,255,.35);border-radius:14px;padding:11px 12px;margin:4px 0 10px;font-size:13.5px;line-height:1.4}
 .callout b{color:var(--ll)}
 .callout.warnc{background:rgba(246,163,71,.12);border-color:rgba(246,163,71,.45)}
-#llsetup{z-index:11;background:rgba(8,12,22,.9)}
+#llsetup,#daysetup{z-index:11;background:rgba(8,12,22,.9)}
+textarea{box-sizing:border-box;width:100%;background:var(--chip);color:var(--text);border:1px solid var(--line);border-radius:12px;padding:9px 11px;font:500 14px var(--body);-webkit-user-select:text;user-select:text;resize:vertical}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:transparent;border-radius:999px;padding:6px 10px;font-size:12.5px;font-weight:700;color:var(--muted);display:flex;gap:5px;align-items:baseline}
+.chip small{font-size:10.5px;font-weight:600;opacity:.75}
+.chip[aria-pressed="true"]{background:rgba(255,201,77,.18);border-color:rgba(255,201,77,.6);color:var(--gold)}
+.tl{display:grid;grid-template-columns:50px 1fr;gap:8px;padding:9px 4px;border-bottom:1px solid rgba(255,255,255,.07)}
+.tl .tt{font-family:var(--display);font-size:16px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--gold);line-height:1.1}
+.tl .tt small{display:block;font-family:var(--body);font-size:10px;color:var(--muted);font-weight:700}
+.tl .n{font-weight:700;font-size:14px;line-height:1.3}
+.tl .m{font-size:12px;color:var(--muted);margin-top:2px;line-height:1.4}
+.tl .bk{font-size:12px;color:var(--ll);margin-top:3px;font-weight:600}
+.tl.done{opacity:.45}.tl.nx{background:rgba(255,201,77,.09);border-radius:10px}
+.tl.ex .tt{color:var(--muted)}.tl.meal .tt{color:var(--good)}
+.tag.rp{background:rgba(255,201,77,.18);color:var(--gold)}.tag.sb{background:rgba(255,255,255,.08);color:var(--muted)}
+.toast.dp{border-color:rgba(255,201,77,.6);pointer-events:auto;cursor:pointer}.toast.dp::before{content:'🗺';}
 .toast.ll{border-color:rgba(182,156,255,.65);pointer-events:auto;cursor:pointer}
 .toast.ll::before{content:'⚡';color:var(--ll)}
 .llp{padding:10px 2px;border-bottom:1px solid rgba(255,255,255,.07)}
@@ -130,7 +145,7 @@ button:focus-visible,select:focus-visible{outline:2px solid var(--gold);outline-
 .llrow select{padding:9px 8px;font-size:13.5px;min-width:0}
 .lld{margin-top:14px}.lld summary{font-family:var(--display);font-size:16px;font-weight:600;cursor:pointer}
 
-#start,#end,#llsetup{position:fixed;inset:0;z-index:10;display:grid;place-items:center;padding:calc(env(safe-area-inset-top,0px) + 16px) max(16px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 16px) max(16px,env(safe-area-inset-left,0px));background:linear-gradient(180deg,rgba(12,20,36,.25),rgba(12,20,36,.82) 55%);overflow:auto}
+#start,#end,#llsetup,#daysetup{position:fixed;inset:0;z-index:10;display:grid;place-items:center;padding:calc(env(safe-area-inset-top,0px) + 16px) max(16px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 16px) max(16px,env(safe-area-inset-left,0px));background:linear-gradient(180deg,rgba(12,20,36,.25),rgba(12,20,36,.82) 55%);overflow:auto}
 .modal{width:min(100%,430px);background:var(--glass2);border:1px solid var(--line);border-radius:22px;padding:22px 20px;box-shadow:0 20px 60px rgba(0,0,0,.55)}
 .modal h1{font-family:var(--display);font-weight:700;font-size:36px;margin:0;line-height:1;letter-spacing:.01em}
 .modal h1 span{color:var(--gold)}
@@ -172,8 +187,9 @@ select{background:var(--chip);color:var(--text);border:1px solid var(--line);bor
     <div id="prog"><i id="progI"></i></div>
     <div class="row">
       <button class="btn pri" id="bRides">Rides</button>
+      <button class="btn" id="bPlan">Plan</button>
       <button class="btn" id="bPicks">Top picks</button>
-      <button class="btn" id="bBreak">Snack break</button>
+      <button class="btn" id="bBreak">Snack</button>
     </div>
     <div class="row" style="justify-content:space-between">
       <div class="seg" id="speedSeg" role="group" aria-label="Game speed">
@@ -198,6 +214,7 @@ select{background:var(--chip);color:var(--text);border:1px solid var(--line);bor
     <div class="fld"><label>Crowds</label><div class="seg" id="segCrowd"><button data-v="0.8">Lighter</button><button data-v="1" aria-pressed="true">As forecast</button><button data-v="1.2">Busier</button></div></div>
     <div class="fld"><label>Start time</label><div class="seg" id="segTime"><button data-v="480" aria-pressed="true">Rope drop · 8:00</button><button data-v="660">Sleep in · 11:00</button></div></div>
     <div class="fld"><label>Lightning Lane</label><button class="btn ll" id="bLLPlan" type="button">⚡ Plan Lightning Lanes</button><div class="fc" id="llSum"></div></div>
+    <div class="fld"><label>Day plan</label><button class="btn pri" id="bDayPlan" type="button" style="background:rgba(255,201,77,.16);color:var(--gold);border-color:rgba(255,201,77,.55)">🗺 Plan my day</button><div class="fc" id="daySum"></div></div>
     <p class="note" id="liveNote" style="margin:0 0 8px"></p>
     <button class="btn pri" id="bPlay" style="width:100%;padding:13px;font-size:16px">Start the day</button>
     <ul class="how">
@@ -210,6 +227,7 @@ select{background:var(--chip);color:var(--text);border:1px solid var(--line);bor
 </div>
 
 <div id="llsetup" hidden><div class="modal" id="llsetIn"></div></div>
+<div id="daysetup" hidden><div class="modal" id="daysetIn"></div></div>
 
 <div id="end" hidden>
   <div class="modal">
@@ -685,6 +703,124 @@ function dijkstra(src,h){
     for(const e of NODES[u].adj){const c=best+edgeCost(e,h);if(c<dist[e.to]){dist[e.to]=c;prev[e.to]={from:u,e}}}}
   return{dist,prev}}
 function pathEdges(D,target){const out=[];let v=target;while(D.prev[v]){out.push(D.prev[v]);v=D.prev[v].from}return out.reverse()}
+
+// ================= DAY PLANNER (full-day route) =================
+// Orders a list of must-do rides in one park by beam search. Each step is rope drop, standby, or a
+// Lightning Lane entitlement (Multi Pass booking, Single Pass, Premier, Multiple Experience Pass).
+// After each tap-in (and at the start) open Multi Pass slots are filled greedily with the remaining
+// must-do that saves the most minutes, following the same rules as llCanBook. Travel inside the park
+// comes from a walking matrix scaled by crowds; the first leg uses the real route from where you are.
+// Optional lunch break (45 min, first gap after 11:45) and extra rides to fill free time after.
+const DP_KEY='wdwsim.day.',DP_LLQ=7,DP_LUNCH=45;
+function dpLoad(date){try{const s=localStorage.getItem(DP_KEY+date);if(s)return JSON.parse(s)}catch(e){}return null}
+function dpSave(date,s){try{localStorage.setItem(DP_KEY+date,JSON.stringify(s))}catch(e){}}
+function dpDefaults(pk){return{pk:pk||'MK',must:[],ll:'mine',lunch:true,extras:true}}
+// Same-day setup shared by the start screen, the planners and startDay
+function prepDay(dstr,mult,hid){const day=parseDay(dstr)||new Date();G.date=ymd(day);G.deluxe=DELUXE.has(hid);const HR=applyHours(day);
+  for(const k in G.pf)G.pf[k]=clamp(dayFactor(k,day)*mult*(PARKS[k].party?0.85:1),0.6,1.7);G.crowd=Object.values(G.pf).reduce((a,b)=>a+b,0)/4;
+  RIDES.forEach(r=>r.seed=hash(G.date+r.id)*10);DPW={};return HR}
+// walking minutes between every pair of rides in a park (no crowd factor)
+const DP_TM={};
+function dpMatrix(pk){if(DP_TM[pk])return DP_TM[pk];
+  const ids=[];NODES.forEach((n,i)=>{if(n.park===pk||n.outside===pk)ids.push(i)});const loc={};ids.forEach((g,k)=>loc[g]=k);const n=ids.length,M={};
+  for(const r of RIDES){if(r.pk!==pk)continue;const dist=new Float64Array(n).fill(Infinity),done=new Uint8Array(n);dist[loc[NI[r.nodeId]]]=0;
+    for(;;){let u=-1,b=Infinity;for(let i=0;i<n;i++)if(!done[i]&&dist[i]<b){b=dist[i];u=i}if(u<0)break;done[u]=1;
+      for(const e of NODES[ids[u]].adj){if(e.type!=='walk'||!e.inPark)continue;const v=loc[e.to];if(v==null)continue;const c=b+e.d/WALK_PARK+(e.entry||0);if(c<dist[v])dist[v]=c}}
+    M[r.id]={};for(const q of RIDES)if(q.pk===pk)M[r.id][q.id]=dist[loc[NI[q.nodeId]]]}
+  return DP_TM[pk]=M}
+let DPW={};
+function dpWait(r,t){const b=Math.round(t/5),k=r.id+':'+b;let w=DPW[k];if(w==null)w=DPW[k]=rawWait(r,b*5);return w}
+function dpParkEnd(pk){const P=PARKS[pk];return Math.max(P.close*60,P.eeh&&G.deluxe?P.eeh.to*60:0)}
+function dpLLFrom(L){return{mp:L.mp,prem:L.premier,tapped:!!L.tapped,
+  held:L.passes.filter(p=>p.st==='active').map(p=>({rid:p.rid,start:p.start,end:p.end,type:p.type,pre:!!p.pre})),
+  booked:Object.fromEntries(L.passes.filter(p=>p.st!=='cancelled').map(p=>[p.rid,1])),premUsed:Object.assign({},L.premUsed),
+  mep:L.passes.filter(p=>p.st==='mep').map(p=>p.mepOpts.slice())}}
+function dpCtx(o){const pk=o.pk,M=dpMatrix(pk),park=RIDES.filter(r=>r.pk===pk),bit={};park.forEach((r,i)=>bit[r.id]=1<<i);
+  const ctx={pk,M,bit,park,must:o.must.filter(id=>RIDE_BY[id]&&RIDE_BY[id].pk===pk),keep:!!o.keep,lunch:!!o.lunch,lunchDone:!!o.lunchDone,extras:!!o.extras,t0:o.t,end:dpParkEnd(pk),startD:{}};
+  const D=dijkstra(o.node,o.t/60);park.forEach(r=>ctx.startD[r.id]=D.dist[NI[r.nodeId]]);
+  // lowest standby from each 15-min bucket to close (for the search heuristic)
+  ctx.b0=Math.floor(o.t/15);const nb=Math.max(1,Math.ceil(ctx.end/15)-ctx.b0+1);ctx.suf={};
+  for(const r of park){const a=new Array(nb).fill(99);let m=99;for(let i=nb-1;i>=0;i--){const t=(ctx.b0+i)*15;if(t>=accessOpen(pk)&&parkOpen(pk,t))m=Math.min(m,dpWait(r,t));else if(t<accessOpen(pk))m=Math.min(m,dpWait(r,accessOpen(pk)));a[i]=m}ctx.suf[r.id]=a}
+  return ctx}
+function dpRoot(ctx,o,ll){ll=Object.assign({},ll);let done=0;for(const id of o.done||[])if(ctx.bit[id])done|=ctx.bit[id];
+  const S={t:o.t,at:null,done,ll,lunch:ctx.lunchDone||!ctx.lunch,n:0,par:null,step:null};
+  const books=dpBook(ctx,S,o.t,dpRem(ctx,S));S.step={k:'start',t:o.t,books};return S}
+const dpRem=(ctx,S)=>ctx.must.filter(id=>!(S.done&ctx.bit[id]));
+function dpTravel(ctx,S,r){return S.at==null?ctx.startD[r.id]:ctx.M[S.at][r.id]*(1+0.4*busy(S.t/60))}
+// fill free Multi Pass slots with the candidate that saves the most minutes (≥ 10)
+function dpBook(ctx,S,t,pool){const L=S.ll,out=[];if(!L.mp)return out;
+  for(let g=0;g<3;g++){const held=L.held.filter(p=>p.type==='mp');if(held.length>=3)break;let best=null,bs=9;
+    for(const id of pool){const r=RIDE_BY[id];if(r.llType!=='mp'||L.booked[id]||(L.prem===r.pk&&!L.premUsed[id]))continue;
+      if(!L.tapped){if(r.pk!==L.mp)continue;if(r.tier===1&&held.some(p=>RIDE_BY[p.rid].tier===1))continue}
+      const ret=llNext(r,t);if(ret==null)continue;const save=dpWait(r,Math.min(ret+30,PARKS[r.pk].close*60-1))-DP_LLQ;if(save>bs){bs=save;best={r,ret}}}
+    if(!best)break;L.held=L.held.concat([{rid:best.r.id,start:best.ret,end:best.ret+LL_WIN,type:'mp'}]);L.booked=Object.assign({},L.booked,{[best.r.id]:1});out.push({rid:best.r.id,ret:best.ret,at:t})}
+  return out}
+function dpExpand(ctx,S,r,useLL,pool){
+  if(S.done&ctx.bit[r.id])return null;const arr=S.t+dpTravel(ctx,S,r);if(!isFinite(arr))return null;
+  const ll=Object.assign({},S.ll);let how,q0=arr,wait,tap=null;
+  if(useLL){if(!r.ll)return null;const p=ll.held.find(p=>p.rid===r.id);
+    if(p){if(arr>p.end)return null;how=p.type==='sp'?'sp':'ll';q0=Math.max(arr,p.start-LL_EARLY);ll.held=ll.held.filter(x=>x!==p);if(p.type==='mp'&&!ll.tapped){ll.tapped=true}tap=p}
+    else if(ll.prem===r.pk&&!ll.premUsed[r.id]){how='prem';const op=PARKS[r.pk].open*60;if(arr<op)q0=op;else if(!parkOpenPublic(r.pk,arr))return null;ll.premUsed=Object.assign({},ll.premUsed,{[r.id]:1})}
+    else{const mi=ll.mep.findIndex(o=>o.includes(r.id));if(mi<0)return null;how='mep';if(!parkOpenPublic(r.pk,arr))return null;ll.mep=ll.mep.filter((_,i)=>i!==mi)}
+    if(tap&&q0-arr>20)return null;wait=DP_LLQ}
+  else{if(ll.held.some(p=>p.rid===r.id))return null;
+    if(arr<accessOpen(r.pk)){q0=accessOpen(r.pk);how='rope'}else if(!parkOpen(r.pk,arr))return null;else how='standby';
+    wait=dpWait(r,q0)}
+  let end=q0+wait+r.dur;
+  // passes whose window has passed expire (their ride stays used for the day)
+  ll.held=ll.held.filter(p=>p.end>=end);
+  const N={t:end,at:r.id,done:S.done|ctx.bit[r.id],ll,lunch:S.lunch,n:S.n+1,par:S,step:null};
+  const step={k:'ride',rid:r.id,how,leave:S.t,arr,q0,wait:Math.round(wait),end,books:[],meal:null,must:ctx.must.includes(r.id),win:tap?tap.start:null};
+  const pl=pool?pool(N):dpRem(ctx,N);
+  step.books=dpBook(ctx,N,tap&&tap.type==='mp'?q0:end,pl);
+  if(!N.lunch&&end>=705&&end<=900){step.meal={start:end,end:end+DP_LUNCH};N.t=end+DP_LUNCH;N.lunch=true}
+  N.step=step;return N}
+function dpH(ctx,S){let h=0;const i=Math.max(0,Math.floor(S.t/15)-ctx.b0);
+  for(const id of dpRem(ctx,S)){const r=RIDE_BY[id],a=ctx.suf[id];let w=a[Math.min(i,a.length-1)];
+    if(r.ll&&(S.ll.mp||S.ll.prem===r.pk||S.ll.held.some(p=>p.rid===id)))w=Math.min(w,DP_LLQ);h+=w+r.dur+2}
+  return h}
+const dpBetter=(a,b)=>a.n!==b.n?a.n>b.n:a.t<b.t;
+function dpBeam(ctx,root,W){let beam=[root],best=root;
+  for(let d=0;d<ctx.must.length;d++){const next=[];
+    for(const S of beam){for(const id of dpRem(ctx,S)){const r=RIDE_BY[id],k=next.length;const a=dpExpand(ctx,S,r,false);if(a)next.push(a);if(r.ll){const b=dpExpand(ctx,S,r,true);if(b)next.push(b)}if(ctx.keep&&next.length>k)break}}
+    if(!next.length)break;for(const S of next)S.key=S.t+dpH(ctx,S);next.sort((a,b)=>a.key-b.key);
+    beam=[];const seen=new Set();
+    for(const S of next){const sig=S.done+'|'+S.at+'|'+S.ll.held.map(p=>p.rid+p.start).join(',')+'|'+(S.ll.tapped?1:0)+(S.lunch?1:0)+'|'+Math.round(S.t/5);if(seen.has(sig))continue;seen.add(sig);beam.push(S);if(beam.length>=W)break}
+    for(const S of beam)if(dpBetter(S,best))best=S}
+  return best}
+// after the must-dos: keep adding the best fun-per-hour ride (no repeats) until the park closes
+function dpExtras(ctx,S){const val=r=>4+r.thrill*1.6+r.base/12;const pool=N=>ctx.park.filter(r=>!(N.done&ctx.bit[r.id])).map(r=>r.id);
+  for(let g=0;g<30;g++){let best=null,bs=-1;
+    for(const r of ctx.park){if(S.done&ctx.bit[r.id])continue;for(const u of r.ll?[false,true]:[false]){const N=dpExpand(ctx,S,r,u,pool);if(!N)continue;const sc=val(r)/(N.t-S.t+15)*60;if(sc>bs){bs=sc;best=N}}}
+    if(!best)break;best.step.extra=true;S=best}
+  return S}
+function dpSteps(S){const out=[];for(let x=S;x;x=x.par)if(x.step)out.push(x.step);return out.reverse()}
+function dpPack(ctx,S,W){const best=dpBeam(ctx,S,W),fin=ctx.extras?dpExtras(ctx,best):best,steps=dpSteps(fin);
+  const mustSteps=steps.filter(s=>s.k==='ride'&&s.must);const doneIds=new Set(mustSteps.map(s=>s.rid));
+  return{steps,nMust:ctx.must.length,nDone:mustSteps.length,endMust:mustSteps.length?mustSteps[mustSteps.length-1].end:ctx.t0,end:fin.t,
+    missed:ctx.must.filter(id=>!doneIds.has(id)),ll:best.ll}}
+const dpScore=p=>p.nDone*10000-p.endMust;
+// Multi Pass pre-book suggestion: the most valuable Group 1 + two Group 2 must-dos (any 3 at AK),
+// tried in every order and several staggered start times; also plain day-of booking. Best plan wins.
+function dpSuggest(ctx,o,base){const pk=ctx.pk,P=PARKS[pk],open=P.open*60,last=P.close*60-LL_WIN;
+  const peak=r=>{let m=0;for(let h=P.open;h<P.close;h++)m=Math.max(m,dpWait(r,h*60+30));return m*(r.thrill+4)};
+  const cand=ctx.must.map(id=>RIDE_BY[id]).filter(r=>r.llType==='mp'&&!(o.done||[]).includes(r.id)).sort((a,b)=>peak(b)-peak(a));
+  let pick=pk==='AK'?cand.slice(0,3):[cand.find(r=>r.tier===1),...cand.filter(r=>r.tier===2).slice(0,2)].filter(Boolean);
+  const mk=held=>{const L=Object.assign({},base,{mp:pk,tapped:false,held:base.held.filter(p=>p.type!=='mp').concat(held),booked:{}});L.held.forEach(p=>L.booked[p.rid]=1);return L};
+  let best=dpPack(ctx,dpRoot(ctx,o,mk([])),18),bestPre=[];
+  const perm=a=>a.length<=1?[a]:a.flatMap((x,i)=>perm(a.filter((_,j)=>j!==i)).map(p=>[x,...p]));
+  for(const s0 of [open,open+30,open+60,open+90,open+150]){for(const ord of perm(pick)){
+    const held=ord.map((r,i)=>({rid:r.id,start:s0+40*i,end:s0+40*i+LL_WIN,type:'mp',pre:true}));if(held.some(p=>p.start>last))continue;
+    const res=dpPack(ctx,dpRoot(ctx,o,mk(held)),18);if(dpScore(res)>dpScore(best)){best=res;bestPre=held}}}
+  const pre=bestPre.map(p=>({rid:p.rid,start:p.start}));
+  const fin=dpPack(ctx,dpRoot(ctx,o,mk(bestPre)),48);return Object.assign(fin,{pre})}
+// o = {pk, must[], ll:'mine'|'suggest'|'none', lunch, lunchDone, extras, node, t, L (G.LL-like), done[]}
+function dpRun(o){DPW={};const t0=performance.now();const ctx=dpCtx(o);const base=o.LLs||dpLLFrom(o.L||llFresh());let res;
+  if(o.ll==='none')res=dpPack(ctx,dpRoot(ctx,o,dpLLFrom(llFresh())),48);
+  else if(o.ll==='suggest')res=dpSuggest(ctx,o,base);
+  else res=dpPack(ctx,dpRoot(ctx,o,base),48);
+  if(o.ll!=='none'&&ctx.must.some(id=>RIDE_BY[id].ll)&&(o.ll==='suggest'||base.mp||base.prem||base.held.length)){const nl=Object.assign({},ctx,{extras:false});res.noLL=dpPack(nl,dpRoot(nl,o,dpLLFrom(llFresh())),48)}
+  res.pk=o.pk;res.mode=o.ll;res.t0=o.t;res.ms=Math.round(performance.now()-t0);return res}
 
 // ================= THREE SCENE =================
 const stage=$('#stage');
@@ -1166,7 +1302,7 @@ function endSeg(s){
     G.ridden.push(r.id);G.score+=Math.round(joy);G.node=NI[r.nodeId];
     const actual=G.trip?G.t-G.trip.start-r.dur:0;let msg=`${r.short} done · ${fmtDur(actual)} to get on`;
     addMood(Math.round(joy),msg);
-    G.trip=null;G.tripEnd=null}
+    G.trip=null;G.tripEnd=null;if(G.plan)setTimeout(dpNudge,1700)}
   if(s.k==='snack'){toast('Recharged with a snack')}
   G.seg++;if(G.seg>=G.segs.length){G.segs=null}}
 function moodRate(s,dt){const h=G.t/60,heat=h>=12&&h<16?0.06:0;let r=0;
@@ -1275,7 +1411,7 @@ function updateHUD(){
   const fk=Math.round(m/5);if(fk!==hudT){hudT=fk;$('#moodFace').innerHTML=faceSVG(m);meFace.innerHTML=faceSVG(m)}
   {const act=G.LL.passes.filter(p=>p.st==='active').sort((a,b)=>a.start-b.start);$('#llN').textContent=act.length;$('#llS').textContent=act.length?fmtClock(act[0].start).replace(/ [AP]M/,''):G.LL.mp||G.LL.premier?'LL':'none'}
   const s=G.segs&&G.segs[G.seg];let txt='',eta='';
-  if(!s){const n=NODES[G.node];txt=`At ${n.ride?n.ride.short:n.label}. Pick your next ride.`}
+  if(!s){const n=NODES[G.node],pr=G.plan&&dpProgress();txt=`At ${n.ride?n.ride.short:n.label}. `+(pr&&pr.meal?'Plan: lunch next.':pr&&pr.step?`Plan: ${dpStepLabel(pr.step)} next.`:'Pick your next ride.')}
   else{const tgt=G.segs[G.segs.length-1].ride;
     switch(s.k){case 'walk':txt=`Walking${s.inPark?` · ${G.density>0.66?'packed':G.density>0.33?'busy':'open'} paths`:''} → ${tgt.short}`;break;
       case 'gate':txt='Bag check & tapstiles';eta=fmtDur(s.dur-s.el)+' left';break;
@@ -1429,7 +1565,7 @@ function llSumUpdate(){const pl=llLoadPlan(llSetupDate()),bits=[];const fm=k=>`$
   if(pl.mp)bits.push(`Multi Pass ${PARKS[pl.mp].short}${(pl.picks||[]).filter(Boolean).length?': '+pl.picks.filter(Boolean).map(fm).join(', '):' (nothing booked)'}`);
   const sp=(pl.sp||[]).filter(Boolean);if(sp.length)bits.push('Single Pass: '+sp.map(fm).join(', '));if(pl.prem)bits.push(`Premier ${PARKS[pl.prem].short}`);
   $('#llSum').innerHTML=bits.length?bits.join('<br>'):'No passes yet. Plan them here or buy during the day.'}
-function openLLSetup(){LLP=llLoadPlan(llSetupDate());const d=parseDay(llSetupDate())||new Date();G.date=ymd(d);applyHours(d);RIDES.forEach(r=>r.seed=hash(G.date+r.id)*10);renderLLSetup();$('#llsetup').hidden=false;$('#llsetup').scrollTop=0}
+function openLLSetup(){LLP=llLoadPlan(llSetupDate());prepDay(llSetupDate(),+$('#segCrowd [aria-pressed="true"]').dataset.v,selH.value);renderLLSetup();$('#llsetup').hidden=false;$('#llsetup').scrollTop=0}
 function renderLLSetup(){const d=parseDay(llSetupDate())||new Date(),HR=hoursFor(d),mult=+$('#segCrowd [aria-pressed="true"]').dataset.v,f=k=>dayFactor(k,d)*mult,P=LLP;
   P.picks=P.picks||[];P.sp=P.sp||[];
   const timeOpts=(pk,sel)=>{const H=HR.parks[pk];let o='';for(let s=Math.round(H.open*60);s<=H.close*60-LL_WIN;s+=5)o+=`<option value="${s}"${s===sel?' selected':''}>${fmtClock(s)}</option>`;return o};
@@ -1458,6 +1594,133 @@ function renderLLSetup(){const d=parseDay(llSetupDate())||new Date(),HR=hoursFor
   $('#llClr').onclick=()=>{LLP={mp:null,picks:[],sp:[],prem:null};R()};
   $('#llDone').onclick=()=>{P.picks=P.picks.filter(Boolean);P.sp=P.sp.filter(Boolean);llSavePlan(llSetupDate(),P);$('#llsetup').hidden=true;llSumUpdate()}}
 
+// ================= DAY PLANNER UI =================
+const DP_HOW={rope:['Rope drop','rp'],standby:['Standby','sb'],ll:['⚡ Lightning Lane','ll'],sp:['⚡ Single Pass','ll'],prem:['⚡ Premier','ll'],mep:['⚡ Multi Exp. Pass','ll']};
+let DPS=null,DPR=null,DPV={edit:false};
+function dpParkRides(pk){return RIDES.filter(r=>r.pk===pk).sort((a,b)=>b.avg-a.avg)}
+function dpLLNote(S,L,inGame){if(S.ll==='none')return 'Plans with rope drop and standby only.';
+  if(S.ll==='suggest')return `Adds a Multi Pass for ${PARKS[S.pk].short} (≈$${llPrice(LL_MP_PRICE[S.pk],G.pf[S.pk])}/person) and picks your 3 pre-books to fit the route. Re-books after each tap-in.`;
+  const act=L.passes.filter(p=>p.st==='active'),bits=[];if(L.mp)bits.push(`Multi Pass ${PARKS[L.mp].short}`);if(L.premier)bits.push(`Premier ${PARKS[L.premier].short}`);
+  if(act.length)bits.push(act.map(p=>`${llR(p).short} ${fmtClock(p.start).replace(/ [AP]M/,'')}`).join(', '));
+  return bits.length?`Uses ${bits.join(' · ')}${L.mp?'. Books open slots for your must-dos as you tap in.':''}`:(inGame?'You have no Lightning Lanes. Buy a Multi Pass in ⚡ first, or plan standby only.':'No passes saved for this date. Plan them with ⚡ Plan Lightning Lanes, or tap Suggest.')}
+// Import any pasted plan (TouringPlans, a note, a text): ride names are matched line by line, in order
+function dpParsePlan(txt){const found=[];for(const ln of String(txt).split(/\n|;|,|\u2192|->/)){const n=liveNorm(ln);if(!n)continue;
+    for(const r of RIDES){const k=LIVE_KEYS[r.id];if(k&&!found.includes(r.id)&&new RegExp('\\b('+k+')').test(n)){found.push(r.id);break}}}
+  const cnt={};found.forEach(id=>cnt[RIDE_BY[id].pk]=(cnt[RIDE_BY[id].pk]||0)+1);const pk=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a])[0];
+  return pk?{pk,must:found.filter(id=>RIDE_BY[id].pk===pk),other:found.filter(id=>RIDE_BY[id].pk!==pk)}:null}
+function dpEditorHTML(S,L,inGame){
+  const seg=(k,opts,cur)=>`<div class="seg" data-dk="${k}">${opts.map(([v,t])=>`<button type="button" data-v="${v}" aria-pressed="${cur===v}">${t}</button>`).join('')}</div>`;
+  const n=S.must.filter(id=>RIDE_BY[id]&&RIDE_BY[id].pk===S.pk).length;
+  const chips=dpParkRides(S.pk).map(r=>`<button type="button" class="chip" data-must="${r.id}" aria-pressed="${S.must.includes(r.id)}">${r.short}<small>${r.kind==='show'?'show':'~'+r.avg+'m'}</small></button>`).join('');
+  const llOpts=inGame?[['mine','My passes'],['none','Standby only']]:[['mine','My passes'],['suggest','Suggest'],['none','Standby only']];
+  return `<div class="fld"><label>Park</label>${seg('pk',['MK','EP','HS','AK'].map(k=>[k,PARKS[k].short]),S.pk)}</div>
+  <div class="fld"><label>Must-dos · ${n} picked</label><div class="chips">${chips}</div><div class="row" style="gap:6px"><button class="btn sm" type="button" data-dq="head">Top 5 headliners</button><button class="btn sm" type="button" data-dq="clr">Clear</button></div><div class="fc">${S.keep?'Order: '+S.must.filter(id=>RIDE_BY[id].pk===S.pk).map((id,i)=>`${i+1} ${RIDE_BY[id].short}`).join(' · '):'Typical whole-day standby shown. Pick in any order; the planner finds the best one.'}</div>
+  <details class="lld"${S.imported?' open':''}><summary>Import a plan</summary><p class="note">Paste a TouringPlans plan (or any list of rides). Ride names are matched in order and Keep my order is switched on, so the steps stay yours while times adjust to the day.</p><textarea id="dpPaste" rows="5" placeholder="1. Seven Dwarfs Mine Train&#10;2. Peter Pan's Flight&#10;…"></textarea><div class="row" style="margin-top:6px"><button type="button" class="btn sm" data-dimp>Import</button></div><div class="fc" id="dpImpMsg">${S.imported||''}</div></details></div>
+  <div class="fld"><label>Lightning Lane</label>${seg('ll',llOpts,S.ll)}<div class="fc">${dpLLNote(S,L,inGame)}</div></div>
+  <div class="fld"><label>Options</label><div class="row" style="gap:6px;flex-wrap:wrap"><button type="button" class="btn sm tog" data-dt="lunch" aria-pressed="${!!S.lunch}">Lunch break · 45 min</button><button type="button" class="btn sm tog" data-dt="extras" aria-pressed="${!!S.extras}">Fill free time</button><button type="button" class="btn sm tog" data-dt="keep" aria-pressed="${!!S.keep}">Keep my order</button></div></div>`}
+function dpBindEditor(root,S,changed){
+  root.querySelectorAll('.seg[data-dk] button').forEach(b=>b.onclick=()=>{const k=b.parentNode.dataset.dk,v=b.dataset.v;if(S[k]===v)return;S[k]=v;if(k==='pk')S.must=S.must.filter(id=>RIDE_BY[id].pk===v);changed()});
+  root.querySelectorAll('[data-must]').forEach(b=>b.onclick=()=>{const id=b.dataset.must;S.must=S.must.includes(id)?S.must.filter(x=>x!==id):S.must.concat(id);changed()});
+  root.querySelectorAll('[data-dq]').forEach(b=>b.onclick=()=>{S.must=b.dataset.dq==='clr'?[]:dpParkRides(S.pk).filter(r=>r.kind!=='show').slice(0,5).map(r=>r.id);changed()});
+  root.querySelectorAll('[data-dt]').forEach(b=>b.onclick=()=>{S[b.dataset.dt]=!S[b.dataset.dt];changed()});
+  const im=root.querySelector('[data-dimp]');if(im)im.onclick=()=>{const res=dpParsePlan(root.querySelector('#dpPaste').value);
+    if(!res||!res.must.length){root.querySelector('#dpImpMsg').textContent='No ride names found. Paste one ride per line.';return}
+    Object.assign(S,{pk:res.pk,must:res.must,keep:true,imported:`Imported ${res.must.length} rides in ${PARKS[res.pk].short}${res.other.length?` (skipped ${res.other.map(id=>RIDE_BY[id].short).join(', ')} in other parks)`:''}.`});changed()}}
+// progress of the in-game plan: which ride steps are done, what's next
+function dpProgress(){const P=G.plan;if(!P)return null;const rides=G.ridden.slice(P.ridIdx),used=rides.slice();const steps=P.res.steps;const done=[];let next=-1;
+  steps.forEach((s,i)=>{if(s.k!=='ride')return;const j=used.indexOf(s.rid);if(j>=0){used.splice(j,1);done[i]=1}else if(next<0)next=i});
+  let meal=null;for(let i=0;i<steps.length;i++){const s=steps[i];if(s.meal&&!P.lunchAt&&done[i]){meal=s;break}}
+  return{done,next,step:next>=0?steps[next]:null,meal}}
+function dpTimelineHTML(res,prog){const n=res.nMust,parts=[];
+  if(!n)return '<p class="note">Pick at least one must-do.</p>';
+  const miss=res.missed.map(id=>RIDE_BY[id].short).join(', ');
+  let sum=res.nDone===n?`All ${n} must-do${n===1?'':'s'} done by <b>${fmtClock(res.endMust)}</b>.`:`${res.nDone} of ${n} must-dos fit, done by <b>${fmtClock(res.endMust)}</b>. Won't fit: ${miss}.`;
+  if(res.noLL){const a=res.noLL;sum+=`<br>Standby only: ${a.nDone===n?'all done':a.nDone+' of '+n} by ${fmtClock(a.endMust)}${a.nDone===res.nDone&&a.endMust-res.endMust>=10?` · Lightning Lane saves about ${fmtDur(a.endMust-res.endMust)}`:''}.`}
+  if(res.pre&&res.pre.length)sum+=`<br><b>Suggested Multi Pass pre-books</b> (≈$${llPrice(LL_MP_PRICE[res.pk],G.pf[res.pk])}/person): ${res.pre.map(p=>`${RIDE_BY[p.rid].short} ${fmtClock(p.start)}`).join(' · ')}.`;
+  else if(res.mode==='suggest')sum+='<br>No pre-books help this list; plain day-of booking is just as good.';
+  parts.push(`<div class="callout">${sum}</div>`);
+  const bk=s=>s.books.map(b=>`<div class="bk">⚡ ${s.k==='start'?'Book':'Then book'} ${RIDE_BY[b.rid].short} · returns ~${fmtClock(b.ret)}</div>`).join('');
+  let extraHdr=false;
+  res.steps.forEach((s,i)=>{
+    if(s.k==='start'){if(s.books.length)parts.push(`<div class="tl"><span class="tt">${fmtClock(s.t).replace(/ [AP]M/,'')}</span><div><div class="n">Start${res.mode==='suggest'?' · after your pre-books':''}</div>${bk(s)}</div></div>`);return}
+    if(s.extra&&!extraHdr){extraHdr=true;parts.push(`<h3>Free time ideas <small>after your must-dos</small></h3>`)}
+    const r=RIDE_BY[s.rid],h=DP_HOW[s.how],cls=[prog&&prog.done[i]?'done':'',prog&&prog.next===i?'nx':'',s.extra?'ex':''].join(' ');
+    const win=s.win!=null?` · window ${fmtClock(s.win).replace(/ [AP]M/,'')}–${fmtClock(s.win+LL_WIN).replace(/ [AP]M/,'')}`:'';
+    const idle=s.q0-s.arr>2?` · ${fmtDur(s.q0-s.arr)} until ${s.how==='rope'?'it opens':'your window'}`:'';
+    parts.push(`<div class="tl ${cls}"><span class="tt">${fmtClock(s.q0).replace(/ [AP]M/,'')}<small>${fmtClock(s.q0).slice(-2)}</small></span><div><div class="n">${prog&&prog.done[i]?'✓ ':''}${r.name} <span class="tag ${h[1]}">${h[0]}</span></div><div class="m">leave ${fmtClock(s.leave)} · get there ${fmtDur(s.arr-s.leave)}${idle} · ${s.how==='ll'||s.how==='sp'||s.how==='prem'||s.how==='mep'?'LL line':'wait'} ~${s.wait}m${win} · done ${fmtClock(s.end)}</div>${bk(s)}</div></div>`);
+    if(s.meal)parts.push(`<div class="tl meal ${prog&&G.plan&&G.plan.lunchAt?'done':''}"><span class="tt">${fmtClock(s.meal.start).replace(/ [AP]M/,'')}<small>${fmtClock(s.meal.start).slice(-2)}</small></span><div><div class="n">🍔 Lunch</div><div class="m">${DP_LUNCH} min · quick service nearby · back at it ${fmtClock(s.meal.end)}</div></div></div>`)});
+  return parts.join('')}
+// ---- start screen
+function dpSetupDate(){return inDate.value||ymd(new Date())}
+function dpStartOpts(S){const date=dpSetupDate(),mult=+$('#segCrowd [aria-pressed="true"]').dataset.v;prepDay(date,mult,selH.value);
+  return Object.assign({},S,{node:NI['R:'+selH.value],t:+$('#segTime [aria-pressed="true"]').dataset.v,L:llFromPlan(llLoadPlan(date)),done:[]})}
+function daySumUpdate(){const S=dpLoad(dpSetupDate());$('#daySum').innerHTML=S&&S.must&&S.must.length?`${PARKS[S.pk].name} · ${S.must.length} must-do${S.must.length===1?'':'s'}: ${S.must.map(id=>RIDE_BY[id].short).join(', ')}`:'No plan yet. Pick your must-dos and get the best order.'}
+function openDaySetup(){const date=dpSetupDate();DPS=dpLoad(date)||dpDefaults((llLoadPlan(date).mp)||'MK');DPR=null;dpStartOpts(DPS);renderDaySetup();$('#daysetup').hidden=false;$('#daysetup').scrollTop=0}
+function renderDaySetup(busyMsg){const S=DPS,date=dpSetupDate(),d=parseDay(date)||new Date(),L=llFromPlan(llLoadPlan(date)),n=S.must.length;
+  $('#daysetIn').innerHTML=`<h1 style="font-size:28px">Plan my <span>day</span></h1><p class="sub">Pick your must-dos for ${d.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})}. The planner tries every order, mixing rope drop, standby and Lightning Lane, starting from ${RESORTS.find(h=>h.id===selH.value).name} at ${fmtClock(+$('#segTime [aria-pressed="true"]').dataset.v)}.</p>
+  ${dpEditorHTML(S,L,false)}
+  <button class="btn pri" id="dpMake" type="button" ${n?'':'disabled'} style="width:100%;margin-bottom:12px">${busyMsg||(DPR?'Plan again':'Make my plan')}</button>
+  <div id="dpOut">${DPR?dpTimelineHTML(DPR,null)+`<p class="note">Waits are typical for this date and crowd setting${liveActive()?' (live-adjusted)':''}. In the game, tap Plan to follow it step by step and replan any time.</p>`:''}</div>
+  ${DPR&&DPR.pre&&DPR.pre.length?'<p class="note">Use this plan saves these Multi Pass pre-books as your Lightning Lane plan for this date (replacing any Multi Pass picks there).</p>':''}
+  <div class="row"><button class="btn" id="dpCancel" type="button">Cancel</button><button class="btn pri" id="dpUse" type="button" ${n?'':'disabled'}>Use this plan</button></div>`;
+  const root=$('#daysetIn');dpBindEditor(root,S,()=>{DPR=null;renderDaySetup()});
+  $('#dpMake').onclick=()=>{renderDaySetup('Planning…');setTimeout(()=>{try{DPR=dpRun(dpStartOpts(S))}catch(e){showErr(e)}renderDaySetup();const o=$('#dpOut');if(o)o.scrollIntoView({behavior:'smooth',block:'start'})},30)};
+  $('#dpCancel').onclick=()=>{$('#daysetup').hidden=true};
+  $('#dpUse').onclick=()=>{const out=Object.assign({},S);
+    if(S.ll==='suggest'&&DPR&&DPR.pre){const pl=llLoadPlan(date);pl.mp=S.pk;pl.picks=DPR.pre.slice();llSavePlan(date,pl);out.ll='mine';llSumUpdate()}
+    else if(S.ll==='suggest')out.ll='mine';
+    dpSave(date,out);$('#daysetup').hidden=true;daySumUpdate()}}
+// ---- in game
+function dpGameOpts(S){let node=G.node,t=G.t;const done=[...new Set(G.ridden)];let LLs=dpLLFrom(G.LL);
+  if(G.segs&&G.segs.length){const tgt=G.segs[G.segs.length-1].ride;let rem=0;
+    for(let i=G.seg;i<G.segs.length;i++){const s=G.segs[i];
+      if(s.k==='walk')rem+=(s.len-s.done)/(s.inPark?WALK_PARK:WALK_OUT);
+      else if(s.k==='queue')rem+=s.started?s.dur-s.el:(s.ll?DP_LLQ:rawWait(tgt,G.t+rem));
+      else if(s.k==='onride')rem+=s.started?s.dur-s.el:s.dur;
+      else rem+=Math.max(0,(s.dur||0)-(s.el||0))}
+    t=G.t+rem;if(tgt){node=NI[tgt.nodeId];done.push(tgt.id);const q=G.segs.find(s=>s.k==='queue');
+      if(q&&q.ll&&!q.started&&q.use&&q.use.kind==='pass'){LLs.held=LLs.held.filter(p=>p.rid!==tgt.id);if(q.use.p.type==='mp')LLs.tapped=true}}}
+  return Object.assign({},S,{node,t,LLs,done,lunchDone:!!(G.plan&&G.plan.lunchAt)||t>14*60})}
+function dpMakeGame(S){const lunchAt=G.plan?G.plan.lunchAt:null;const res=dpRun(dpGameOpts(S));G.plan={settings:Object.assign({},S),res,ridIdx:G.ridden.length,lunchAt,made:G.t};dpSave(G.date,G.plan.settings);return res}
+function dpToast(text){const el=document.createElement('div');el.className='toast dp';el.innerHTML=`<span>${text}</span>`;el.onclick=()=>{if(G.started&&!G.over)openPlan()};
+  const box=$('#toasts');box.appendChild(el);while(box.children.length>3)box.firstChild.remove();setTimeout(()=>el.remove(),6000)}
+function dpStepLabel(s){const r=RIDE_BY[s.rid];return `${r.short} · ${DP_HOW[s.how][0].replace('⚡ ','⚡')}`}
+function dpNudge(){const pr=dpProgress();if(!pr)return;if(pr.meal){dpToast('Lunch time in your plan · tap to take your break');return}if(pr.step)dpToast(`Next in your plan: ${dpStepLabel(pr.step)} · get in line ~${fmtClock(pr.step.q0)}`);else if(G.plan.res.nMust)dpToast('Plan complete! Every planned ride is done · tap to replan the rest of the day')}
+function dpPendingBooks(pr){const P=G.plan,out=[];if(!P)return out;const cur=G.segs&&G.segs[G.seg];
+  P.res.steps.forEach((s,i)=>{if(!s.books.length)return;const ok=s.k==='start'||pr.done[i]||(cur&&cur.k==='queue'&&cur.ll&&cur.started&&cur.ride.id===s.rid);if(!ok)return;
+    for(const b of s.books){const r=RIDE_BY[b.rid];if(G.LL.passes.some(p=>p.rid===b.rid&&p.st!=='cancelled')||G.ridden.includes(b.rid))continue;out.push({r,b})}});return out}
+function openPlan(){
+  if(!G.plan||DPV.edit){const S=DPV.S||(G.plan?Object.assign({},G.plan.settings):(dpLoad(G.date)||dpDefaults(currentPark())));if(S.ll==='suggest')S.ll='mine';DPV.S=S;
+    openSheet(`<div class="sh">${G.plan?'<button class="x" aria-label="Back" style="font-size:15px" data-back>‹</button>':''}<h2>Plan my day</h2><span class="paused">Clock paused</span><button class="x" aria-label="Close">×</button></div><div class="sb">
+    <p class="note">Plans the rest of today from where you are (${fmtClock(G.t)}).</p>${dpEditorHTML(S,G.LL,true)}
+    <button class="btn pri" id="dpGo" style="width:100%" ${S.must.length?'':'disabled'}>Make plan from here</button></div>`);
+    dpBindEditor(sheetIn,S,openPlan);const bk=sheetIn.querySelector('[data-back]');if(bk)bk.onclick=()=>{DPV.edit=false;DPV.S=null;openPlan()};
+    $('#dpGo').onclick=()=>{try{dpMakeGame(S)}catch(e){showErr(e)}DPV.edit=false;DPV.S=null;openPlan()};return}
+  const P=G.plan,pr=dpProgress(),s=pr.step,books=dpPendingBooks(pr);let status='',btns='';
+  if(pr.meal){status=`<b>Lunch break</b> is next in your plan (${DP_LUNCH} min).`;btns+=`<button class="btn pri" id="dpLunch">Take lunch · ${DP_LUNCH} min</button>`}
+  if(s){const r=RIDE_BY[s.rid],late=Math.round(G.t-s.leave),u=llUse(r),wantLL=s.how!=='rope'&&s.how!=='standby',canLL=wantLL&&!!u;
+    if(!pr.meal)status=`<b>Next:</b> ${r.name} · ${DP_HOW[s.how][0]} · get in line ~${fmtClock(s.q0)}`;
+    status+=late>10?`<br><span style="color:var(--warn)">About ${fmtDur(late)} behind plan${late>20?'. Replan to reshuffle the rest':''}.</span>`:late<-10&&!pr.meal?`<br>${fmtDur(-late)} ahead of plan. Leave by ${fmtClock(s.leave)} or start early.`:'';
+    if(rideState(r,G.t)==='down')status+=`<br><span style="color:var(--bad)">${r.short} is down right now. Wait it out or Replan.</span>`;
+    if(wantLL&&!u)status+=`<br><span style="color:var(--warn)">You don't hold that Lightning Lane, so you'd use standby.</span>`;
+    const busyNow=!!G.segs&&!effectiveStart().can;let early=null;if(canLL&&u.kind==='pass'){const pl=planTo(r,true);if(pl.arr<u.p.start-LL_EARLY-20)early=u.p.start-LL_EARLY-pl.eta-10}
+    btns+=early!=null?`<button class="btn ll" id="dpNext" disabled>${r.short} window ${fmtClock(u.p.start)} · leave by ${fmtClock(early)}</button>`:`<button class="btn ${canLL?'ll':pr.meal?'':'pri'}" id="dpNext" ${busyNow?'disabled':''}>Go · ${r.short} ${canLL?'with Lightning Lane':'standby'}</button>`;
+    if(early!=null)status+=`<br>Too early for that window. Do something nearby until ${fmtClock(early)}, or Replan.`}
+  else if(!pr.meal)status=P.res.nMust?'<b>All planned rides done.</b> Replan to fill the rest of the day.':'';
+  const bkH=books.map(({r,b})=>{const c=llCanBook(r,G.t);return `<button class="btn ll" data-bk="${r.id}" ${c.ok?'':'disabled'}>Book ${r.short} · ${c.ok?'returns '+fmtClock(c.ret):c.why}</button>`}).join('');
+  openSheet(`<div class="sh"><h2>Your day plan · ${PARKS[P.res.pk].short}</h2><span class="paused">Clock paused</span><button class="x" aria-label="Close">×</button></div><div class="sb">
+  ${status?`<p class="note" style="color:var(--text)">${status}</p>`:''}
+  <div class="go">${btns}${bkH}</div>${bkH?'<p class="note">Your plan books these as soon as you tap in. Return times shown are live.</p>':''}
+  <div class="row" style="margin:10px 0 4px"><button class="btn sm" id="dpRe">Replan from here</button><button class="btn sm" id="dpEdit">Change must-dos</button><button class="btn sm" id="dpClr">${DPV.clr?'Tap again to clear':'Clear plan'}</button></div>
+  ${dpTimelineHTML(P.res,pr)}
+  <p class="note">Made at ${fmtClock(P.made)} from typical waits${liveActive()?' and live waits':''}. Breakdowns and slow buses will push it around; replan when you fall behind.</p></div>`);
+  const nx=$('#dpNext');if(nx)nx.onclick=()=>{const r=RIDE_BY[s.rid],wantLL=s.how!=='rope'&&s.how!=='standby';go(r,wantLL&&!!llUse(r))};
+  const lu=$('#dpLunch');if(lu)lu.onclick=()=>{if(G.segs&&!effectiveStart().can){toast('Finish this ride first');return}G.plan.lunchAt=G.t;G.segs=[{k:'snack',dur:DP_LUNCH,el:0,started:false}];G.seg=0;sayBubble('Lunch!');closeSheet()};
+  sheetIn.querySelectorAll('[data-bk]').forEach(b=>b.onclick=()=>{const r=RIDE_BY[b.dataset.bk],res=llBook(r,G.t);toast(res.ok?`Booked ${r.short} · ${fmtClock(res.p.start)}–${fmtClock(res.p.end)}`:res.why);openPlan()});
+  $('#dpRe').onclick=()=>{try{dpMakeGame(G.plan.settings)}catch(e){showErr(e)}toast('Plan updated from here');openPlan()};
+  $('#dpEdit').onclick=()=>{DPV.edit=true;DPV.S=null;openPlan()};
+  $('#dpClr').onclick=()=>{if(DPV.clr){G.plan=null;DPV.clr=false;closeSheet();toast('Plan cleared')}else{DPV.clr=true;openPlan();setTimeout(()=>{DPV.clr=false},4000)}}}
+
 // ================= FLOW =================
 const selH=$('#selHotel');RESORTS.forEach(h=>{const o=document.createElement('option');o.value=h.id;o.textContent=h.name;selH.appendChild(o)});selH.value='pop';
 function segPick(id,cb){const el=$(id);el.querySelectorAll('button').forEach(b=>b.onclick=()=>{el.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed','false'));b.setAttribute('aria-pressed','true');cb&&cb(b)})}
@@ -1465,25 +1728,24 @@ const inDate=$('#inDate');inDate.value=ymd(new Date());
 function showForecast(){liveNoteUpdate();livePoll(false);const d=parseDay(inDate.value);if(!d){$('#crowdFc').textContent='';$('#hoursFc').textContent='';return}showHours(d);const hol=holiday(d)[1];const mult=+$('#segCrowd [aria-pressed="true"]').dataset.v;$('#crowdFc').innerHTML=`Crowd forecast (1–10): `+['MK','EP','HS','AK'].map(k=>`${PARKS[k].short} <b>${crowdLevel(dayFactor(k,d)*mult*(hoursFor(d).parks[k].party?0.85:1))}</b>`).join(' · ')+(hol?` · ${hol}`:'')}
 function showHours(d){const HR=hoursFor(d),deluxe=DELUXE.has(selH.value);const ks=['MK','EP','HS','AK'];let html=ks.map(k=>{const P=HR.parks[k];return `${PARKS[k].short} <b>${hh(P.open)}–${hh(P.close)}</b>`}).join(' · ');html+=`<br>Early Entry 30 min before opening at every park for Disney hotel guests.`;ks.forEach(k=>{const P=HR.parks[k];if(P.party)html+=`<br><span class="ev">${P.party}: ${PARKS[k].short} closes ${hh(P.close)} to day guests.</span>`;if(P.eeh)html+=`<br><span class="eeh">Extended Evening Hours: ${PARKS[k].short} ${hh(P.eeh.from)}–${hh(P.eeh.to)} ${deluxe?'(your hotel qualifies)':'(deluxe hotels only)'}</span>`});if(HR.estimated)html+=`<br><i>Hours estimated from the usual pattern.</i>`;$('#hoursFc').innerHTML=html;const first=Math.min(...['MK','EP','HS'].map(k=>HR.parks[k].ee));const rd=Math.round(clamp(first-0.75,7,9)*4)*15;const b=$('#segTime button');b.dataset.v=rd;b.textContent='Rope drop · '+fmtClock(rd).replace(' AM','')}
 selH.addEventListener('change',showForecast);
-inDate.addEventListener('change',()=>{showForecast();llSumUpdate()});inDate.addEventListener('input',()=>{showForecast();llSumUpdate()});
-segPick('#segCrowd',showForecast);segPick('#segTime');showForecast();llSumUpdate();
+inDate.addEventListener('change',()=>{showForecast();llSumUpdate();daySumUpdate()});inDate.addEventListener('input',()=>{showForecast();llSumUpdate();daySumUpdate()});
+segPick('#segCrowd',showForecast);segPick('#segTime');showForecast();llSumUpdate();daySumUpdate();
 segPick('#speedSeg',b=>{G.speed=+b.dataset.s});
 $('#bPlay').onclick=startDay;$('#bAgain').onclick=()=>{$('#end').hidden=true;$('#start').hidden=false;G.over=false;G.started=false;$('#top').hidden=true;$('#bottom').hidden=true;me.visible=false;flyTo(150,330,5000,1200)};
-$('#bRides').onclick=()=>openRides();$('#bPicks').onclick=openPicks;$('#llchip').onclick=()=>{if(G.started&&!G.over){llView.confirm=null;openLL()}};
+$('#bRides').onclick=()=>openRides();$('#bPlan').onclick=()=>{DPV.edit=false;DPV.S=null;openPlan()};$('#bDayPlan').onclick=openDaySetup;$('#bPicks').onclick=openPicks;$('#llchip').onclick=()=>{if(G.started&&!G.over){llView.confirm=null;openLL()}};
 $('#bLLPlan').onclick=openLLSetup;
 $('#bBreak').onclick=()=>{if(G.segs)return;G.segs=[{k:'snack',dur:20,el:0,started:false}];G.seg=0;sayBubble('Snack time')};
 $('#bFollow').onclick=()=>{const v=!G.follow;setFollow(v);if(v)flyTo(G.pos[0],G.pos[2],Math.max(180,Math.min(520,camera.position.distanceTo(controls.target))),700)};
 $('#bMap').onclick=()=>{setFollow(false);flyTo(150,330,5000,1200)};
 function startDay(){
-  const mult=+$('#segCrowd [aria-pressed="true"]').dataset.v,day=parseDay(inDate.value)||new Date();G.date=ymd(day);livePoll(false);
-  G.deluxe=DELUXE.has(selH.value);const HR=applyHours(day);for(const k in G.pf)G.pf[k]=clamp(dayFactor(k,day)*mult*(PARKS[k].party?0.85:1),0.6,1.7);G.crowd=Object.values(G.pf).reduce((a,b)=>a+b,0)/4;
-  RIDES.forEach(r=>r.seed=hash(G.date+r.id)*10);G.t=+$('#segTime [aria-pressed="true"]').dataset.v;
-  Object.assign(G,{ridden:[],mood:72,score:0,stats:{wait:0,transit:0,walk:0,ride:0},segs:null,seg:0,started:true,over:false,trip:null,tripEnd:null});G.LL=llFromPlan(llLoadPlan(G.date));llClock=0;
+  const mult=+$('#segCrowd [aria-pressed="true"]').dataset.v;prepDay(inDate.value,mult,selH.value);livePoll(false);G.t=+$('#segTime [aria-pressed="true"]').dataset.v;
+  Object.assign(G,{ridden:[],mood:72,score:0,stats:{wait:0,transit:0,walk:0,ride:0},segs:null,seg:0,started:true,over:false,trip:null,tripEnd:null,plan:null});DPV={edit:false};G.LL=llFromPlan(llLoadPlan(G.date));llClock=0;
   RIDES.forEach(r=>r.downUntil=0);G.node=NI['R:'+selH.value];placePlayer();
+  {const ds=dpLoad(G.date);if(ds&&ds.must&&ds.must.length){if(ds.ll==='suggest')ds.ll='mine';try{const res=dpMakeGame(ds);setTimeout(()=>dpToast(`Day plan ready · ${res.nDone} of ${res.nMust} must-dos by ${fmtClock(res.endMust)} · tap Plan`),2200)}catch(e){showErr(e)}}}
   AG.forEach(g=>g.on=false);stepAgents(0.01,true);rebuildQueues();refreshPins();hudT=-1;
   $('#start').hidden=true;$('#top').hidden=false;$('#bottom').hidden=false;me.visible=true;setFollow(true);
   const n=NODES[G.node];flyTo(n.x,n.z,520,1300);
-  setTimeout(()=>toast('Tap Rides or Top picks to choose where to go first'),1400);
+  setTimeout(()=>toast(G.plan?'Tap Plan to follow your day plan':'Tap Rides, Plan or Top picks to choose where to go first'),1400);
   const nb=G.LL.passes.length;setTimeout(()=>llToast(nb?`You have ${nb} Lightning Lane${nb===1?'':'s'} booked · tap ⚡ to see or change them`:G.LL.mp?'Multi Pass ready · tap ⚡ to book rides':'No Lightning Lanes yet · tap ⚡ to buy or book'),3200)}
 function endDay(){G.over=true;closeSheet();const m=Math.round(G.mood);
   $('#endFace').innerHTML=faceSVG(m);$('#endTitle').textContent=m>=70?'What a day':m>=45?'Day’s done':'Rough day';
@@ -1506,7 +1768,7 @@ function tick(now){checkSize();const dtR=Math.min(0.1,Math.max(0,(now-last)/1000
   camStep(now);controls.update();skyDome.position.copy(camera.position);if(!G.segs&&tripLine)showTrip(null);renderer.render(scene,camera);updateLabels();
   if(G.started)updateHUD();
 }
-window.WDW={llCanBook,llBook,llNext,llRecs,llUse,llHeld,llTick,llPlanErrors,llSuggest,llLoadPlan,openLL,openRides,openPicks,LIVE,liveIngest,liveFor,curveAt,orlandoNow,livePoll,G,go,flyTo,setFollow,RIDE_BY,PARKS,camera,controls,openRide,closeSheet,rawWait,waitAt,dayFactor,holiday,hoursFor,applyHours,accessOpen,lastClose,renderer,dijkstra,NI,NODES,RESORTS,RIDES,LINES};
+window.WDW={dpRun,dpMakeGame,dpProgress,dpLoad,dpSave,openPlan,openDaySetup,prepDay,llFromPlan,llFresh,llBook,llNext,llRecs,llUse,llHeld,llTick,llPlanErrors,llSuggest,llLoadPlan,openLL,openRides,openPicks,LIVE,liveIngest,liveFor,curveAt,orlandoNow,livePoll,G,go,flyTo,setFollow,RIDE_BY,PARKS,camera,controls,openRide,closeSheet,rawWait,waitAt,dayFactor,holiday,hoursFor,applyHours,accessOpen,lastClose,renderer,dijkstra,NI,NODES,RESORTS,RIDES,LINES};
 requestAnimationFrame(frame);
 })();
 </script>
