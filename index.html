@@ -182,6 +182,7 @@ select{background:var(--chip);color:var(--text);border:1px solid var(--line);bor
     <div class="fld"><label for="inDate">Park day</label><input type="date" id="inDate"><div class="fc" id="crowdFc"></div><div class="hrs" id="hoursFc"></div></div>
     <div class="fld"><label>Crowds</label><div class="seg" id="segCrowd"><button data-v="0.8">Lighter</button><button data-v="1" aria-pressed="true">As forecast</button><button data-v="1.2">Busier</button></div></div>
     <div class="fld"><label>Start time</label><div class="seg" id="segTime"><button data-v="480" aria-pressed="true">Rope drop · 8:00</button><button data-v="660">Sleep in · 11:00</button></div></div>
+    <p class="note" id="liveNote" style="margin:0 0 8px"></p>
     <button class="btn pri" id="bPlay" style="width:100%;padding:13px;font-size:16px">Start the day</button>
     <ul class="how">
       <li>Drag to pan, pinch to zoom, two-finger twist to rotate.</li>
@@ -503,11 +504,40 @@ const G={t:11*60,speed:1,crowd:1,pf:{MK:1,EP:1,HS:1,AK:1},date:null,hours:null,d
 const HM=[[6,0.1],[8,0.3],[9,0.55],[10,0.85],[11,1.05],[12,1.15],[14,1.2],[16,1.05],[18,0.95],[20,0.8],[21,0.65],[22,0.45],[24,0.1]];
 function hourMult(h){if(h<=HM[0][0])return HM[0][1];for(let i=1;i<HM.length;i++)if(h<=HM[i][0]){const a=HM[i-1],b=HM[i];return lerp(a[1],b[1],(h-a[0])/(b[0]-a[0]))}return 0.1}
 function busy(h){return clamp(hourMult(h)*G.crowd,0,1.6)}
-function waitAt(r,t){const P0=PARKS[r.pk];if(eeOn(r.pk,t))return Math.max(5,Math.round(waitAt(r,P0.open*60)*0.45/5)*5);if(P0.eeh&&t>=P0.close*60&&t<P0.eeh.to*60)return Math.max(5,Math.round(waitAt(r,P0.close*60-1)*0.4/5)*5);const h=t/60,P=PARKS[r.pk],u=clamp((h-P.open)/(P.close-P.open),0,1);const n=1+0.08*Math.sin(h*2.1+r.seed)+0.05*Math.sin(h*5.3+r.seed*1.7);let w=r.avg*profRaw(PROFILES[r.prof],u)*(G.pf[r.pk]||1)*n;if(r.kind==='show')w=Math.min(w,25);return Math.max(5,Math.round(w/5)*5)}
+function curveAt(r,t){const P0=PARKS[r.pk];if(eeOn(r.pk,t))return Math.max(5,Math.round(curveAt(r,P0.open*60)*0.45/5)*5);if(P0.eeh&&t>=P0.close*60&&t<P0.eeh.to*60)return Math.max(5,Math.round(curveAt(r,P0.close*60-1)*0.4/5)*5);const h=t/60,P=PARKS[r.pk],u=clamp((h-P.open)/(P.close-P.open),0,1);const n=1+0.08*Math.sin(h*2.1+r.seed)+0.05*Math.sin(h*5.3+r.seed*1.7);let w=r.avg*profRaw(PROFILES[r.prof],u)*(G.pf[r.pk]||1)*n;if(r.kind==='show')w=Math.min(w,25);return Math.max(5,Math.round(w/5)*5)}
+// ================= LIVE WAITS =================
+// Live posted waits from our Cloudflare Worker relay (one shared 5-minute copy of
+// Queue-Times.com data). Powered by Queue-Times.com — the credit link must stay visible.
+// Live values only apply when the Park day is today (Orlando time). Within 30 min of
+// the real time the live wait replaces the curve; further out the curve is nudged by
+// the live/curve ratio, fading to the plain curve 3.5 hours away.
+const LIVE_URL=''; // set to the Worker's /waits address to switch live waits on
+const LIVE={data:null,got:0,next:0,fails:0,map:{},busy:false};
+const LIVE_KEYS={tron:'tron',sdmt:'dwarfs',pp:'peter pan',tiana:'tiana',space:'space mountain',btm:'big thunder',jc:'(jungle|jingle) cruise',hm:'haunted mansion',potc:'pirates',buzz:'buzz lightyear',isw:'small world',pooh:'winnie',ariel:'little mermaid',dumbo:'dumbo',barn:'barnstormer',tea:'tea party',spdwy:'speedway',pm:'peoplemover',astro:'astro orbiter',phil:'philharmagic',mil:'laugh floor',carp:'magic carpets',
+ gotg:'guardians',tt:'test track',msp:'mission space',fea:'frozen ever after',remy:'ratatouille',soar:'soarin',sse:'spaceship earth',lwtl:'living with the land',seas:'nemo',fig:'figment|journey into imagination',gft:'gran fiesta',aa:'american adventure',
+ rotr:'rise of the resistance',sdd:'slinky',rnrc:'roller coaster',tot:'tower of terror',mmrr:'runaway railway',msr:'smugglers',tsm:'toy story mania',ass:'alien swirling',st:'star tours',indy:'indiana jones',bob:'beauty and the beast',
+ fop:'flight of passage',navi:'river journey',ee:'everest',kili:'kilimanjaro',krr:'kali river',zoo:'zootopia',flk:'lion king'};
+function liveNorm(n){return String(n).normalize('NFKD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/['’`]/g,'').replace(/[^a-z0-9]+/g,' ').trim()}
+function orlandoNow(){const f=new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date());const g=k=>f.find(x=>x.type===k).value;return{date:g('year')+'-'+g('month')+'-'+g('day'),min:(+g('hour'))*60+(+g('minute'))}}
+function liveIngest(d){const map={};const used={};for(const pk in d.parks||{}){const rows=d.parks[pk]||[];for(const r of RIDES){if(r.pk!==pk||!LIVE_KEYS[r.id])continue;const re=new RegExp('\\b('+LIVE_KEYS[r.id]+')');const row=rows.find(x=>re.test(liveNorm(x[0])));if(row){map[r.id]={name:row[0],open:!!row[1],wait:Math.max(0,+row[2]||0),at:row[3]?Date.parse(row[3]):null}}}}LIVE.map=map;LIVE.data=d;LIVE.got=Date.now()}
+function liveActive(){return !!(LIVE_URL&&LIVE.data&&Date.now()-LIVE.got<20*60000&&G.date&&G.date===orlandoNow().date)}
+function liveFor(r){if(!liveActive())return null;const e=LIVE.map[r.id];if(!e)return null;if(e.at&&Date.now()-e.at>45*60000)return null;return e}
+function liveUse(r){const e=liveFor(r);return e&&parkOpen(r.pk,orlandoNow().min)?e:null}
+function liveDown(r,t){if(r.kind==='show')return false;const e=liveFor(r);if(!e||e.open)return false;const now=orlandoNow().min;return parkOpenPublic(r.pk,now)&&Math.abs(t-now)<=30}
+function waitAt(r,t){const c=curveAt(r,t);const e=liveUse(r);if(!e||!e.open)return c;const now=orlandoNow().min;const d=Math.abs(t-now);if(d<=30)return Math.max(5,Math.round(e.wait/5)*5);const base=Math.max(5,curveAt(r,now));const ratio=clamp(Math.max(5,e.wait)/base,0.3,3);const wg=Math.max(0,1-(d-30)/180);const w=c*(1+(ratio-1)*wg);return Math.max(5,Math.round((r.kind==='show'?Math.min(w,25):w)/5)*5)}
+async function livePoll(force){if(!LIVE_URL||LIVE.busy)return;if(document.visibilityState==='hidden')return;const want=G.started?G.date:(typeof inDate!=='undefined'&&inDate&&inDate.value);if(want!==orlandoNow().date)return;if(!force&&Date.now()<LIVE.next)return;LIVE.busy=true;try{const res=await fetch(LIVE_URL,{cache:'no-cache'});if(!res.ok)throw new Error('HTTP '+res.status);const d=await res.json();if(!d.parks)throw new Error('bad data');liveIngest(d);LIVE.fails=0;LIVE.next=Date.now()+5*60000;if(G.started){rebuildQueues&&rebuildQueues();refreshPins&&refreshPins()}liveNoteUpdate()}catch(err){LIVE.fails++;LIVE.next=Date.now()+Math.min(30,5*Math.pow(2,LIVE.fails-1))*60000;liveNoteUpdate()}finally{LIVE.busy=false}}
+const LIVE_CREDIT='<a href="https://queue-times.com/" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">Powered by Queue-Times.com</a>';
+function liveAgo(ms){const m=Math.round((Date.now()-ms)/60000);return m<=1?'just now':m+' min ago'}
+function liveLineHTML(r){if(!liveActive()||!parkOpen(r.pk,orlandoNow().min))return '';const e=liveFor(r);const when=e&&e.at?liveAgo(e.at):liveAgo(LIVE.got);if(!e)return `<p class="note">No live wait for this one right now · ${LIVE_CREDIT}</p>`;return `<p class="note"><b style="color:var(--ll)">Live now: ${e.open?(e.wait||'—')+(e.wait?'m':''):'Closed'}</b> · posted ${when} · ${LIVE_CREDIT}</p>`}
+function liveBannerHTML(){if(!LIVE_URL)return '';if(liveActive())return `<p class="note" style="margin:4px 0">Live waits on · updated ${liveAgo(LIVE.got)} · ${LIVE_CREDIT}</p>`;return ''}
+function liveNoteUpdate(){const el=document.getElementById('liveNote');if(!el)return;if(!LIVE_URL){el.innerHTML='';return}const today=orlandoNow().date;const want=G.started?G.date:(inDate&&inDate.value);if(want!==today){el.innerHTML=`Live waits switch on when the Park day is today · ${LIVE_CREDIT}`;return}if(LIVE.data&&Date.now()-LIVE.got<20*60000){el.innerHTML=`Live waits on · updated ${liveAgo(LIVE.got)} · ${LIVE_CREDIT}`;return}el.innerHTML=LIVE.fails?`Live waits unavailable, using typical waits · ${LIVE_CREDIT}`:`Getting live waits… · ${LIVE_CREDIT}`}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')livePoll(false)});
+setInterval(()=>livePoll(false),60000);
+
 function rawWait(r,t){return waitAt(r,t)}
 function parkOpen(pk,t){const P=PARKS[pk];return (t>=accessOpen(pk)&&t<P.close*60)||eehOn(pk,t)}
 function parkOpenPublic(pk,t){const P=PARKS[pk];return t>=P.open*60&&t<P.close*60}
-function rideState(r,t){if(!parkOpen(r.pk,t))return t<accessOpen(r.pk)?'early':'closed';if(r.downUntil>t)return 'down';return 'open'}
+function rideState(r,t){if(!parkOpen(r.pk,t))return t<accessOpen(r.pk)?'early':'closed';if(r.downUntil>t||liveDown(r,t))return 'down';return 'open'}
 function llSell(r){return r.sell-(G.crowd-1)*2.5}
 function llAvail(r,t){return r.ll&&G.passes>0&&!G.llUsed[r.id]&&t/60<llSell(r)&&parkOpenPublic(r.pk,t)}
 function llWhyNot(r,t){if(!r.ll)return 'No Lightning Lane on this one';if(G.llUsed[r.id])return 'Already used a pass here';if(G.passes<=0)return 'No passes left';if(t/60>=llSell(r))return 'Sold out for today';return ''}
@@ -1136,7 +1166,7 @@ function parkHoursHTML(pk){const P=PARKS[pk];if(!P.events)return '';const parts=
 function openRides(pk){sheetTab=pk||sheetTab||currentPark();const st=effectiveStart(),D=dijkstra(st.node,G.t/60);
   const list=RIDES.filter(r=>r.pk===sheetTab).map(r=>{const m=rideRowMeta(r,D,st);const ws=rideState(r,G.t);const w=ws==='open'?rawWait(r,G.t):0;return{r,...m,w,ws}}).sort((a,b)=>a.eta-b.eta);
   const tabs=Object.keys(PARKS).map(k=>`<button data-pk="${k}" aria-pressed="${k===sheetTab}">${PARKS[k].short}</button>`).join('');
-  openSheet(`<div class="sh"><h2>Rides & waits</h2><span class="paused">Clock paused</span><button class="x" aria-label="Close">×</button></div><div class="tabs">${tabs}</div><div class="sb">${parkHoursHTML(sheetTab)}<div class="list">${list.map(x=>`<button class="ri" data-id="${x.r.id}"><span class="n">${x.r.name}</span><span class="m">${x.meta}</span><span class="w ${x.ws==='open'?waitClass(x.w):'x'}">${x.ws==='open'?x.w+'m':x.ws==='down'?'Down':x.ws==='early'?'Opens '+fmtClock(accessOpen(x.r.pk)).replace(':00',''):'Closed'}</span></button>`).join('')}</div><p class="note">Standby waits are posted times right now. Sorted by how long it takes to get there from ${NODES[st.node].ride?NODES[st.node].ride.short:NODES[st.node].label}.</p></div>`);
+  openSheet(`<div class="sh"><h2>Rides & waits</h2><span class="paused">Clock paused</span><button class="x" aria-label="Close">×</button></div><div class="tabs">${tabs}</div><div class="sb">${parkHoursHTML(sheetTab)}${liveBannerHTML()}<div class="list">${list.map(x=>`<button class="ri" data-id="${x.r.id}"><span class="n">${x.r.name}</span><span class="m">${x.meta}</span><span class="w ${x.ws==='open'?waitClass(x.w):'x'}">${x.ws==='open'?x.w+'m':x.ws==='down'?'Down':x.ws==='early'?'Opens '+fmtClock(accessOpen(x.r.pk)).replace(':00',''):'Closed'}</span></button>`).join('')}</div><p class="note">Standby waits are posted times right now. Sorted by how long it takes to get there from ${NODES[st.node].ride?NODES[st.node].ride.short:NODES[st.node].label}.</p></div>`);
   sheetIn.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>openRides(b.dataset.pk));
   sheetIn.querySelectorAll('.ri').forEach(b=>b.onclick=()=>openRide(RIDE_BY[b.dataset.id]))}
 function stepsHTML(plan,r,useLL){const out=[];let walk=0;const flush=()=>{if(walk>0.4)out.push(['walk','W',`Walk${G.density>0.5?' (crowded)':''}`,walk]);walk=0};
@@ -1149,7 +1179,7 @@ function stepsHTML(plan,r,useLL){const out=[];let walk=0;const flush=()=>{if(wal
   if(useLL)out.push(['lq','⚡','Lightning Lane line',plan.llWait]);else out.push(['q','Q',plan.state==='early'?'Rope-drop wait':'Standby line (at arrival)',plan.wait]);
   out.push(['fun','★',`Ride ${r.short}`,r.dur]);
   return `<ul class="steps">${out.map(s=>`<li><span class="ic ${s[0]}">${s[1]}</span><span>${s[2]}</span><span class="tm">${fmtDur(s[3])}</span></li>`).join('')}</ul>`}
-function curveHTML(r){const P=PARKS[r.pk];const pts=[];for(let h=P.open;h<P.close;h++)pts.push({h,w:waitAt(r,h*60+30)});const mx=Math.max(...pts.map(p=>p.w),10);const lo=pts.reduce((a,b)=>b.w<a.w?b:a);const hi=pts.reduce((a,b)=>b.w>a.w?b:a);const nowH=Math.floor(G.t/60);const fmtH=h=>{const x=h%12||12;return x+(h<12?'a':'p')};return `<p class="note" style="margin-bottom:0"><b>Typical standby today</b> · peaks near ${hi.w}m around ${fmtH(hi.h)}, lowest about ${lo.w}m around ${fmtH(lo.h)}</p><div class="curve" role="img" aria-label="Hourly standby forecast">${pts.map(p=>`<i class="${p.h===nowH?'now':p.h===lo.h?'lo':''}" style="height:${Math.round(p.w/mx*100)}%" title="${fmtH(p.h)} ${p.w}m"></i>`).join('')}</div><div class="curvex"><span>${fmtH(P.open)}</span><span>${fmtH(Math.round((P.open+P.close)/2))}</span><span>${fmtH(P.close)}</span></div>`}
+function curveHTML(r){const P=PARKS[r.pk];const pts=[];for(let h=P.open;h<P.close;h++)pts.push({h,w:waitAt(r,h*60+30)});const mx=Math.max(...pts.map(p=>p.w),10);const lo=pts.reduce((a,b)=>b.w<a.w?b:a);const hi=pts.reduce((a,b)=>b.w>a.w?b:a);const nowH=Math.floor(G.t/60);const fmtH=h=>{const x=h%12||12;return x+(h<12?'a':'p')};return liveLineHTML(r)+`<p class="note" style="margin-bottom:0"><b>${liveUse(r)&&liveUse(r).open?'Standby today (live-adjusted)':'Typical standby today'}</b> · peaks near ${hi.w}m around ${fmtH(hi.h)}, lowest about ${lo.w}m around ${fmtH(lo.h)}</p><div class="curve" role="img" aria-label="Hourly standby forecast">${pts.map(p=>`<i class="${p.h===nowH?'now':p.h===lo.h?'lo':''}" style="height:${Math.round(p.w/mx*100)}%" title="${fmtH(p.h)} ${p.w}m"></i>`).join('')}</div><div class="curvex"><span>${fmtH(P.open)}</span><span>${fmtH(Math.round((P.open+P.close)/2))}</span><span>${fmtH(P.close)}</span></div>`}
 function openRide(r){const plan=planTo(r,false),now=rideState(r,G.t),llOK=llAvail(r,G.t),why=llWhyNot(r,G.t),closedAtArr=plan.state==='closed';
   const nowW=now==='open'?rawWait(r,G.t)+'m':now==='down'?'Down':now==='early'?'—':'Closed';
   const totS=plan.eta+plan.wait+r.dur,totL=plan.eta+plan.llWait+r.dur;
@@ -1184,7 +1214,7 @@ function openPicks(){const st=effectiveStart(),D=dijkstra(st.node,G.t/60);const 
 const selH=$('#selHotel');RESORTS.forEach(h=>{const o=document.createElement('option');o.value=h.id;o.textContent=h.name;selH.appendChild(o)});selH.value='pop';
 function segPick(id,cb){const el=$(id);el.querySelectorAll('button').forEach(b=>b.onclick=()=>{el.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed','false'));b.setAttribute('aria-pressed','true');cb&&cb(b)})}
 const inDate=$('#inDate');inDate.value=ymd(new Date());
-function showForecast(){const d=parseDay(inDate.value);if(!d){$('#crowdFc').textContent='';$('#hoursFc').textContent='';return}showHours(d);const hol=holiday(d)[1];const mult=+$('#segCrowd [aria-pressed="true"]').dataset.v;$('#crowdFc').innerHTML=`Crowd forecast (1–10): `+['MK','EP','HS','AK'].map(k=>`${PARKS[k].short} <b>${crowdLevel(dayFactor(k,d)*mult*(hoursFor(d).parks[k].party?0.85:1))}</b>`).join(' · ')+(hol?` · ${hol}`:'')}
+function showForecast(){liveNoteUpdate();livePoll(false);const d=parseDay(inDate.value);if(!d){$('#crowdFc').textContent='';$('#hoursFc').textContent='';return}showHours(d);const hol=holiday(d)[1];const mult=+$('#segCrowd [aria-pressed="true"]').dataset.v;$('#crowdFc').innerHTML=`Crowd forecast (1–10): `+['MK','EP','HS','AK'].map(k=>`${PARKS[k].short} <b>${crowdLevel(dayFactor(k,d)*mult*(hoursFor(d).parks[k].party?0.85:1))}</b>`).join(' · ')+(hol?` · ${hol}`:'')}
 function showHours(d){const HR=hoursFor(d),deluxe=DELUXE.has(selH.value);const ks=['MK','EP','HS','AK'];let html=ks.map(k=>{const P=HR.parks[k];return `${PARKS[k].short} <b>${hh(P.open)}–${hh(P.close)}</b>`}).join(' · ');html+=`<br>Early Entry 30 min before opening at every park for Disney hotel guests.`;ks.forEach(k=>{const P=HR.parks[k];if(P.party)html+=`<br><span class="ev">${P.party}: ${PARKS[k].short} closes ${hh(P.close)} to day guests.</span>`;if(P.eeh)html+=`<br><span class="eeh">Extended Evening Hours: ${PARKS[k].short} ${hh(P.eeh.from)}–${hh(P.eeh.to)} ${deluxe?'(your hotel qualifies)':'(deluxe hotels only)'}</span>`});if(HR.estimated)html+=`<br><i>Hours estimated from the usual pattern.</i>`;$('#hoursFc').innerHTML=html;const first=Math.min(...['MK','EP','HS'].map(k=>HR.parks[k].ee));const rd=Math.round(clamp(first-0.75,7,9)*4)*15;const b=$('#segTime button');b.dataset.v=rd;b.textContent='Rope drop · '+fmtClock(rd).replace(' AM','')}
 selH.addEventListener('change',showForecast);
 inDate.addEventListener('change',showForecast);inDate.addEventListener('input',showForecast);
@@ -1196,7 +1226,7 @@ $('#bBreak').onclick=()=>{if(G.segs)return;G.segs=[{k:'snack',dur:20,el:0,starte
 $('#bFollow').onclick=()=>{const v=!G.follow;setFollow(v);if(v)flyTo(G.pos[0],G.pos[2],Math.max(180,Math.min(520,camera.position.distanceTo(controls.target))),700)};
 $('#bMap').onclick=()=>{setFollow(false);flyTo(150,330,5000,1200)};
 function startDay(){
-  const mult=+$('#segCrowd [aria-pressed="true"]').dataset.v,day=parseDay(inDate.value)||new Date();G.date=ymd(day);
+  const mult=+$('#segCrowd [aria-pressed="true"]').dataset.v,day=parseDay(inDate.value)||new Date();G.date=ymd(day);livePoll(false);
   G.deluxe=DELUXE.has(selH.value);const HR=applyHours(day);for(const k in G.pf)G.pf[k]=clamp(dayFactor(k,day)*mult*(PARKS[k].party?0.85:1),0.6,1.7);G.crowd=Object.values(G.pf).reduce((a,b)=>a+b,0)/4;
   RIDES.forEach(r=>r.seed=hash(G.date+r.id)*10);G.t=+$('#segTime [aria-pressed="true"]').dataset.v;
   Object.assign(G,{passes:3,llUsed:{},ridden:[],mood:72,score:0,stats:{wait:0,transit:0,walk:0,ride:0},segs:null,seg:0,started:true,over:false,trip:null,tripEnd:null,llUses:0});
@@ -1226,7 +1256,7 @@ function tick(now){checkSize();const dtR=Math.min(0.1,Math.max(0,(now-last)/1000
   camStep(now);controls.update();skyDome.position.copy(camera.position);if(!G.segs&&tripLine)showTrip(null);renderer.render(scene,camera);updateLabels();
   if(G.started)updateHUD();
 }
-window.WDW={G,go,flyTo,setFollow,RIDE_BY,PARKS,camera,controls,openRide,closeSheet,rawWait,waitAt,dayFactor,holiday,hoursFor,applyHours,accessOpen,lastClose,renderer,dijkstra,NI,NODES,RESORTS,RIDES,LINES};
+window.WDW={LIVE,liveIngest,liveFor,curveAt,orlandoNow,livePoll,G,go,flyTo,setFollow,RIDE_BY,PARKS,camera,controls,openRide,closeSheet,rawWait,waitAt,dayFactor,holiday,hoursFor,applyHours,accessOpen,lastClose,renderer,dijkstra,NI,NODES,RESORTS,RIDES,LINES};
 requestAnimationFrame(frame);
 })();
 </script>
