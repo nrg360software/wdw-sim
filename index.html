@@ -216,6 +216,7 @@ select{background:var(--chip);color:var(--text);border:1px solid var(--line);bor
     <div class="fld"><label>Start time</label><div class="seg" id="segTime"><button data-v="480" aria-pressed="true">Rope drop · 8:00</button><button data-v="660">Sleep in · 11:00</button></div></div>
     <div class="fld"><label>Lightning Lane</label><button class="btn ll" id="bLLPlan" type="button">⚡ Plan Lightning Lanes</button><div class="fc" id="llSum"></div></div>
     <div class="fld"><label>Day plan</label><button class="btn pri" id="bDayPlan" type="button" style="background:rgba(255,201,77,.16);color:var(--gold);border-color:rgba(255,201,77,.55)">🗺 Plan my day</button><div class="fc" id="daySum"></div></div>
+    <div class="fld"><label>Graphics</label><div class="seg" id="segGfx"><button data-v="low">Low</button><button data-v="med">Medium</button><button data-v="high">High</button></div><div class="fc">Medium suits most iPhones. Low turns off shadows and reflections for older phones; High adds sharper shadows and glow at night.</div></div>
     <p class="note" id="liveNote" style="margin:0 0 8px"></p>
     <button class="btn pri" id="bPlay" style="width:100%;padding:13px;font-size:16px">Start the day</button>
     <ul class="how">
@@ -241,9 +242,19 @@ select{background:var(--chip);color:var(--text);border:1px solid var(--line);bor
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script>
+// Three.js now loads as an ES module (needs iOS / Safari 16.4 or newer). Tell older phones instead of showing a blank map.
+setTimeout(function(){if(!window.WDW&&!document.getElementById('oldPhone')){var d=document.createElement('div');d.id='oldPhone';d.style.cssText='position:fixed;left:16px;right:16px;top:90px;z-index:30;background:#4a1620;color:#ffe3e3;border:1px solid #f2665f;border-radius:12px;padding:10px 12px;font:600 13px/1.4 system-ui';d.textContent='The 3D map did not load. It needs iOS 16.4 or newer and a connection the first time. Update iOS or try again.';document.body.appendChild(d)}},20000);
+</script>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE0 from 'three';
+import {MapControls} from 'three/addons/controls/MapControls.js';
+import {EffectComposer} from 'three/addons/postprocessing/EffectComposer.js';
+import {RenderPass} from 'three/addons/postprocessing/RenderPass.js';
+import {UnrealBloomPass} from 'three/addons/postprocessing/UnrealBloomPass.js';
+import {OutputPass} from 'three/addons/postprocessing/OutputPass.js';
+const THREE=Object.assign({},THREE0,{MapControls});
 (function(){
 'use strict';
 const $=s=>document.querySelector(s);
@@ -832,7 +843,12 @@ function dpRun(o){DPW={};const t0=performance.now();const ctx=dpCtx(o);const bas
 const stage=$('#stage');
 const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
 const COARSE=matchMedia('(pointer:coarse)').matches;
-renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,COARSE?1.5:2));
+// graphics quality: Low (no shadows/reflections), Medium (phone default), High (sharper shadows + night glow bloom)
+const GFX={low:{pr:1,shadow:0,env:false,bloom:false},med:{pr:1.5,shadow:1024,env:true,bloom:false},high:{pr:2,shadow:2048,env:true,bloom:true}};
+let GQL=(()=>{try{return localStorage.getItem('wdwsim.gfx')}catch(e){return null}})();if(!GFX[GQL])GQL=COARSE?'med':'high';let GQ=GFX[GQL];
+renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,GQ.pr));
+renderer.toneMapping=THREE.NeutralToneMapping;renderer.toneMappingExposure=1.0;
+renderer.shadowMap.enabled=GQ.shadow>0;renderer.shadowMap.type=THREE.PCFShadowMap;renderer.shadowMap.autoUpdate=false;
 renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();showErr('The 3D view was paused by the phone to save memory. Reload the page to bring it back.')});
 stage.appendChild(renderer.domElement);
 const scene=new THREE.Scene();
@@ -843,17 +859,43 @@ controls.target.set(120,0,180);controls.enableDamping=true;controls.dampingFacto
 controls.minDistance=45;controls.maxDistance=5400;controls.maxPolarAngle=1.22;controls.zoomSpeed=1.1;
 controls.addEventListener('start',()=>{if(G.follow&&!fly){setFollow(false)}});
 scene.fog=new THREE.Fog(0xa9d8ff,4600,11500);
-const hemi=new THREE.HemisphereLight(0xe6f3ff,0x5b7b3d,0.8);scene.add(hemi);
-const sun=new THREE.DirectionalLight(0xfff0d2,0.95);sun.position.set(-900,1600,700);scene.add(sun);
-// gradient sky dome (follows the camera); colours updated with the clock in updateSky
-const skyU={top:{value:new THREE.Color(0x3f8fe6)},bot:{value:new THREE.Color(0xbfe3ff)}};
-const skyDome=new THREE.Mesh(new THREE.SphereGeometry(12000,24,12),new THREE.ShaderMaterial({uniforms:skyU,side:THREE.BackSide,depthWrite:false,fog:false,
-  vertexShader:'varying float vh;void main(){vh=normalize(position).y;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
-  fragmentShader:'uniform vec3 top;uniform vec3 bot;varying float vh;void main(){float t=clamp(vh*2.4,0.0,1.0);gl_FragColor=vec4(mix(bot,top,pow(t,0.6)),1.0);}'}));
+// light rig: hemisphere fill + one directional light that is the sun by day and the moon by night (casts the shadows); updated in updateSky
+const hemi=new THREE.HemisphereLight(0xe6f3ff,0x5b7b3d,1.4);scene.add(hemi);
+const sun=new THREE.DirectionalLight(0xfff0d2,2.6);sun.position.set(-900,1600,700);scene.add(sun);scene.add(sun.target);
+sun.castShadow=GQ.shadow>0;sun.shadow.mapSize.set(GQ.shadow||1024,GQ.shadow||1024);sun.shadow.bias=-0.0006;sun.shadow.camera.near=10;sun.shadow.camera.far=7000;
+// one coloured light for firework flashes (always present so shaders never recompile mid-show)
+const flash=new THREE.PointLight(0xffffff,0,1400,0);flash.position.set(0,150,0);scene.add(flash);
+// Cinderella Castle uplight at night (colour drifts like the projection lighting)
+const castleLight=new THREE.SpotLight(0xc8a0ff,0,0,0.42,0.7,0);scene.add(castleLight);scene.add(castleLight.target);
+// sky dome (follows the camera): gradient, sun glow and disc, horizon haze, twinkling stars at night
+const skyU={zen:{value:new THREE.Color(0x3f8fe6)},hor:{value:new THREE.Color(0xbfe3ff)},sunC:{value:new THREE.Color(0xffffff)},sunD:{value:new THREE.Vector3(0,1,0)},night:{value:0},uT:{value:0}};
+const skyMat=new THREE.ShaderMaterial({uniforms:skyU,side:THREE.BackSide,depthWrite:false,fog:false,
+  vertexShader:'varying vec3 vd;void main(){vd=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
+  fragmentShader:`uniform vec3 zen;uniform vec3 hor;uniform vec3 sunC;uniform vec3 sunD;uniform float night;uniform float uT;varying vec3 vd;
+void main(){vec3 d=normalize(vd);float h=d.y;vec3 c=mix(hor,zen,pow(clamp(h*1.7,0.0,1.0),0.55));
+ float s=max(dot(d,sunD),0.0),up=smoothstep(-0.12,0.02,sunD.y);
+ c+=sunC*(pow(s,5.0)*0.28+pow(s,48.0)*0.5)*up;
+ c+=sunC*smoothstep(0.99955,0.9998,s)*5.0*smoothstep(-0.03,0.0,sunD.y);
+ c=mix(c,hor,exp(-max(h,0.0)*16.0)*0.45);
+ if(night>0.01&&h>0.0){vec3 q=floor(d*380.0);float r=fract(sin(dot(q,vec3(12.9898,78.233,37.719)))*43758.5453);
+   c+=vec3(0.9,0.95,1.0)*step(0.9972,r)*night*smoothstep(0.02,0.3,h)*(0.55+0.45*sin(uT*2.3+r*91.0))*1.4;}
+ if(h<0.0)c=mix(hor,hor*0.55,clamp(-h*2.5,0.0,1.0));
+ gl_FragColor=vec4(c,1.0);
+ #include <tonemapping_fragment>
+ #include <colorspace_fragment>
+}`});
+const skyDome=new THREE.Mesh(new THREE.SphereGeometry(12000,32,16),skyMat);
 skyDome.frustumCulled=false;skyDome.renderOrder=-10;scene.add(skyDome);
+const skyScene=new THREE.Scene();skyScene.add(new THREE.Mesh(skyDome.geometry,skyMat)); // for water reflections
+// night bloom (High quality): glows, lit landmarks and fireworks bleed light
+let composer=null,bloomPass=null;
+function makeComposer(){if(composer||!GQ.bloom)return;const [w,h]=viewSize();const rt=new THREE.WebGLRenderTarget(Math.max(1,w),Math.max(1,h),{type:THREE.HalfFloatType,samples:4});
+  composer=new EffectComposer(renderer,rt);composer.addPass(new RenderPass(scene,camera));bloomPass=new UnrealBloomPass(new THREE.Vector2(w,h),0.8,0.55,0.9);composer.addPass(bloomPass);composer.addPass(new OutputPass());
+  composer.setPixelRatio(renderer.getPixelRatio());composer.setSize(w,h)}
+function dropComposer(){if(!composer)return;composer.dispose();composer.renderTarget1.dispose();composer.renderTarget2.dispose();composer=null;bloomPass=null}
 function viewSize(){const w=stage.clientWidth||innerWidth||document.documentElement.clientWidth,h=stage.clientHeight||innerHeight||document.documentElement.clientHeight;return[w,h]}
 let lastW=0,lastH=0;
-function resize(){const [w,h]=viewSize();if(!w||!h)return;lastW=w;lastH=h;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix()}
+function resize(){const [w,h]=viewSize();if(!w||!h)return;lastW=w;lastH=h;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();if(composer){composer.setPixelRatio(renderer.getPixelRatio());composer.setSize(w,h)}}
 function checkSize(){const [w,h]=viewSize();if(w&&h&&(w!==lastW||h!==lastH))resize()}
 addEventListener('resize',resize);addEventListener('orientationchange',()=>setTimeout(resize,250));
 if(window.visualViewport)visualViewport.addEventListener('resize',resize);
@@ -868,9 +910,24 @@ function groundTex(){const c=document.createElement('canvas');c.width=c.height=1
   for(let i=0;i<130;i++)blob(Math.random()*1024,Math.random()*1024,rnd(14,55),'152,186,100',rnd(.18,.4));
   for(let i=0;i<80;i++)blob(Math.random()*1024,Math.random()*1024,rnd(10,38),'96,118,72',rnd(.3,.5));
   try{const id=g.getImageData(0,0,1024,1024),d=id.data;for(let i=0;i<d.length;i+=4){const n=(Math.random()-0.5)*16;d[i]+=n;d[i+1]+=n;d[i+2]+=n*0.6}g.putImageData(id,0,0)}catch(e){}
-  const t=new THREE.CanvasTexture(c);t.anisotropy=4;return t}
+  const t=new THREE.CanvasTexture(c);t.anisotropy=4;t.colorSpace=THREE.SRGBColorSpace;return t}
 const ground=new THREE.Mesh(new THREE.PlaneGeometry(4200,4600),new THREE.MeshLambertMaterial({map:groundTex()}));ground.rotation.x=-Math.PI/2;ground.position.set(175,0,250);scene.add(ground);
-const waterMat=new THREE.MeshPhongMaterial({color:0x3488c3,specular:0xa8dcff,shininess:60,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2});
+// plain forest beyond the mapped area so the land runs out to the hazy horizon instead of ending in an edge
+{const far=new THREE.Mesh(new THREE.RingGeometry(1500,15000,64,1),M(0x4f7e3c));far.rotation.x=-Math.PI/2;far.position.set(175,-0.6,250);scene.add(far)}
+// water: glossy, reflects the sky (env map rebuilt as the sky changes) with small moving waves and sun glints
+const WATER_T={value:0};
+const waterMat=new THREE.MeshStandardMaterial({color:0x2b74a0,roughness:0.16,metalness:0,envMapIntensity:1.0,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2});
+waterMat.onBeforeCompile=sh=>{sh.uniforms.uWT=WATER_T;
+  sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 vWP;').replace('#include <project_vertex>','#include <project_vertex>\nvWP=(modelMatrix*vec4(transformed,1.0)).xyz;');
+  sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying vec3 vWP;uniform float uWT;').replace('#include <normal_fragment_maps>',`#include <normal_fragment_maps>
+  {vec2 p=vWP.xz*0.3;float t=uWT;vec2 g=vec2(0.0);
+   g+=vec2(0.8,0.6)*cos(dot(p,vec2(0.8,0.6))+t*1.5)*0.5;
+   g+=vec2(-0.5,0.86)*cos(dot(p,vec2(-0.5,0.86))*1.7+t*2.0)*0.32;
+   g+=vec2(0.95,-0.31)*cos(dot(p,vec2(0.95,-0.31))*2.9+t*2.7)*0.2;
+   g+=vec2(-0.2,-0.98)*cos(dot(p,vec2(-0.2,-0.98))*4.7+t*3.5)*0.13;
+   g+=vec2(0.6,-0.8)*cos(dot(p,vec2(0.6,-0.8))*8.3+t*4.8)*0.08;
+   g+=vec2(-0.9,-0.44)*cos(dot(p,vec2(-0.9,-0.44))*13.1+t*6.3)*0.05;
+   vec3 nw=normalize(vec3(-g.x*0.22,1.0,-g.y*0.22));normal=normalize((viewMatrix*vec4(nw,0.0)).xyz);}`)};
 function disc(x,z,r,mat,y){const m=new THREE.Mesh(new THREE.CircleGeometry(r,48),mat);m.rotation.x=-Math.PI/2;m.position.set(x,y,z);scene.add(m);return m}
 // lakes: smoothed polygons with a sandy shore
 function chaikin(p,n){for(let k=0;k<n;k++){const o=[];for(let i=0;i<p.length;i++){const a=p[i],b=p[(i+1)%p.length];o.push([a[0]*0.75+b[0]*0.25,a[1]*0.75+b[1]*0.25],[a[0]*0.25+b[0]*0.75,a[1]*0.25+b[1]*0.75])}p=o}return p}
@@ -920,25 +977,30 @@ function polyAt(pts,f){let tot=0;const ls=[];for(let i=1;i<pts.length;i++){const
   let s=f*tot;for(let i=0;i<ls.length;i++){if(s<=ls[i]||i===ls.length-1){const t=ls[i]?clamp(s/ls[i],0,1):1;const a=pts[i],b=pts[i+1];return[lerp(a[0],b[0],t),lerp(a[1],b[1],t)]}s-=ls[i]}return pts[pts.length-1]}
 
 // landmarks (generic forms)
-function box(x,z,w,h,d,c,y,ry){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),M(c));m.position.set(x,(y||0)+h/2,z);if(ry)m.rotation.y=ry;scene.add(m);return m}
-function cyl(x,z,r1,r2,h,c,y,seg){const m=new THREE.Mesh(new THREE.CylinderGeometry(r1,r2,h,seg||10),M(c));m.position.set(x,(y||0)+h/2,z);scene.add(m);return m}
-{const c=toWorld('MK',0,-8);box(c[0],c[1],40,18,26,0xc9d3e6);cyl(c[0],c[1],6,7,52,0xdfe5f0);cyl(c[0],c[1],0.1,8.5,24,0x3f6fb6,52,8);
+// NIGHT: landmarks that light up after dark ({m:[meshes], kind}); CAPT collects meshes made by box()/cyl() while set
+const NIGHT=[];let CAPT=null,SSE_POS=null;
+// GLOW: soft light points shown after dusk (lamps, windows, lots); [x,y,z,colour,size,twinkle] each
+const GLOW=[];const GL=(x,y,z,c,sz,tw)=>{GLOW.push([x,y,z,c,sz,tw||0])};const nightLit=(kind,ms)=>{NIGHT.push({kind,m:ms.filter(Boolean)})};
+function box(x,z,w,h,d,c,y,ry){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),M(c));m.position.set(x,(y||0)+h/2,z);if(ry)m.rotation.y=ry;scene.add(m);if(CAPT)CAPT.push(m);return m}
+function cyl(x,z,r1,r2,h,c,y,seg){const m=new THREE.Mesh(new THREE.CylinderGeometry(r1,r2,h,seg||10),M(c));m.position.set(x,(y||0)+h/2,z);scene.add(m);if(CAPT)CAPT.push(m);return m}
+{const c=toWorld('MK',0,-8);CAPT=[];{const q=toWorld('MK',0,64);castleLight.position.set(q[0],3,q[1]);castleLight.target.position.set(c[0],34,c[1]);castleLight.target.updateMatrixWorld()}box(c[0],c[1],40,18,26,0xc9d3e6);cyl(c[0],c[1],6,7,52,0xdfe5f0);cyl(c[0],c[1],0.1,8.5,24,0x3f6fb6,52,8);
  [[-16,-9],[16,-9],[-16,9],[16,9]].forEach(([dx,dz])=>{cyl(c[0]+dx,c[1]+dz,3,3.4,30,0xdfe5f0);cyl(c[0]+dx,c[1]+dz,0.1,4.4,13,0x3f6fb6,30,8)});
  [-8,8].forEach(dx=>{cyl(c[0]+dx,c[1]-4,2.6,3,40,0xe9edf5);cyl(c[0]+dx,c[1]-4,0.1,3.6,14,0x5f86c8,40,8)});
- const sm=RIDE_BY.space;const dome=new THREE.Mesh(new THREE.ConeGeometry(24,28,24),M(0xf3f5f8));dome.position.set(sm.x,14,sm.z);scene.add(dome);
+ nightLit('castle',CAPT);CAPT=null;GL(c[0],20,c[1]+8,0x9c78e6,46);
+ const sm=RIDE_BY.space;const dome=new THREE.Mesh(new THREE.ConeGeometry(24,28,24),M(0xf3f5f8));dome.position.set(sm.x,14,sm.z);scene.add(dome);nightLit('space',[dome]);
  const bt=RIDE_BY.btm;cyl(bt.x,bt.z,8,14,26,0xb85a3c,0,6);cyl(bt.x+12,bt.z+6,5,9,18,0xc46a46,0,6);
- const tr=RIDE_BY.tron;const can=new THREE.Mesh(new THREE.CylinderGeometry(22,22,3,24,1,true,0,Math.PI),M(0x2a3f66,{side:THREE.DoubleSide}));can.position.set(tr.x,16,tr.z);scene.add(can);}
-{const c=toWorld('EP',0,-112);const s=new THREE.Mesh(new THREE.IcosahedronGeometry(22,1),M(0xd5dbe3,{flatShading:true}));s.position.set(c[0],30,c[1]);scene.add(s);
+ const tr=RIDE_BY.tron;const can=new THREE.Mesh(new THREE.CylinderGeometry(22,22,3,24,1,true,0,Math.PI),M(0x2a3f66,{side:THREE.DoubleSide}));can.position.set(tr.x,16,tr.z);scene.add(can);nightLit('tron',[can]);}
+{const c=toWorld('EP',0,-112);const s=new THREE.Mesh(new THREE.IcosahedronGeometry(22,1),M(0xd5dbe3,{flatShading:true}));s.position.set(c[0],30,c[1]);scene.add(s);nightLit('sse',[s]);SSE_POS=[c[0],30,c[1]];
  [[0,1],[0.87,-0.5],[-0.87,-0.5]].forEach(([a,b])=>{const l=new THREE.Mesh(new THREE.CylinderGeometry(1.2,1.6,12,6),M(0xb8c1cc));l.position.set(c[0]+a*12,6,c[1]+b*12);scene.add(l)})}
-{const t=RIDE_BY.tot;box(t.x,t.z,18,62,18,0xb9876a);box(t.x,t.z,20,4,20,0x8a5b46,62);const r=RIDE_BY.rotr;box(r.x,r.z,30,16,30,0x8a6f55);cyl(r.x+16,r.z-6,5,7,26,0x9b7f62,0,7)}
-{const c=toWorld('AK',0,15);cyl(c[0],c[1],7,11,36,0x7a5638,0,8);[[0,0,46,22],[10,6,38,16],[-9,-7,40,15],[3,-10,52,13]].forEach(([dx,dz,y,r])=>{const s=new THREE.Mesh(new THREE.IcosahedronGeometry(r,1),M(0x4e8b3a,{flatShading:true}));s.position.set(c[0]+dx,y,c[1]+dz);scene.add(s)});
+{const t=RIDE_BY.tot;box(t.x,t.z,18,62,18,0xb9876a);nightLit('tot',[box(t.x,t.z,20,4,20,0x8a5b46,62)]);const r=RIDE_BY.rotr;box(r.x,r.z,30,16,30,0x8a6f55);cyl(r.x+16,r.z-6,5,7,26,0x9b7f62,0,7)}
+{const c=toWorld('AK',0,15);nightLit('tol',[cyl(c[0],c[1],7,11,36,0x7a5638,0,8)]);const tolC=[];[[0,0,46,22],[10,6,38,16],[-9,-7,40,15],[3,-10,52,13]].forEach(([dx,dz,y,r])=>{const s=new THREE.Mesh(new THREE.IcosahedronGeometry(r,1),M(0x4e8b3a,{flatShading:true}));s.position.set(c[0]+dx,y,c[1]+dz);scene.add(s);tolC.push(s)});nightLit('tolc',tolC);
  const e=RIDE_BY.ee;const mt=new THREE.Mesh(new THREE.ConeGeometry(36,90,7),M(0x8c8f96,{flatShading:true}));mt.position.set(e.x+14,45,e.z);scene.add(mt);
  const cap=new THREE.Mesh(new THREE.ConeGeometry(14,35,7),M(0xf5f7fa,{flatShading:true}));cap.position.set(e.x+14,72.5,e.z);scene.add(cap);
  const d=toWorld('AK',72,45);box(d[0],d[1],40,6,34,0xd9a84c);box(d[0],d[1]+0,44,1,38,0xe86b3a,6);
  const f=RIDE_BY.fop;[[0,0,30],[14,10,22],[-10,14,26]].forEach(([dx,dz,y])=>{const s=new THREE.Mesh(new THREE.DodecahedronGeometry(9,0),M(0x6d7d8f,{flatShading:true}));s.position.set(f.x+dx,y,f.z+dz);scene.add(s)})}
 // Disney Springs + TTC
 {const [X,Z]=XZ.dsp;[[-40,-10,30,10,18,0xd9b48a],[0,-30,22,14,22,0xc97a5b],[30,10,26,9,16,0xe0c9a0],[-20,30,18,12,18,0x9fb7c9],[50,-20,16,16,14,0xb46e57],[-70,20,24,8,14,0xe8d2b0],[75,15,20,11,16,0xc9a27a]].forEach(([dx,dz,w,h,d,c])=>box(X+dx,Z+dz,w,h,d,c));
- const bal=new THREE.Mesh(new THREE.SphereGeometry(10,16,12),M(0xf0c24a));bal.position.set(X+5,70,Z+15);scene.add(bal);
+ const bal=new THREE.Mesh(new THREE.SphereGeometry(10,16,12),M(0xf0c24a));bal.position.set(X+5,70,Z+15);scene.add(bal);nightLit('warm',[bal]);
  const [tx,tz]=XZ.ttc;box(tx,tz,46,4,22,0xe7eaef);box(tx,tz-5,30,8,8,0xc2cad6,4)}
 // ================= DETAIL (static scenery merged into one mesh for phone performance) =================
 const AVOID=[],RECTS=[],EXTRA_SEGS=[],PALMS=[...ISL_PALMS],PARK_AVOID=[],EXTRA={circ:[],clouds:[],train:[]};let lampMat=null;
@@ -971,7 +1033,7 @@ const WATER=0x4b9bd0;
  p=w(0,-8);ring(p[0],p[1],25,32,WATER,0.46);PARK_AVOID.push([p[0],p[1],34]);
  for(const a of [0.785,2.356,3.927,5.498]){p=w(Math.cos(a)*14,20+Math.sin(a)*14);kd(p[0],p[1],5.5,0x6fa84f,0.56);kn(p[0],p[1],1.8,6,0x2f6e2c,0.5)}
  const pal=[0xf2d7c4,0xd7e8f0,0xf4e3a8,0xe6c0c8,0xcfe3c2,0xf0c9a0,0xdcd0ef],rf=[0x7a4b3a,0x3f5f7a,0x5a6b3a,0x8a3f3f];
- let i=0;for(let z=38;z<=104;z+=9.5,i++)for(const s of[-1,1]){p=w(s*14,z);house(p[0],p[1],8.5,8+((i*3+s+5)%4)*1.6,9,pal[(i*2+(s>0?1:0))%7],rf[(i+(s>0?2:0))%4],0,3)}
+ let i=0;for(let z=38;z<=104;z+=9.5,i++)for(const s of[-1,1]){p=w(s*14,z);house(p[0],p[1],8.5,8+((i*3+s+5)%4)*1.6,9,pal[(i*2+(s>0?1:0))%7],rf[(i+(s>0?2:0))%4],0,3);GL(p[0],5,p[1],0xffd9a0,3.6);GL(p[0],9,p[1],0xfff0d0,2.2,0.5)}
  p=w(0,126);house(p[0],p[1],28,7,9,0xc5513f,0x3d4f68,0,5);
  p=w(-118,-74);kd(p[0],p[1],27,WATER,0.46);kd(p[0],p[1],11,0x6c9e4b,0.52);PARK_AVOID.push([p[0],p[1],29]);
  for(let j=0;j<5;j++)kn(p[0]+Math.cos(j*1.3)*6,p[1]+Math.sin(j*1.3)*6,2.2,8,0x2f6e2c,0.5);kb(p[0],p[1],3,6,3,0x8a6b4a,0.5);
@@ -1002,7 +1064,7 @@ const WATER=0x4b9bd0;
  p=w(122,-22);kb(p[0],p[1],34,16,28,0x4f7299);kb(p[0],p[1],36,2,30,0xe9a33a,16);
  p=w(0,-45);kd(p[0],p[1],10,0x5aa9d6,0.56);kc(p[0],p[1],1.6,9,0xcfeaf8,0.5);ks(p[0],9,p[1],3,0xdff3fb,0.6);
  p=w(22,72);kd(p[0],p[1],6,0x6c9e4b,0.5);kn(p[0],p[1],2,6,0x2f6e2c,0.5);p=w(-24,46);kd(p[0],p[1],4,0x6c9e4b,0.5);
- const pav=(k,d)=>{const n=PARKS.EP.nodes[k],dx=n[0],dz=n[1]-62,L=Math.hypot(dx,dz),ux=dx/L,uz=dz/L;const c=toWorld('EP',n[0]+ux*d,n[1]+uz*d);PARK_AVOID.push([c[0],c[1],15]);return(a,b)=>toWorld('EP',n[0]+ux*(d+a)-uz*b,n[1]+uz*(d+a)+ux*b)};
+ const pav=(k,d)=>{const n=PARKS.EP.nodes[k],dx=n[0],dz=n[1]-62,L=Math.hypot(dx,dz),ux=dx/L,uz=dz/L;const c=toWorld('EP',n[0]+ux*d,n[1]+uz*d);PARK_AVOID.push([c[0],c[1],15]);GL(c[0],8,c[1],0xffdca0,13);return(a,b)=>toWorld('EP',n[0]+ux*(d+a)-uz*b,n[1]+uz*(d+a)+ux*b)};
  let f;
  f=pav('mex',16);p=f(0,0);kb(p[0],p[1],22,6,22,0xcdb79a);kb(p[0],p[1],16,6,16,0xc4ab8b,6);kb(p[0],p[1],10,6,10,0xbba07f,12);kb(p[0],p[1],5,4,5,0xa88a68,18);
  f=pav('nor',16);p=f(0,-4);house(p[0],p[1],12,7,10,0x8b5a3a,0x4a3a2a,0.5,7);p=f(2,9);kb(p[0],p[1],6,7,6,0x6b4a32);kn(p[0],p[1],4.5,12,0x3a2e24,7,U.cone4);
@@ -1061,11 +1123,11 @@ GEO.golf.forEach(([x,z,r])=>{kd(x,z,r,0x8cc56a,0.1);kd(x+r*0.5,z-r*0.4,r*0.6,0x8
  kc(X+90,Z,30,8,0xc4cad3);kd(X+90,Z,20,0x5fae4f,8.1);AVOID.push([X,Z,130]);}
 // parking lots with cars
 const LOTS=GEO.lots;
-{const cars=[];for(const [x,z,w,d] of LOTS){kb(x,z,w,0.25,d,0x6f747c,0.05);RECTS.push([x,z,w,d]);for(let rz=z-d/2+5;rz<z+d/2-3;rz+=8)for(let rx=x-w/2+3;rx<x+w/2-2;rx+=3.6)if(Math.random()<0.72)cars.push([rx,rz])}
+{const cars=[];for(const [x,z,w,d] of LOTS){kb(x,z,w,0.25,d,0x6f747c,0.05);for(let gx=x-w/2+12;gx<x+w/2;gx+=34)for(let gz=z-d/2+12;gz<z+d/2;gz+=34)GL(gx,9,gz,0xffb45e,13);RECTS.push([x,z,w,d]);for(let rz=z-d/2+5;rz<z+d/2-3;rz+=8)for(let rx=x-w/2+3;rx<x+w/2-2;rx+=3.6)if(Math.random()<0.72)cars.push([rx,rz])}
  const cg=new THREE.BoxGeometry(2.2,1.6,4.2);cg.translate(0,0.8,0);const cm=new THREE.InstancedMesh(cg,M(0xffffff),cars.length);const CC=[0xf4f4f4,0x222222,0x9aa3ad,0xc0392b,0x2c5fa8,0x7f8c8d,0xe5e5e0,0x34495e],mt=new THREE.Matrix4(),col=new THREE.Color();
  cars.forEach((c,i)=>{cm.setMatrixAt(i,mt.makeTranslation(c[0],0.3,c[1]));cm.setColorAt(i,col.setHex(CC[(i*5)%CC.length]))});scene.add(cm)}
 // roads traced from the satellite photos: asphalt, centre line on the big ones, round caps at joints
-for(const r of GEO.roads){const p=r.p;K.ribbon(p,r.w,0.9,0x4e545d);if(r.w>=10)K.ribbon(p,0.7,0.93,0xd8c879);
+for(const r of GEO.roads){const p=r.p;K.ribbon(p,r.w,0.9,0x4e545d);if(r.w>=10){K.ribbon(p,0.7,0.93,0xd8c879);let carry=0;for(let k=1;k<p.length;k++){const L=Math.hypot(p[k][0]-p[k-1][0],p[k][1]-p[k-1][1]);for(let s2=carry;s2<L;s2+=70){const f=s2/L;GL(lerp(p[k-1][0],p[k][0],f),7,lerp(p[k-1][1],p[k][1],f),0xffc27a,6)}carry=(carry-L)%70;if(carry<0)carry+=70}}
   for(let k=0;k<p.length;k++){kd(p[k][0],p[k][1],r.w/2,0x4e545d,0.895+k*1e-4);if(k)EXTRA_SEGS.push([p[k-1][0],p[k-1][1],p[k][0],p[k][1]])}}
 // short access drives from each bus stop to the road
 {const verts=[];GEO.roads.forEach(r=>r.p.forEach(q=>verts.push(q)));
@@ -1077,10 +1139,10 @@ K.ribbon(GEO.river,14,0.24,WATER);K.ribbon(GEO.river,18,0.2,0xdccf9e);for(let k=
 {const RS={poly:[0xe8d5b0,0x5a3d2a,1],gf:[0xf7f4ee,0xc0463a],wl:[0x8a6242,0x4f6b3a],fw:[0x9b7650,0x5a6b3a],bw:[0xe7c9a6,0x6a8a9a],yb:[0xf1ece2,0x6b8fb3],sd:[0xe9e2d5,0x2f8f9b],riv:[0xf0dfc4,0xbf6a43],cbr:[0xf3c7a8,0xd06a4a,1],pop:[0,0x4aa3df],cor:[0xe6c79c,0xb5563c],akl:[0xb98a5f,0x6b4a2f],as:[0,0xe2574c],por:[0xe9d3b5,0x6a7f9c],ss:[0xf0e3c9,0x9a6a4a],okw:[0xf4ead3,0x5d9aa8]};
  const BR=[0xf2b134,0x4aa3df,0xe2574c,0x6cc070,0xb37ad6];
  RESORTS.forEach((h,i)=>{const [x,z]=h.p;
-  if(h.id==='cont'){K.add(U.roof,x,0,z,0xe9ecef,34,38,56,0.25);kb(x+26,z+18,18,6,12,0xdfe3e8,0,0.25);kd(x-24,z+20,6,0x5ccbe8,0.4);return}
+  if(h.id==='cont'){K.add(U.roof,x,0,z,0xe9ecef,34,38,56,0.25);for(let k=0;k<6;k++)GL(x+rnd(-10,10),8+k*4.5,z+rnd(-18,18),0xffe2b0,6,0.3);kb(x+26,z+18,18,6,12,0xdfe3e8,0,0.25);kd(x-24,z+20,6,0x5ccbe8,0.4);return}
   const s=RS[h.id];kd(x,z,12,0xd8d0bc,0.33);kd(x,z,6.5,0x5ccbe8,0.36);
   const n=h.id==='fw'?10:5;for(let k=0;k<n;k++){const a=k/n*Math.PI*2+i,r=h.id==='fw'?26:22,bx=x+Math.cos(a)*r,bz=z+Math.sin(a)*r,wall=s[0]||BR[(k+i)%5];
-    if(h.id==='fw')house(bx,bz,5,3,4,wall,s[1],-a,2);else house(bx,bz,15,8+(k%2)*3,9,wall,s[1],-a+Math.PI/2,4)}
+    if(h.id==='fw'){house(bx,bz,5,3,4,wall,s[1],-a,2);GL(bx,2.5,bz,0xffd49a,5)}else{house(bx,bz,15,8+(k%2)*3,9,wall,s[1],-a+Math.PI/2,4);GL(bx,4,bz,0xffe2b0,7,0.25);GL(bx,8,bz,0xfff0d4,5,0.4)}}GL(x,3,z,0x7fe0ff,12)
   if(s[2])for(let k=0;k<8;k++){const a=k/8*Math.PI*2+0.2;PALMS.push([x+Math.cos(a)*36,z+Math.sin(a)*36])}});}
 // moving extras: railroad, steamboat, jungle boats, clouds
 {let L=0;for(let i=1;i<EXTRA.rr.length;i++)L+=Math.hypot(EXTRA.rr[i][0]-EXTRA.rr[i-1][0],EXTRA.rr[i][1]-EXTRA.rr[i-1][1]);EXTRA.rrLen=L;
@@ -1103,9 +1165,9 @@ const LANDCOL={adv:0x5c8f4a,frl:0x9a6b45,lib:0x6e7b8f,fant:0xc98bb9,tomo:0x8ca7c
 const pinGeo=new THREE.CylinderGeometry(0.5,0.5,16,5);pinGeo.translate(0,8,0);const headGeo=new THREE.SphereGeometry(3.4,12,10);
 for(const r of RIDES){
   const s=r.kind==='show'?11:9+r.base/10;
-  if(!CUSTOM.has(r.id)){box(r.x,r.z,s,6+r.thrill*0.7,s*0.8,LANDCOL[r.land]||0xbfa98a,0,(r.seed%3)-1.5)}
-  const pin=new THREE.Mesh(pinGeo,new THREE.MeshBasicMaterial({color:0xffffff}));pin.position.set(r.x,r.id==='space'?28:r.id==='tot'?66:r.id==='ee'?90:r.id==='sse'?52:12,r.z);scene.add(pin);
-  const hd=new THREE.Mesh(headGeo,new THREE.MeshBasicMaterial({color:0x4fd18d}));hd.position.set(0,16,0);pin.add(hd);r.head=hd;r.pin=pin;
+  if(!CUSTOM.has(r.id)){box(r.x,r.z,s,6+r.thrill*0.7,s*0.8,LANDCOL[r.land]||0xbfa98a,0,(r.seed%3)-1.5)}GL(r.x,4,r.z,0xffe6b8,s*0.7)
+  const pin=new THREE.Mesh(pinGeo,new THREE.MeshBasicMaterial({color:0xffffff,toneMapped:false}));pin.position.set(r.x,r.id==='space'?28:r.id==='tot'?66:r.id==='ee'?90:r.id==='sse'?52:12,r.z);scene.add(pin);
+  const hd=new THREE.Mesh(headGeo,new THREE.MeshBasicMaterial({color:0x4fd18d,toneMapped:false}));hd.position.set(0,16,0);pin.add(hd);r.head=hd;r.pin=pin;
 }
 // trees
 {const segs=[];for(const n of NODES)for(const e of n.adj)if(e.type==='walk'&&e.outside){const b=NODES[e.to];segs.push([n.x,n.z,b.x,b.z])}
@@ -1146,7 +1208,7 @@ for(const r of RIDES){
    const dx=s[2]-s[0],dz=s[3]-s[1],L=Math.hypot(dx,dz);if(L<20)continue;let side=1;for(let d=8;d<L-4;d+=16){side=-side;LP.push([s[0]+dx*d/L-dz/L*4.8*side,s[1]+dz*d/L+dx/L*4.8*side])}}
  const lpG=new THREE.CylinderGeometry(0.25,0.3,4.2,4);lpG.translate(0,2.1,0);const lhG=new THREE.SphereGeometry(0.85,6,4);lhG.translate(0,4.6,0);
  const lpM=new THREE.InstancedMesh(lpG,M(0x2f3a33),LP.length);lampMat=new THREE.MeshBasicMaterial({color:0xffd27a});const lhM=new THREE.InstancedMesh(lhG,lampMat,LP.length);
- LP.forEach((p,i)=>{mt.makeTranslation(p[0],0.3,p[1]);lpM.setMatrixAt(i,mt);lhM.setMatrixAt(i,mt)});scene.add(lpM);scene.add(lhM);
+ LP.forEach((p,i)=>{mt.makeTranslation(p[0],0.3,p[1]);lpM.setMatrixAt(i,mt);lhM.setMatrixAt(i,mt);GL(p[0],4.8,p[1],0xffcf7a,2.6)});scene.add(lpM);scene.add(lhM);
  K.build();}
 
 
@@ -1356,24 +1418,158 @@ const WCOL={g:0x4fd18d,m:0xe6d35b,o:0xf6a347,b:0xf2665f,x:0x6b7489};
 function refreshPins(){for(const r of RIDES){const st=rideState(r,G.t),w=st==='open'?rawWait(r,G.t):0,c=st==='open'?waitClass(w):'x';r.head.material.color.setHex(WCOL[c]);
   if(r.lbl){r.lblW.className='w '+c;r.lblW.textContent=st==='open'?w:st==='down'?'Down':st==='early'?'Soon':'Closed';r.lblLL.hidden=!llUse(r)}}}
 
-// ================= SKY / FIREWORKS =================
-const SKY=[[5,0x141c33],[7,0xb4cfe8],[8.5,0xbfe3ff],[16.5,0xb3dcff],[18,0xf6b878],[19,0x8a64a6],[20,0x1d2654],[24,0x0a1128]];
-const SKYTOP=[[5,0x060a18],[7,0x4a7fc4],[8.5,0x3f8fe6],[16.5,0x3a86e0],[18,0x5e6cc0],[19,0x2b2a6a],[20,0x0b1238],[24,0x050816]];const cT=new THREE.Color(),cT2=new THREE.Color();
-function skyTopAt(h){for(let i=1;i<SKYTOP.length;i++)if(h<=SKYTOP[i][0]){const a=SKYTOP[i-1],b=SKYTOP[i];return cT.setHex(a[1]).lerp(cT2.setHex(b[1]),clamp((h-a[0])/(b[0]-a[0]),0,1))}return cT.setHex(0x050816)}
-const cA=new THREE.Color(),cB=new THREE.Color();
-function skyAt(h){for(let i=1;i<SKY.length;i++)if(h<=SKY[i][0]){const a=SKY[i-1],b=SKY[i];return cA.setHex(a[1]).lerp(cB.setHex(b[1]),clamp((h-a[0])/(b[0]-a[0]),0,1))}return cA.setHex(0x0a1128)}
-function updateSky(){const h=G.t/60,c=skyAt(h);renderer.setClearColor(c);scene.fog.color.copy(c);skyU.bot.value.copy(c);skyU.top.value.copy(skyTopAt(h));const day=clamp(h<12?(h-6.5)/2:(19.6-h)/1.8,0,1);
-  sun.intensity=0.15+0.75*day;hemi.intensity=0.38+0.5*day;hemi.color.setHex(day>0.5?0xdff1ff:0x8ea0d8);if(lampMat)lampMat.color.setRGB(lerp(1,0.55,day),lerp(0.83,0.57,day),lerp(0.46,0.55,day))}
-const FW_N=700,fwPos=new Float32Array(FW_N*3),fwCol=new Float32Array(FW_N*3),fwV=new Float32Array(FW_N*3),fwL=new Float32Array(FW_N);
-const fwGeo=new THREE.BufferGeometry();fwGeo.setAttribute('position',new THREE.BufferAttribute(fwPos,3));fwGeo.setAttribute('color',new THREE.BufferAttribute(fwCol,3));
-const fw=new THREE.Points(fwGeo,new THREE.PointsMaterial({size:3.4,vertexColors:true,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false}));fw.frustumCulled=false;scene.add(fw);
-let fwNext=0,fwHead=0;const fwC=new THREE.Color();
-function updateFireworks(dtR){const on=G.t>=21*60&&G.t<21*60+18;const mk=toWorld('MK',0,-8);
-  if(on){fwNext-=dtR;if(fwNext<=0){fwNext=rnd(0.15,0.5);fwC.setHSL(Math.random(),0.9,0.62);const cx=mk[0]+rnd(-40,40),cy=rnd(95,150),cz=mk[1]+rnd(-30,30);
-    for(let j=0;j<60;j++){const i=fwHead=(fwHead+1)%FW_N,u=rnd(-1,1),th=rnd(0,Math.PI*2),r=Math.sqrt(1-u*u),sp=rnd(14,22);
-      fwPos.set([cx,cy,cz],i*3);fwV.set([r*Math.cos(th)*sp,u*sp,r*Math.sin(th)*sp],i*3);fwCol.set([fwC.r,fwC.g,fwC.b],i*3);fwL[i]=rnd(1.2,1.9)}}}
-  for(let i=0;i<FW_N;i++){if(fwL[i]<=0){fwPos[i*3+1]=-999;continue}fwL[i]-=dtR;const o=i*3;fwV[o+1]-=9*dtR;fwPos[o]+=fwV[o]*dtR;fwPos[o+1]+=fwV[o+1]*dtR;fwPos[o+2]+=fwV[o+2]*dtR;const f=clamp(fwL[i],0,1);fwCol[o]*=0.985;fwCol[o+1]*=0.985;fwCol[o+2]*=0.985}
-  fwGeo.attributes.position.needsUpdate=true;fwGeo.attributes.color.needsUpdate=true}
+// ================= LIGHTING, SKY & TIME OF DAY =================
+// The sun follows the real solar position over Orlando for the Park day and the game clock (sunrise/sunset move with the
+// season and daylight saving). Sky, haze, light colours, shadows, water reflections, lamps and lit landmarks all key off
+// the sun's elevation. Fireworks fire at the day's real Happily Ever After and Luminous times.
+const LAT=28.385*Math.PI/180,LON=-81.565;
+function usDST(y,m,d){if(m<3||m>11)return false;if(m>3&&m<11)return true;const f=new Date(Date.UTC(y,m-1,1)).getUTCDay(),s1=1+(7-f)%7;return m===3?d>=s1+7:d<s1}
+// NOAA approximation; returns elevation in degrees and writes the unit vector toward the sun (x east, y up, z south)
+function sunDir(dstr,tMin,out){const q=String(dstr||'').split('-').map(Number),y=q[0]||2026,m=q[1]||6,d=q[2]||21;
+  const n=Math.round((Date.UTC(y,m-1,d)-Date.UTC(y,0,1))/864e5)+1,tz=usDST(y,m,d)?-4:-5,g=2*Math.PI/365*(n-1+(tMin/60-12)/24);
+  const eq=229.18*(0.000075+0.001868*Math.cos(g)-0.032077*Math.sin(g)-0.014615*Math.cos(2*g)-0.040849*Math.sin(2*g));
+  const de=0.006918-0.399912*Math.cos(g)+0.070257*Math.sin(g)-0.006758*Math.cos(2*g)+0.000907*Math.sin(2*g)-0.002697*Math.cos(3*g)+0.00148*Math.sin(3*g);
+  const ha=((tMin+eq+4*LON-60*tz)/4-180)*Math.PI/180;
+  const el=Math.asin(clamp(Math.sin(LAT)*Math.sin(de)+Math.cos(LAT)*Math.cos(de)*Math.cos(ha),-1,1));
+  const az=Math.atan2(Math.sin(ha),Math.cos(ha)*Math.sin(LAT)-Math.tan(de)*Math.cos(LAT))+Math.PI;
+  out.set(Math.cos(el)*Math.sin(az),Math.sin(el),-Math.cos(el)*Math.cos(az));return el*180/Math.PI}
+const MOON=new THREE.Vector3(-0.42,0.8,0.43).normalize();
+const smooth=(a,b,x)=>{const t=clamp((x-a)/(b-a),0,1);return t*t*(3-2*t)};
+// colour ramps keyed by sun elevation (degrees)
+const ZEN=[[-18,0x03050f],[-10,0x081236],[-5,0x1c2c6a],[-1,0x34509c],[3,0x3e6cbe],[10,0x3a80d8],[30,0x2c76de]];
+const HOR=[[-18,0x080c1e],[-10,0x161f4a],[-5,0x6a4f86],[-1,0xe58660],[3,0xf6b47c],[9,0xd8e2ea],[30,0xbfdcf8]];
+const SUNC=[[-2,0xff5a1e],[2,0xff8a3a],[7,0xffbe78],[18,0xffe4c0],[40,0xfff5e8]];
+const _ra=new THREE.Color(),_rb=new THREE.Color();
+function ramp(T,x,out){if(x<=T[0][0])return out.setHex(T[0][1]);for(let i=1;i<T.length;i++)if(x<=T[i][0]){const a=T[i-1],b=T[i];return out.setHex(a[1]).lerp(_rb.setHex(b[1]),(x-a[0])/(b[0]-a[0]))}return out.setHex(T[T.length-1][1])}
+const LIGHT={el:45,night:0,dusk:0,dir:new THREE.Vector3(0,1,0)};
+const _sd=new THREE.Vector3(),_zen=new THREE.Color(),_hor=new THREE.Color(),_sunc=new THREE.Color(),_c1=new THREE.Color(),_c2=new THREE.Color();
+function skyDate(){if(G.date)return G.date;const el=document.getElementById('inDate');return el&&el.value||ymd(new Date())}
+
+// glow points: soft additive sprites sized in world units, faded in at dusk
+const glowMat=new THREE.ShaderMaterial({uniforms:{uOn:{value:0},uScale:{value:1000},uT:{value:0}},vertexColors:true,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,fog:false,
+  vertexShader:`attribute float size;attribute vec2 tw;uniform float uScale;uniform float uT;varying vec3 vC;varying float vA;
+void main(){vC=color;vA=1.0-tw.x+tw.x*(0.5+0.5*sin(uT*(1.7+fract(tw.y*7.3)*2.5)+tw.y*37.0));vec4 mv=modelViewMatrix*vec4(position,1.0);gl_PointSize=clamp(size*uScale/-mv.z,2.0,160.0);gl_Position=projectionMatrix*mv;}`,
+  fragmentShader:`uniform float uOn;varying vec3 vC;varying float vA;
+void main(){vec2 q=gl_PointCoord-0.5;float d=dot(q,q)*4.0;if(d>=1.0)discard;float a=(exp(-d*4.0)*0.85+exp(-d*28.0)*0.6)*(1.0-d);gl_FragColor=vec4(vC*a*uOn*vA,1.0);
+ #include <tonemapping_fragment>
+ #include <colorspace_fragment>
+}`});
+if(SSE_POS){for(let i=0;i<90;i++){const u=rnd(-0.2,1),th=rnd(0,Math.PI*2),r=Math.sqrt(1-u*u);GL(SSE_POS[0]+r*Math.cos(th)*23,SSE_POS[1]+u*23,SSE_POS[2]+r*Math.sin(th)*23,i%3?0xffffff:0x9fd0ff,2.8,1)}}
+{const ak=toWorld('AK',0,15);for(let i=0;i<14;i++)GL(ak[0]+rnd(-18,18),rnd(34,58),ak[1]+rnd(-18,18),[0x6effc8,0x8a7bff,0x5fd7ff][i%3],7,0.8)}
+const glowPts=(()=>{const n=GLOW.length,P=new Float32Array(n*3),C=new Float32Array(n*3),S=new Float32Array(n),T=new Float32Array(n*2),c=new THREE.Color();
+  GLOW.forEach((g,i)=>{P.set([g[0],g[1],g[2]],i*3);c.setHex(g[3]).multiplyScalar(1.1);C.set([c.r,c.g,c.b],i*3);S[i]=g[4];T[i*2]=g[5];T[i*2+1]=Math.random()});
+  const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(P,3));geo.setAttribute('color',new THREE.BufferAttribute(C,3));geo.setAttribute('size',new THREE.BufferAttribute(S,1));geo.setAttribute('tw',new THREE.BufferAttribute(T,2));
+  const pts=new THREE.Points(geo,glowMat);pts.frustumCulled=false;pts.renderOrder=5;pts.visible=false;scene.add(pts);return pts})();
+
+// lit landmarks: emissive colour per kind, scaled by how dark it is
+const _e=new THREE.Color();
+function updateNight(nf,ts){for(const N of NIGHT)for(const m of N.m){const mat=m.material;let k=nf;
+  switch(N.kind){
+   case 'castle':{const roof=mat.color.b>mat.color.r*1.5;if(roof)_e.setHSL(0.62+0.03*Math.sin(ts*0.3),0.8,0.5),k*=0.14;else _e.setHSL(0.76+0.09*Math.sin(ts*0.22),0.6,0.55),k*=0.16;break}
+   case 'space':_e.setHex(0xbcd6ff);k*=0.55;break;
+   case 'tron':_e.setHex(0x30e4ff);k*=1.3*(0.85+0.15*Math.sin(ts*2.2));break;
+   case 'sse':_e.setHex(0x9fc4ff);k*=0.42;break;
+   case 'tot':_e.setHex(0xffa04a);k*=0.75;break;
+   case 'tol':_e.setHex(0x5a46c8);k*=0.3;break;
+   case 'tolc':_e.setHSL(0.38+0.1*Math.sin(ts*0.35+m.position.y),0.7,0.45);k*=0.32;break;
+   default:_e.setHex(0xffcf6a);k*=0.8}
+  mat.emissive.copy(_e).multiplyScalar(k)}}
+
+// sun/moon shadow camera: centred on what the camera looks at, sized to the zoom, snapped to texels so edges don't crawl
+const _lx=new THREE.Vector3(),_ly=new THREE.Vector3(),_lc=new THREE.Vector3(),_up=new THREE.Vector3(0,1,0);let shHalf=0,shFrame=0;
+function updateShadow(){if(!sun.castShadow||!renderer.shadowMap.enabled)return;const T=controls.target,d=camera.position.distanceTo(T);
+  let want=clamp(d*0.85,120,1800);if(!shHalf||want>shHalf*1.15||want<shHalf/1.15){shHalf=want;const S=sun.shadow.camera;S.left=-want;S.right=want;S.top=want;S.bottom=-want;S.updateProjectionMatrix()}
+  const L=LIGHT.dir;_lx.crossVectors(_up,L);if(_lx.lengthSq()<1e-6)_lx.set(1,0,0);_lx.normalize();_ly.crossVectors(L,_lx).normalize();
+  // aim a little ahead of the target toward where a tilted camera is looking
+  _lc.copy(T).addScaledVector(_c3.set(T.x-camera.position.x,0,T.z-camera.position.z),0.25);
+  const tex=2*shHalf/sun.shadow.mapSize.x,u=Math.round(_lc.dot(_lx)/tex)*tex,v=Math.round(_lc.dot(_ly)/tex)*tex,w=_lc.dot(L);
+  _lc.copy(_lx).multiplyScalar(u).addScaledVector(_ly,v).addScaledVector(L,w);
+  sun.target.position.copy(_lc);sun.position.copy(_lc).addScaledVector(L,3000);sun.target.updateMatrixWorld();sun.shadow.normalBias=tex*0.9;
+  if(GQL==='high'||(shFrame++&1)===0)renderer.shadowMap.needsUpdate=true}
+const _c3=new THREE.Vector3();
+
+// sky reflections for the water: prefiltered env map of the sky dome, rebuilt when the sky has changed enough
+let pmrem=null,envRT=null,envEl=999,envAt=-1e9;
+function updateEnv(el,now){if(!GQ.env){if(waterMat.envMap){waterMat.envMap=null;waterMat.needsUpdate=true}return}
+  if(now-envAt<500||(Math.abs(el-envEl)<1.5&&now-envAt<15000))return;envEl=el;envAt=now;
+  if(!pmrem)pmrem=new THREE.PMREMGenerator(renderer);const rt=pmrem.fromScene(skyScene,0,1,20000);const had=!!waterMat.envMap;waterMat.envMap=rt.texture;if(!had)waterMat.needsUpdate=true;if(envRT)envRT.dispose();envRT=rt}
+
+function updateSky(now){const ts=now/1000,el=sunDir(skyDate(),G.t,_sd);LIGHT.el=el;
+  const nf=smooth(-1,-9,el),dusk=smooth(4,-3,el);LIGHT.night=nf;LIGHT.dusk=dusk;
+  ramp(ZEN,el,_zen);ramp(HOR,el,_hor);ramp(SUNC,el,_sunc);
+  skyU.zen.value.copy(_zen);skyU.hor.value.copy(_hor);skyU.sunC.value.copy(_sunc);skyU.sunD.value.copy(_sd);skyU.night.value=nf;skyU.uT.value=ts;
+  // haze: sky-coloured, starting just past what you're looking at so zoomed-in views get depth too
+  camera.getWorldDirection(_c3);const fc=_c1.copy(_hor).lerp(_zen,0.08+0.45*clamp(-_c3.y,0,1)*(0.4+0.6*smooth(8,-2,el)));scene.fog.color.copy(fc);renderer.setClearColor(fc);
+  const d=camera.position.distanceTo(controls.target);scene.fog.near=d*0.6;scene.fog.far=d*2.2+2600;
+  // one directional light: the sun (kept at least 18° up so low-sun views stay readable and shadows stay on screen) or, after dark, the moon
+  if(el>-3){sun.color.copy(_sunc);sun.intensity=3.1*smooth(-2.5,-0.5,el);LIGHT.dir.copy(_sd);if(LIGHT.dir.y<0.31){LIGHT.dir.y=0;LIGHT.dir.normalize().multiplyScalar(0.951);LIGHT.dir.y=0.31}}
+  else{sun.color.setHex(0xa8b6e0);sun.intensity=0.42*smooth(-3,-9,el);LIGHT.dir.copy(MOON)}
+  const day=smooth(-6,14,el);
+  hemi.color.copy(_zen).lerp(_c2.setHex(0xffffff),0.4).lerp(_c2.setHex(0x6c7898),nf);
+  hemi.groundColor.setHex(0x5b7b3d).lerp(_c2.setHex(0x22262e),nf);hemi.intensity=0.34+1.1*day;waterMat.color.setHex(0x2b74a0).lerp(_c2.setHex(0x0c2236),nf*0.85);
+  renderer.toneMappingExposure=1+0.2*nf;
+  if(lampMat)lampMat.color.setRGB(lerp(0.55,2.2,dusk),lerp(0.57,1.6,dusk),lerp(0.55,0.7,dusk));
+  glowMat.uniforms.uOn.value=dusk;glowMat.uniforms.uT.value=ts;glowMat.uniforms.uScale.value=renderer.domElement.height/(2*Math.tan(camera.fov*Math.PI/360));glowPts.visible=dusk>0.01;
+  updateNight(nf,ts);castleLight.intensity=nf*4;castleLight.color.setHSL(0.78+0.1*Math.sin(ts*0.22),0.75,0.62);updateShadow();updateEnv(el,now);WATER_T.value=ts;
+  if(bloomPass){bloomPass.strength=0.1+0.5*Math.max(nf,fwGlow)}}
+
+// ---- fireworks: Happily Ever After over the castle, Luminous over World Showcase Lagoon, at the day's real show times
+const FW_N=3200,fwPos=new Float32Array(FW_N*3),fwCol=new Float32Array(FW_N*3),fwB=new Float32Array(FW_N*3),fwV=new Float32Array(FW_N*3),fwL=new Float32Array(FW_N),fwL0=new Float32Array(FW_N),fwSz=new Float32Array(FW_N),fwK=new Uint8Array(FW_N);
+const fwGeo=new THREE.BufferGeometry();fwGeo.setAttribute('position',new THREE.BufferAttribute(fwPos,3));fwGeo.setAttribute('color',new THREE.BufferAttribute(fwCol,3));fwGeo.setAttribute('size',new THREE.BufferAttribute(fwSz,1));
+const fwMat=new THREE.ShaderMaterial({uniforms:{uScale:{value:1000}},vertexColors:true,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,fog:false,
+  vertexShader:`attribute float size;uniform float uScale;varying vec3 vC;void main(){vC=color;vec4 mv=modelViewMatrix*vec4(position,1.0);gl_PointSize=clamp(size*uScale/-mv.z,1.5,64.0);gl_Position=projectionMatrix*mv;}`,
+  fragmentShader:`varying vec3 vC;void main(){vec2 q=gl_PointCoord-0.5;float d=dot(q,q)*4.0;if(d>=1.0)discard;gl_FragColor=vec4(vC*(exp(-d*3.0)*(1.0-d)),1.0);
+ #include <tonemapping_fragment>
+ #include <colorspace_fragment>
+}`});
+const fw=new THREE.Points(fwGeo,fwMat);fw.frustumCulled=false;fw.renderOrder=6;scene.add(fw);
+for(let i=0;i<FW_N;i++)fwPos[i*3+1]=-999;
+let fwHead=0,fwNext=0,fwGlow=0,fwShowKey='',fwShowList=[];const SHELLS=[],fwC=new THREE.Color(),fwC2=new THREE.Color();
+function fwShows(){const d=skyDate(),key=d+'|'+(G.started?1:0);if(key===fwShowKey)return fwShowList;fwShowKey=key;fwShowList=[];
+  let ev={MK:PARKS.MK.events,EP:PARKS.EP.events};if(!G.started||!ev.MK){const pd=parseDay(d);if(pd){const H=hoursFor(pd).parks;ev={MK:H.MK.events,EP:H.EP.events}}}
+  for(const pk of ['MK','EP'])for(const e of ev[pk]||[])if(/fireworks/i.test(e.n))fwShowList.push({pk,t0:e.t*60,dur:pk==='MK'?18:20,name:e.n});
+  return fwShowList}
+function fwSpark(x,y,z,vx,vy,vz,c,life,size,kind){const i=fwHead=(fwHead+1)%FW_N,o=i*3;fwPos[o]=x;fwPos[o+1]=y;fwPos[o+2]=z;fwV[o]=vx;fwV[o+1]=vy;fwV[o+2]=vz;
+  fwB[o]=c.r;fwB[o+1]=c.g;fwB[o+2]=c.b;fwL[i]=fwL0[i]=life;fwSz[i]=size;fwK[i]=kind}
+function fwLaunch(S){const P=PARKS[S.pk];let lx,lz,cx,cz,top;
+  if(S.pk==='MK'){const a=toWorld('MK',rnd(-75,75),rnd(-70,-25));lx=a[0];lz=a[1];top=rnd(110,190)}
+  else{const L=P.lagoon||[0,62,60],c=toWorld('EP',L[0],L[1]),ang=rnd(0,Math.PI*2),r=L[2]*rnd(0.3,0.85);lx=c[0]+Math.cos(ang)*r;lz=c[1]+Math.sin(ang)*r;top=rnd(80,160)}
+  const types=['peony','peony','ring','willow','chrys','double','crackle'];SHELLS.push({x:lx,y:4,z:lz,vy:Math.sqrt(2*45*top),top,type:types[Math.floor(Math.random()*types.length)],h:Math.random()})}
+function fwBurst(s){const lo=GQL==='low'?0.55:1;fwC.setHSL(s.h,0.95,0.6).multiplyScalar(2.2);fwC2.setHSL((s.h+0.45)%1,0.95,0.62).multiplyScalar(2.2);const gold=_c2.setRGB(2.4,1.5,0.5);
+  let n=Math.round(rnd(90,130)*lo),sp=rnd(34,50);const T=s.type;
+  for(let j=0;j<n;j++){let u=rnd(-1,1),th=rnd(0,Math.PI*2),r=Math.sqrt(1-u*u),vx=r*Math.cos(th),vy=u,vz=r*Math.sin(th),k=0,life=rnd(1.4,2.1),c=fwC,size=3.2;
+    if(T==='ring'){vy=rnd(-0.08,0.08);const m=Math.hypot(vx,vz)||1;vx/=m;vz/=m}
+    if(T==='willow'){c=gold;life=rnd(2.8,3.6);k=2;size=2.2}
+    if(T==='double'&&j%2)c=fwC2;
+    if(T==='chrys'){k=1;life=rnd(1.8,2.4)}
+    if(T==='crackle'){k=3;c=j%3?gold:fwC;life=rnd(1.2,1.7)}
+    fwSpark(s.x,s.y,s.z,vx*sp*rnd(0.9,1.05),vy*sp*rnd(0.9,1.05),vz*sp*rnd(0.9,1.05),c,life,size,k)}
+  flash.position.set(s.x,s.y,s.z);flash.color.copy(T==='willow'?gold:fwC).multiplyScalar(0.45);flash.intensity=1.6;fwGlow=Math.min(1,fwGlow+0.35)}
+function updateFireworks(dtR){let S=null;for(const sh of fwShows())if(G.t>=sh.t0&&G.t<sh.t0+sh.dur){S=sh;break}
+  if(S&&dtR>0){const f=(G.t-S.t0)/S.dur,rate=f>0.86?6:1.1+0.8*Math.max(0,Math.sin(f*31));fwNext-=dtR*rate;while(fwNext<=0){fwNext+=rnd(0.4,1.2);fwLaunch(S)}}
+  for(let i=SHELLS.length-1;i>=0;i--){const s=SHELLS[i];s.vy-=45*dtR;s.y+=s.vy*dtR;fwSpark(s.x+rnd(-0.4,0.4),s.y,s.z+rnd(-0.4,0.4),rnd(-1,1),rnd(-3,0),rnd(-1,1),_c1.setRGB(1.6,1.1,0.6),0.45,1.8,0);
+    if(s.vy<=4||s.y>=s.top){fwBurst(s);SHELLS.splice(i,1)}}
+  for(let i=0;i<FW_N;i++){const o=i*3;if(fwL[i]<=0){if(fwPos[o+1]>-900){fwPos[o+1]=-999;fwCol[o]=fwCol[o+1]=fwCol[o+2]=0}continue}
+    fwL[i]-=dtR;const k=fwK[i],drag=k===2?2.4:1.3,grav=k===2?9:13,dm=Math.max(0,1-drag*dtR);fwV[o]*=dm;fwV[o+1]=fwV[o+1]*dm-grav*dtR;fwV[o+2]*=dm;
+    fwPos[o]+=fwV[o]*dtR;fwPos[o+1]+=fwV[o+1]*dtR;fwPos[o+2]+=fwV[o+2]*dtR;
+    let b=clamp(fwL[i]/fwL0[i],0,1);b=b*b*(k===2?1:1.2);if(k===1)b*=0.55+0.45*Math.sin(fwL[i]*40+i);if(k===3&&fwL[i]<0.6)b*=Math.random()<0.5?2.2:0;
+    fwCol[o]=fwB[o]*b;fwCol[o+1]=fwB[o+1]*b;fwCol[o+2]=fwB[o+2]*b}
+  flash.intensity*=Math.exp(-dtR*7);fwGlow*=Math.exp(-dtR*1.5);
+  fwMat.uniforms.uScale.value=glowMat.uniforms.uScale.value;
+  fwGeo.attributes.position.needsUpdate=true;fwGeo.attributes.color.needsUpdate=true;fwGeo.attributes.size.needsUpdate=true}
+
+// ---- graphics quality (start screen setting): changes shadows, reflections, bloom and resolution live
+function setGfx(level){if(!GFX[level])return;GQL=level;GQ=GFX[level];try{localStorage.setItem('wdwsim.gfx',level)}catch(e){}
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,GQ.pr));const on=GQ.shadow>0;
+  if(sun.shadow.map){sun.shadow.map.dispose();sun.shadow.map=null}sun.shadow.mapSize.set(GQ.shadow||1024,GQ.shadow||1024);shHalf=0;
+  if(renderer.shadowMap.enabled!==on||sun.castShadow!==on){renderer.shadowMap.enabled=on;sun.castShadow=on;scene.traverse(o=>{if(o.material){(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>m.needsUpdate=true)}})}
+  envEl=999;envAt=-1e9;if(GQ.bloom)makeComposer();else dropComposer();resize()}
+// which meshes cast and receive shadows (called once the scene is built)
+function setupShadows(){scene.updateMatrixWorld(true);const bx=new THREE.Box3();scene.traverse(o=>{if(!(o.isMesh||o.isInstancedMesh))return;if(o===skyDome)return;const m=o.material;
+  if(m&&(m.transparent||m.isMeshBasicMaterial||m.isShaderMaterial)){o.castShadow=false;o.receiveShadow=false;return}
+  bx.setFromObject(o);const flat=bx.max.y-bx.min.y<0.6||bx.max.y<1.2;
+  o.castShadow=!flat;o.receiveShadow=true})}
+function renderFrame(){if(composer&&(LIGHT.dusk>0.02||fwGlow>0.02))composer.render();else renderer.render(scene,camera)}
 
 // ================= LABELS =================
 const LBL=[],labelsEl=$('#labels'),tmpV=new THREE.Vector3();
@@ -1798,7 +1994,7 @@ function showForecast(){liveNoteUpdate();livePoll(false);const d=parseDay(inDate
 function showHours(d){const HR=hoursFor(d),deluxe=DELUXE.has(selH.value);const ks=['MK','EP','HS','AK'];let html=ks.map(k=>{const P=HR.parks[k];return `${PARKS[k].short} <b>${hh(P.open)}–${hh(P.close)}</b>`}).join(' · ');html+=`<br>Early Entry 30 min before opening at every park for Disney hotel guests.`;ks.forEach(k=>{const P=HR.parks[k];if(P.party)html+=`<br><span class="ev">${P.party}: ${PARKS[k].short} closes ${hh(P.close)} to day guests.</span>`;if(P.eeh)html+=`<br><span class="eeh">Extended Evening Hours: ${PARKS[k].short} ${hh(P.eeh.from)}–${hh(P.eeh.to)} ${deluxe?'(your hotel qualifies)':'(deluxe hotels only)'}</span>`});if(HR.estimated)html+=`<br><i>Hours estimated from the usual pattern.</i>`;$('#hoursFc').innerHTML=html;const first=Math.min(...['MK','EP','HS'].map(k=>HR.parks[k].ee));const rd=Math.round(clamp(first-0.75,7,9)*4)*15;const b=$('#segTime button');b.dataset.v=rd;b.textContent='Rope drop · '+fmtClock(rd).replace(' AM','')}
 selH.addEventListener('change',showForecast);
 inDate.addEventListener('change',()=>{showForecast();llSumUpdate();daySumUpdate()});inDate.addEventListener('input',()=>{showForecast();llSumUpdate();daySumUpdate()});
-segPick('#segCrowd',showForecast);segPick('#segTime');showForecast();llSumUpdate();daySumUpdate();
+document.querySelectorAll('#segGfx button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===GQL?'true':'false'));segPick('#segGfx',()=>setGfx($('#segGfx [aria-pressed="true"]').dataset.v));segPick('#segCrowd',showForecast);segPick('#segTime');showForecast();llSumUpdate();daySumUpdate();
 segPick('#speedSeg',b=>{G.speed=+b.dataset.s});
 $('#bPlay').onclick=startDay;$('#bAgain').onclick=()=>{$('#end').hidden=true;$('#start').hidden=false;G.over=false;G.started=false;$('#top').hidden=true;$('#bottom').hidden=true;me.visible=false;flyTo(150,330,5000,1200)};
 $('#bRides').onclick=()=>openRides();$('#bPlan').onclick=()=>{DPV.edit=false;DPV.S=null;openPlan()};$('#bDayPlan').onclick=openDaySetup;$('#bPicks').onclick=openPicks;$('#llchip').onclick=()=>{if(G.started&&!G.over){llView.confirm=null;openLL()}};
@@ -1825,19 +2021,20 @@ function endDay(){G.over=true;closeSheet();const m=Math.round(G.mood);
 
 // attract mode before the day starts
 stepAgents(0.01,true);rebuildQueues();refreshPins();
+setupShadows();if(GQ.bloom)makeComposer();
 let last=performance.now(),densClock=0;
 function frame(now){requestAnimationFrame(frame);try{tick(now)}catch(err){showErr(err)}}
 function tick(now){checkSize();const dtR=Math.min(0.1,Math.max(0,(now-last)/1000));last=now;
   const running=G.started&&!G.over&&!G.sheetPaused&&G.speed>0;
-  if(!G.started){G.t+=dtR*0.5;if(G.t>17*60)G.t=11*60;stepAgents(dtR*0.5)}
+  if(!G.started){if(G.holdT!=null)G.t=G.holdT;else{G.t+=dtR*0.5;if(G.t>17*60)G.t=11*60}stepAgents(dtR*0.5)}
   else if(running){let dt=dtR*G.speed;while(dt>0){const step=Math.min(dt,0.5);G.t+=step;stepPlayer(step);stepAgents(step);periodic(step);dt-=step;if(G.over)break}}
   densClock-=dtR;if(densClock<=0&&G.started){densClock=0.3;updateDensity()}
-  updateVehicles();updateExtras();updateSky();updateFireworks(dtR);
+  updateVehicles();updateExtras();updateSky(now);updateFireworks(dtR);
   if(G.started){me.position.set(G.pos[0],G.pos[1],G.pos[2]);me.ring.material.opacity=0.6+0.35*Math.sin(now/300)}
-  camStep(now);controls.update();skyDome.position.copy(camera.position);if(!G.segs&&tripLine)showTrip(null);renderer.render(scene,camera);updateLabels();
+  camStep(now);controls.update();skyDome.position.copy(camera.position);if(!G.segs&&tripLine)showTrip(null);renderFrame();updateLabels();
   if(G.started)updateHUD();
 }
-window.WDW={dpRun,dpMakeGame,dpProgress,dpLoad,dpSave,openPlan,openDaySetup,prepDay,llFromPlan,llFresh,llBook,llNext,llRecs,llUse,llHeld,llTick,llPlanErrors,llSuggest,llLoadPlan,openLL,openRides,openPicks,LIVE,liveIngest,liveFor,curveAt,orlandoNow,livePoll,G,go,flyTo,setFollow,RIDE_BY,PARKS,camera,controls,openRide,closeSheet,rawWait,waitAt,dayFactor,holiday,hoursFor,applyHours,accessOpen,lastClose,renderer,dijkstra,NI,NODES,RESORTS,RIDES,LINES};
+window.WDW={scene,setGfx,LIGHT,sunDir,fwShows,fwSim:(n,dt)=>{for(let i=0;i<n;i++)updateFireworks(dt)},holdTime:t=>{G.holdT=t==null?null:t*60;if(t!=null)G.t=t*60},dpRun,dpMakeGame,dpProgress,dpLoad,dpSave,openPlan,openDaySetup,prepDay,llFromPlan,llFresh,llBook,llNext,llRecs,llUse,llHeld,llTick,llPlanErrors,llSuggest,llLoadPlan,openLL,openRides,openPicks,LIVE,liveIngest,liveFor,curveAt,orlandoNow,livePoll,G,go,flyTo,setFollow,RIDE_BY,PARKS,camera,controls,openRide,closeSheet,rawWait,waitAt,dayFactor,holiday,hoursFor,applyHours,accessOpen,lastClose,renderer,dijkstra,NI,NODES,RESORTS,RIDES,LINES};
 requestAnimationFrame(frame);
 })();
 </script>
