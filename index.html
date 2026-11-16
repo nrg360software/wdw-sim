@@ -511,7 +511,7 @@ function curveAt(r,t){const P0=PARKS[r.pk];if(eeOn(r.pk,t))return Math.max(5,Mat
 // Live values only apply when the Park day is today (Orlando time). Within 30 min of
 // the real time the live wait replaces the curve; further out the curve is nudged by
 // the live/curve ratio, fading to the plain curve 3.5 hours away.
-const LIVE_URL=''; // set to the Worker's /waits address to switch live waits on
+const LIVE_URL='https://wdw-waits.nrg360software.workers.dev/waits'; // set to the Worker's /waits address to switch live waits on
 const LIVE={data:null,got:0,next:0,fails:0,map:{},busy:false};
 const LIVE_KEYS={tron:'tron',sdmt:'dwarfs',pp:'peter pan',tiana:'tiana',space:'space mountain',btm:'big thunder',jc:'(jungle|jingle) cruise',hm:'haunted mansion',potc:'pirates',buzz:'buzz lightyear',isw:'small world',pooh:'winnie',ariel:'little mermaid',dumbo:'dumbo',barn:'barnstormer',tea:'tea party',spdwy:'speedway',pm:'peoplemover',astro:'astro orbiter',phil:'philharmagic',mil:'laugh floor',carp:'magic carpets',
  gotg:'guardians',tt:'test track',msp:'mission space',fea:'frozen ever after',remy:'ratatouille',soar:'soarin',sse:'spaceship earth',lwtl:'living with the land',seas:'nemo',fig:'figment|journey into imagination',gft:'gran fiesta',aa:'american adventure',
