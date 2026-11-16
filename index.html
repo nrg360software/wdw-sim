@@ -40,7 +40,8 @@ button:focus-visible,select:focus-visible{outline:2px solid var(--gold);outline-
 #top{top:0;padding-top:calc(env(safe-area-inset-top,0px) + 10px);display:flex;gap:8px;align-items:stretch}
 #clock{padding:7px 12px;display:flex;flex-direction:column;justify-content:center;min-width:0}
 #clock .t{font-family:var(--display);font-weight:600;font-size:22px;line-height:1.05;font-variant-numeric:tabular-nums}
-#clock .s{font-size:11px;color:var(--muted);margin-top:2px}
+#clock .s{font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#clock{flex:0 1 auto;max-width:44%}
 #mood{flex:1;min-width:0;display:flex;align-items:center;gap:9px;padding:6px 10px}
 #mood .face{width:38px;height:38px;flex:none}
 #mood .meta{flex:1;min-width:0}
@@ -48,7 +49,7 @@ button:focus-visible,select:focus-visible{outline:2px solid var(--gold);outline-
 #mood .lab span:last-child{color:var(--muted);font-weight:600;font-variant-numeric:tabular-nums}
 .bar{height:7px;border-radius:9px;background:rgba(255,255,255,.12);margin-top:5px;overflow:hidden}
 .bar i{display:block;height:100%;border-radius:9px;background:linear-gradient(90deg,var(--bad),var(--warn) 35%,var(--mid) 55%,var(--good));background-size:var(--bw,100%) 100%;transition:width .3s}
-#llchip{padding:6px 10px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--ll)}
+#llchip{padding:6px 10px;font:inherit;color:var(--ll);min-width:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--ll)}
 #llchip b{font-family:var(--display);font-size:20px;line-height:1;color:var(--text);font-variant-numeric:tabular-nums}
 #llchip small{font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;font-weight:700}
 
@@ -114,8 +115,22 @@ button:focus-visible,select:focus-visible{outline:2px solid var(--gold);outline-
 .pick .sc small{display:block;font-family:var(--body);font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
 .callout{background:rgba(182,156,255,.12);border:1px solid rgba(182,156,255,.35);border-radius:14px;padding:11px 12px;margin:4px 0 10px;font-size:13.5px;line-height:1.4}
 .callout b{color:var(--ll)}
+.callout.warnc{background:rgba(246,163,71,.12);border-color:rgba(246,163,71,.45)}
+#llsetup{z-index:11;background:rgba(8,12,22,.9)}
+.toast.ll{border-color:rgba(182,156,255,.65);pointer-events:auto;cursor:pointer}
+.toast.ll::before{content:'⚡';color:var(--ll)}
+.llp{padding:10px 2px;border-bottom:1px solid rgba(255,255,255,.07)}
+.llp .n{font-weight:700;font-size:14.5px}
+.llp .m{font-size:12.5px;color:var(--muted);margin-top:2px;line-height:1.4}
+.llp .llb{margin-top:7px;flex-wrap:wrap}
+.llp.used,.llp.expired,.llp.mepused{opacity:.55}
+.sb h3{font-family:var(--display);font-size:16px;font-weight:600;margin:16px 0 2px}
+.sb h3 small{font-family:var(--body);font-size:11.5px;color:var(--muted);font-weight:600}
+.llrow{display:grid;grid-template-columns:1fr 118px;gap:6px}
+.llrow select{padding:9px 8px;font-size:13.5px;min-width:0}
+.lld{margin-top:14px}.lld summary{font-family:var(--display);font-size:16px;font-weight:600;cursor:pointer}
 
-#start,#end{position:fixed;inset:0;z-index:10;display:grid;place-items:center;padding:calc(env(safe-area-inset-top,0px) + 16px) max(16px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 16px) max(16px,env(safe-area-inset-left,0px));background:linear-gradient(180deg,rgba(12,20,36,.25),rgba(12,20,36,.82) 55%);overflow:auto}
+#start,#end,#llsetup{position:fixed;inset:0;z-index:10;display:grid;place-items:center;padding:calc(env(safe-area-inset-top,0px) + 16px) max(16px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 16px) max(16px,env(safe-area-inset-left,0px));background:linear-gradient(180deg,rgba(12,20,36,.25),rgba(12,20,36,.82) 55%);overflow:auto}
 .modal{width:min(100%,430px);background:var(--glass2);border:1px solid var(--line);border-radius:22px;padding:22px 20px;box-shadow:0 20px 60px rgba(0,0,0,.55)}
 .modal h1{font-family:var(--display);font-weight:700;font-size:36px;margin:0;line-height:1;letter-spacing:.01em}
 .modal h1 span{color:var(--gold)}
@@ -146,7 +161,7 @@ select{background:var(--chip);color:var(--text);border:1px solid var(--line);bor
 <div class="hud" id="top" hidden>
   <div class="card" id="clock"><div class="t" id="clockT">8:30 AM</div><div class="s" id="clockS">Parks open 9 AM</div></div>
   <div class="card" id="mood"><div class="face" id="moodFace"></div><div class="meta"><div class="lab"><span id="moodWord">Happy</span><span id="moodNum">70</span></div><div class="bar"><i id="moodBar"></i></div></div></div>
-  <div class="card" id="llchip" title="Lightning Lane passes left"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg><b id="llN">3</b><small>LL</small></div>
+  <button class="card" id="llchip" aria-label="Your Lightning Lanes"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg><b id="llN">0</b><small id="llS">LL</small></button>
 </div>
 
 <div id="toasts"></div>
@@ -182,16 +197,19 @@ select{background:var(--chip);color:var(--text);border:1px solid var(--line);bor
     <div class="fld"><label for="inDate">Park day</label><input type="date" id="inDate"><div class="fc" id="crowdFc"></div><div class="hrs" id="hoursFc"></div></div>
     <div class="fld"><label>Crowds</label><div class="seg" id="segCrowd"><button data-v="0.8">Lighter</button><button data-v="1" aria-pressed="true">As forecast</button><button data-v="1.2">Busier</button></div></div>
     <div class="fld"><label>Start time</label><div class="seg" id="segTime"><button data-v="480" aria-pressed="true">Rope drop · 8:00</button><button data-v="660">Sleep in · 11:00</button></div></div>
+    <div class="fld"><label>Lightning Lane</label><button class="btn ll" id="bLLPlan" type="button">⚡ Plan Lightning Lanes</button><div class="fc" id="llSum"></div></div>
     <p class="note" id="liveNote" style="margin:0 0 8px"></p>
     <button class="btn pri" id="bPlay" style="width:100%;padding:13px;font-size:16px">Start the day</button>
     <ul class="how">
       <li>Drag to pan, pinch to zoom, two-finger twist to rotate.</li>
       <li>At 1× speed, one real second is one park minute.</li>
       <li>The clock pauses while you plan in a sheet.</li>
-      <li>You hold 3 Lightning Lane passes. Use them all and you can book one more after each ride.</li>
+      <li>Lightning Lanes follow Disney's real rules: 1-hour return windows, up to 3 Multi Pass bookings at a time, and a new booking each time you tap in. Tap ⚡ in the game to book, change or get advice.</li>
     </ul>
   </div>
 </div>
+
+<div id="llsetup" hidden><div class="modal" id="llsetIn"></div></div>
 
 <div id="end" hidden>
   <div class="modal">
@@ -500,7 +518,7 @@ for(const h of RESORTS) for(const pk of h.bus) addBus('R:'+h.id,pk+':front','R:'
 [['AK','MK'],['AK','EP'],['AK','HS'],['HS','MK'],['HS','EP']].forEach(([a,b])=>addBus(a+':front',b+':front','P:'+a+'|'+b));
 
 // ================= SIM MODEL =================
-const G={t:11*60,speed:1,crowd:1,pf:{MK:1,EP:1,HS:1,AK:1},date:null,hours:null,deluxe:false,passes:3,llUsed:{},ridden:[],mood:70,score:0,stats:{wait:0,transit:0,walk:0,ride:0},node:0,segs:null,seg:0,follow:true,started:false,over:false,density:0,pos:[0,2,0],bubble:null,sheetPaused:false,trip:null,llUses:0};
+const G={t:11*60,speed:1,crowd:1,pf:{MK:1,EP:1,HS:1,AK:1},date:null,hours:null,deluxe:false,ridden:[],mood:70,score:0,stats:{wait:0,transit:0,walk:0,ride:0},node:0,segs:null,seg:0,follow:true,started:false,over:false,density:0,pos:[0,2,0],bubble:null,sheetPaused:false,trip:null};
 const HM=[[6,0.1],[8,0.3],[9,0.55],[10,0.85],[11,1.05],[12,1.15],[14,1.2],[16,1.05],[18,0.95],[20,0.8],[21,0.65],[22,0.45],[24,0.1]];
 function hourMult(h){if(h<=HM[0][0])return HM[0][1];for(let i=1;i<HM.length;i++)if(h<=HM[i][0]){const a=HM[i-1],b=HM[i];return lerp(a[1],b[1],(h-a[0])/(b[0]-a[0]))}return 0.1}
 function busy(h){return clamp(hourMult(h)*G.crowd,0,1.6)}
@@ -539,8 +557,121 @@ function parkOpen(pk,t){const P=PARKS[pk];return (t>=accessOpen(pk)&&t<P.close*6
 function parkOpenPublic(pk,t){const P=PARKS[pk];return t>=P.open*60&&t<P.close*60}
 function rideState(r,t){if(!parkOpen(r.pk,t))return t<accessOpen(r.pk)?'early':'closed';if(r.downUntil>t||liveDown(r,t))return 'down';return 'open'}
 function llSell(r){return r.sell-(G.crowd-1)*2.5}
-function llAvail(r,t){return r.ll&&G.passes>0&&!G.llUsed[r.id]&&t/60<llSell(r)&&parkOpenPublic(r.pk,t)}
-function llWhyNot(r,t){if(!r.ll)return 'No Lightning Lane on this one';if(G.llUsed[r.id])return 'Already used a pass here';if(G.passes<=0)return 'No passes left';if(t/60>=llSell(r))return 'Sold out for today';return ''}
+// ================= LIGHTNING LANE (real 2026 rules) =================
+// Multi Pass (LLMP) is bought per day. Before your first tap-in you hold up to 3 bookings, all in the
+// park you bought it for, at most one from Group 1 (MK/EPCOT/DHS; Animal Kingdom has no groups), and
+// pre-booked windows may overlap by 20 min at most. After the first tap: any park (Park Hopper), any
+// group, booked one at a time whenever you hold fewer than 3 unused, unexpired bookings. Each ride once
+// a day. Single Pass (LLSP): paid per ride for the headliners kept out of Multi Pass, max 2 a day,
+// different rides, no refunds. Premier Pass: one use of every Lightning Lane in one park, no booking.
+// Every booking is a 1-hour return window; tap points honor 5 min early to about an hour late.
+// A ride that breaks down during your window gives you a Multiple Experience Pass for the rest of the day.
+// Sources: Disney Help Center + PlanDisney answers, TouringPlans "Lightning Lane Thread" (Feb 2026).
+const LL_GROUP1={MK:['btm','jc','pp','space','tiana'],EP:['fea','remy','tt'],HS:['mmrr','msr','rnrc','sdd'],AK:[]};
+const LL_SINGLE=['tron','sdmt','gotg','rotr','fop'];
+const LL_EARLY=5,LL_LATE=60,LL_WIN=60,LL_OVERLAP=20;
+const LL_MP_PRICE={MK:[20,45],EP:[15,37],HS:[20,39],AK:[15,35]};
+const LL_SP_PRICE={tron:[17,25],sdmt:[12,20],gotg:[15,23],rotr:[18,25],fop:[12,20]};
+const LL_PREM_PRICE={MK:[329,449],EP:[199,249],HS:[279,349],AK:[119,199]};
+RIDES.forEach(r=>{if(r.id==='pm')r.ll=false;r.llType=!r.ll?null:LL_SINGLE.includes(r.id)?'sp':'mp';r.tier=r.llType==='mp'&&r.pk!=='AK'?(LL_GROUP1[r.pk].includes(r.id)?1:2):0});
+const llPrice=(rg,f)=>Math.round(rg[0]+(rg[1]-rg[0])*clamp(((f||1)-0.75)/0.7,0,1));
+const llGroupName=r=>r.llType==='sp'?'Single Pass':r.tier===1?'Group 1':r.tier===2?'Group 2':'Multi Pass';
+function llFresh(){return{mp:null,premier:null,passes:[],tapped:false,spent:0,used:0,premUsed:{},nid:1,rem:{},lastNudge:-999,canWas:null}}
+G.LL=llFresh();
+const llR=p=>RIDE_BY[p.rid];
+function llHeld(){return G.LL.passes.filter(p=>p.type==='mp'&&p.st==='active')}
+function llSps(){return G.LL.passes.filter(p=>p.type==='sp')}
+function llPassFor(r){return G.LL.passes.find(p=>p.rid===r.id&&p.st==='active')}
+function llMepFor(r){return G.LL.passes.find(p=>p.st==='mep'&&p.mepOpts.includes(r.id))}
+function llWinState(p,t){return t<p.start-LL_EARLY?'early':t<=p.end?'open':t<=p.end+LL_LATE?'grace':'late'}
+// Return-time inventory: advance bookings eat the morning (more for headliners), then same-day
+// returns race ahead of the clock until the ride sells out around its sell hour.
+function llPre(r){return r.llType==='sp'?2.5:r.tier===1?1.5:clamp((r.avg-12)/30,0,1.1)}
+function llNext(r,t){const P=PARKS[r.pk],open=P.open*60,close=P.close*60,last=close-LL_WIN;if(!r.ll||t>=close)return null;
+  const sellM=llSell(r)*60;if(t>=sellM)return null;const pre=llPre(r)*60,m=Math.max(1,(last-open-pre)/Math.max(30,sellM-open));
+  let e=open+pre+Math.max(0,t-open)*m+(hash((G.date||'')+r.id+Math.floor(t/30))-0.5)*24;e=Math.max(e,t,open);e=Math.ceil(e/5)*5;return e>last?null:e}
+function llCanBook(r,t,ignore){const L=G.LL;if(!r.ll)return{why:'No Lightning Lane on this one'};const P=PARKS[r.pk];
+  if(L.premier===r.pk&&!L.premUsed[r.id]&&!ignore)return{why:'Your Premier Pass covers this one',prem:true};
+  if(r.llType==='sp'){if(L.passes.some(p=>p!==ignore&&p.rid===r.id))return{why:'You already bought this Single Pass'};
+    if(!ignore&&llSps().length>=2)return{why:'Single Pass limit is 2 a day'}}
+  else{if(!L.mp)return{why:'No Multi Pass today',buy:true};
+    if(L.passes.some(p=>p!==ignore&&p.rid===r.id&&p.st!=='cancelled'))return{why:'Multi Pass allows each ride once a day'};
+    const held=llHeld().filter(p=>p!==ignore);
+    if(held.length>=3)return{why:L.tapped?'You hold 3 · use one to book again':'You hold 3 · tap into one to book more'};
+    if(!L.tapped){if(r.pk!==L.mp)return{why:`Until your first tap-in, bookings stay in ${PARKS[L.mp].short}`};
+      if(r.tier===1&&held.some(p=>llR(p).tier===1))return{why:'Only one Group 1 ride until your first tap-in'}}}
+  if(t>=P.close*60)return{why:'Closed for the day'};
+  const ret=llNext(r,t);if(ret==null)return{why:'Sold out for today'};return{ok:true,ret}}
+function llBook(r,t,start,ignore){const c=llCanBook(r,t,ignore);if(!c.ok)return c;const P=PARKS[r.pk];const s=clamp(start!=null?start:c.ret,c.ret,P.close*60-LL_WIN);
+  if(ignore){ignore.rid=r.id;ignore.start=s;ignore.end=s+LL_WIN;delete G.LL.rem['go'+ignore.id];delete G.LL.rem['end'+ignore.id];return{ok:true,p:ignore}}
+  const p={id:G.LL.nid++,rid:r.id,type:r.llType,start:s,end:s+LL_WIN,st:'active',pre:false};G.LL.passes.push(p);
+  if(p.type==='sp')G.LL.spent+=llPrice(LL_SP_PRICE[r.id],G.pf[r.pk]);return{ok:true,p}}
+function llRetime(p,s){const r=llR(p),lo=llNext(r,G.t);if(lo==null)return false;p.start=clamp(s,lo,PARKS[r.pk].close*60-LL_WIN);p.end=p.start+LL_WIN;delete G.LL.rem['go'+p.id];delete G.LL.rem['end'+p.id];return true}
+function llCancel(p){if(p.type!=='mp')return;p.st='cancelled';}
+function llBuy(kind,pk){const L=G.LL;if(kind==='mp'&&!L.mp){L.mp=pk;L.spent+=llPrice(LL_MP_PRICE[pk],G.pf[pk])}if(kind==='prem'&&!L.premier){L.premier=pk;L.spent+=llPrice(LL_PREM_PRICE[pk],G.pf[pk])}}
+// What you'd use at this ride: a booking, a Premier Pass use, or a Multiple Experience Pass
+function llUse(r){if(!r.ll)return null;const p=llPassFor(r);if(p)return{kind:'pass',p};if(G.LL.premier===r.pk&&!G.LL.premUsed[r.id])return{kind:'prem'};const m=llMepFor(r);if(m)return{kind:'mep',p:m};return null}
+function llUseOK(u,r,t){if(!u)return false;if(u.kind==='pass'){const w=llWinState(u.p,t);return w==='open'||w==='grace'}return parkOpenPublic(r.pk,t)}
+function llTap(u,r,t){const L=G.LL;L.used++;if(u.kind==='prem'){L.premUsed[r.id]=1;return}if(u.kind==='mep'){u.p.st='mepused';u.p.usedAt=t;u.p.usedOn=r.id;return}
+  u.p.st='used';u.p.usedAt=t;if(u.p.type==='mp'&&!L.tapped){L.tapped=true;setTimeout(()=>llToast('First tap-in done · you can now book Lightning Lanes in any park and any group, one at a time',null),1200)}}
+function llCanBookAny(t){if(!G.LL.mp||llHeld().length>=3)return false;return RIDES.some(r=>r.llType==='mp'&&llCanBook(r,t).ok)}
+// Booking recommendations: minutes saved at the return time × how much the ride is worth to you,
+// discounted for hopping parks or far-off returns, flagged when return times are slipping or selling out.
+function llRecs(t,all,type){const st=effectiveStart(),D=dijkstra(st.node,t/60),here=currentPark(),out=[];
+  for(const r of RIDES){if(r.llType!==(type||'mp'))continue;const c=llCanBook(r,t);if(!c.ok)continue;const ret=c.ret,P=PARKS[r.pk];
+    const sb=waitAt(r,Math.min(ret+30,P.close*60-1)),save=Math.max(0,sb-8),cnt=G.ridden.filter(x=>x===r.id).length;
+    let score=save*(r.thrill+4)*Math.pow(0.45,cnt);const other=r.pk!==here,delay=ret-t;if(other)score*=0.6;score*=delay>240?0.6:delay>150?0.8:1;
+    const later=llNext(r,t+30),why=[];if(later==null||llSell(r)*60-t<60)why.push('sells out soon');else if(later-ret>=35)why.push('return times slipping fast');
+    if(delay<=20)why.push('ride it right away');if(other)why.push('in '+P.short);
+    out.push({r,ret,sb,save,score,why,away:D.dist[NI[r.nodeId]]})}
+  out.sort((a,b)=>b.score-a.score);return all?out:out.slice(0,3)}
+function llTips(t){const L=G.LL,held=llHeld().sort((a,b)=>a.start-b.start),tips=[];
+  if(!L.mp&&!L.premier)return['No Multi Pass today. Buy one below, or stick to standby and rope drop.'];
+  if(L.mp&&!L.tapped&&held.length)tips.push(`Tap into your earliest booking (${llR(held[0]).short} at ${fmtClock(held[0].start)}) to unlock booking in any park and group.`);
+  if(L.mp&&held.length>=3&&L.tapped)tips.push(`Your next booking opens when you use ${llR(held[0]).short} (window starts ${fmtClock(held[0].start)}).`);
+  if(L.mp&&held.length<3)tips.push('Book the earliest return you can live with. The sooner you tap in, the sooner you can book the next one.');
+  return tips}
+let llClock=0;
+function llTick(dt){llClock-=dt;if(llClock>0)return;llClock=2;const L=G.LL,t=G.t;
+  for(const p of L.passes){if(p.st!=='active')continue;const r=llR(p);
+    if(t>p.end+LL_LATE){p.st='expired';llToast(`Missed your ${r.short} window. That booking expired and its slot is free again`,'miss'+p.id)}
+    else if(t>=p.start&&t<=p.end&&rideState(r,t)==='down'){p.st='mep';p.mepOpts=RIDES.filter(x=>x.pk===r.pk&&x.llType==='mp'&&x!==r).map(x=>x.id);llToast(`${r.short} broke down during your window. You got a Multiple Experience Pass for another ${PARKS[r.pk].short} Lightning Lane today`,'mep'+p.id)}}
+  const tgt=G.segs&&G.segs.length?G.segs[G.segs.length-1].ride:null,act=L.passes.filter(p=>p.st==='active');
+  if(act.length){const D=dijkstra(effectiveStart().node,t/60);
+    for(const p of act){const r=llR(p);if(tgt===r)continue;const eta=D.dist[NI[r.nodeId]];
+      if(t>=p.start-eta-10&&t<p.end&&!L.rem['go'+p.id]){L.rem['go'+p.id]=1;llToast(`Time to head to ${r.short} · window ${fmtClock(p.start)}–${fmtClock(p.end)} · ${fmtDur(eta)} away`,null,true)}
+      if(t>=p.end-15&&t<p.end&&!L.rem['end'+p.id]){L.rem['end'+p.id]=1;llToast(`${r.short} window ends ${fmtClock(p.end)}. Tap points usually allow about an hour late, but don't count on it`)}}}
+  const can=llCanBookAny(t);
+  if(can&&L.canWas===false){const rec=llRecs(t)[0];llToast(`You can book another Lightning Lane${rec?` · best now: ${rec.r.short} at ${fmtClock(rec.ret)}`:''}`);L.lastNudge=t}
+  else if(can&&t-L.lastNudge>=60&&L.canWas!==null){const rec=llRecs(t)[0];if(rec){llToast(`Open Lightning Lane slot · ${rec.r.short} returns ${fmtClock(rec.ret)}${rec.why.length?' · '+rec.why[0]:''}`);L.lastNudge=t}}
+  L.canWas=can}
+// Pre-booked plan for a date (start screen), kept on this phone so a real-day plan survives a reload
+const LL_KEY='wdwsim.ll.';
+function llLoadPlan(date){try{const s=localStorage.getItem(LL_KEY+date);if(s)return JSON.parse(s)}catch(e){}return{mp:null,picks:[],sp:[],prem:null}}
+function llSavePlan(date,plan){try{localStorage.setItem(LL_KEY+date,JSON.stringify(plan))}catch(e){}}
+function llFromPlan(plan){const L=llFresh();L.mp=plan.mp||null;L.premier=plan.prem||null;
+  if(L.mp){L.spent+=llPrice(LL_MP_PRICE[L.mp],G.pf[L.mp]);for(const k of plan.picks||[])if(k&&RIDE_BY[k.rid])L.passes.push({id:L.nid++,rid:k.rid,type:'mp',start:k.start,end:k.start+LL_WIN,st:'active',pre:true})}
+  for(const k of plan.sp||[])if(k&&RIDE_BY[k.rid]){L.passes.push({id:L.nid++,rid:k.rid,type:'sp',start:k.start,end:k.start+LL_WIN,st:'active',pre:true});L.spent+=llPrice(LL_SP_PRICE[k.rid],G.pf[RIDE_BY[k.rid].pk])}
+  if(L.premier)L.spent+=llPrice(LL_PREM_PRICE[L.premier],G.pf[L.premier]);return L}
+// Rule check for a pre-booked plan: returns a list of problems (empty = valid)
+function llPlanErrors(plan,HR){const errs=[];const picks=(plan.picks||[]).filter(k=>k&&k.rid);
+  if(plan.mp){const P=HR.parks[plan.mp];if(picks.length>3)errs.push('Multi Pass pre-books at most 3 rides.');
+    const ids=picks.map(k=>k.rid);if(new Set(ids).size<ids.length)errs.push('Each ride can only be booked once.');
+    if(picks.filter(k=>RIDE_BY[k.rid].tier===1).length>1)errs.push(`Only one Group 1 ride can be pre-booked at ${PARKS[plan.mp].short}.`);
+    for(const k of picks){if(RIDE_BY[k.rid].pk!==plan.mp)errs.push(`${RIDE_BY[k.rid].short} isn't in ${PARKS[plan.mp].short}.`);if(k.start<P.open*60||k.start>P.close*60-LL_WIN)errs.push(`${RIDE_BY[k.rid].short}'s window is outside park hours.`)}
+    for(let i=0;i<picks.length;i++)for(let j=i+1;j<picks.length;j++){const ov=LL_WIN-Math.abs(picks[i].start-picks[j].start);if(ov>LL_OVERLAP)errs.push(`${RIDE_BY[picks[i].rid].short} and ${RIDE_BY[picks[j].rid].short} windows overlap by ${ov} min (20 max). Space them 40+ min apart.`)}}
+  const sp=(plan.sp||[]).filter(k=>k&&k.rid);if(sp.length>2)errs.push('Single Pass limit is 2 a day.');if(sp.length===2&&sp[0].rid===sp[1].rid)errs.push('Your two Single Passes must be different rides.');
+  for(const k of sp){const P=HR.parks[RIDE_BY[k.rid].pk];if(k.start<P.open*60||k.start>P.close*60-LL_WIN)errs.push(`${RIDE_BY[k.rid].short}'s window is outside park hours.`)}
+  return errs}
+// Suggested pre-books for a park: the most valuable Group 1 + two Group 2 (any three at AK), placed in
+// staggered early windows (40 min apart) so you tap in early and start booking more.
+function llSuggest(pk,HR){const P=HR.parks[pk],open=P.open*60;const peak=r=>{let m=0;for(let h=P.open;h<P.close;h++)m=Math.max(m,curveAt(r,h*60+30));return m*(r.thrill+4)};
+  const pool=RIDES.filter(r=>r.pk===pk&&r.llType==='mp').sort((a,b)=>peak(b)-peak(a));
+  let pick=pk==='AK'?pool.slice(0,3):[pool.find(r=>r.tier===1),...pool.filter(r=>r.tier===2).slice(0,2)].filter(Boolean);
+  const slots=[open+30,open+70,open+110];let best=null,bs=-1;
+  const perm=a=>a.length<=1?[a]:a.flatMap((x,i)=>perm(a.filter((_,j)=>j!==i)).map(p=>[x,...p]));
+  for(const o of perm(pick)){const s=o.reduce((a,r,i)=>a+curveAt(r,slots[i]+30)*(r.thrill+4),0);if(s>bs){bs=s;best=o}}
+  return (best||[]).map((r,i)=>({rid:r.id,start:slots[i]}))}
 function edgeCost(e,h){
   switch(e.type){
     case 'walk':return e.d/(e.inPark?WALK_PARK:WALK_OUT)*(e.inPark?1+0.4*busy(h):1)+(e.entry||0);
@@ -999,9 +1130,9 @@ function sampleWait(L){const b=busy(G.t/60);switch(L.mode){
   default:return rnd(1,L.headway)}}
 function go(r,useLL){
   if(G.over)return;const plan=planTo(r,useLL);if(!plan.st.can)return;
+  const use=useLL?llUse(r):null;if(useLL&&!use)return;useLL=!!use;
   if(plan.st.leaveLine){addMood(-3,'Gave up on that line')}
-  if(useLL){G.passes--;G.llUsed[r.id]=true;G.llUses++}
-  G.segs=buildSegs(plan,r,useLL);G.seg=0;G.tripEnd=NI[r.nodeId];
+  G.segs=buildSegs(plan,r,useLL);G.seg=0;G.tripEnd=NI[r.nodeId];if(use)G.segs.find(x=>x.k==='queue').use=use;
   G.trip={start:G.t,est:plan.eta,ride:r,ll:useLL};showTrip(G.segs);closeSheet();setFollow(true);
   toast(`Heading to ${r.name}${useLL?' with Lightning Lane':''} · about ${fmtDur(plan.eta)} to get there`)}
 let tripLine=null;const tripMat=new THREE.MeshBasicMaterial({color:0xffcf3d,transparent:true,opacity:0.62,depthTest:false,depthWrite:false,side:THREE.DoubleSide});
@@ -1016,8 +1147,14 @@ function startSeg(s){
   if(s.k==='gate')sayBubble('Bag check');
   if(s.k==='queue'){const r=s.ride,t=G.t,st=rideState(r,t);
     if(st==='closed'){s.abort=true;G.node=NI[r.nodeId];addMood(-12,`${PARKS[r.pk].name} is closed for the night`);return}
-    if(st==='down'){s.abort=true;G.node=NI[r.nodeId];addMood(-10,`${r.name} is temporarily down!`);sayBubble('Noooo');return}
-    if(s.ll){s.dur=Math.round(rnd(4,11));sayBubble('Skipping the line!')}
+    if(st==='down'){s.abort=true;G.node=NI[r.nodeId];const u=s.use;if(u&&u.kind==='pass'&&u.p.st==='active'&&llWinState(u.p,t)!=='early'){u.p.st='mep';u.p.mepOpts=RIDES.filter(x=>x.pk===r.pk&&x.llType==='mp'&&x!==r).map(x=>x.id);setTimeout(()=>llToast(`You got a Multiple Experience Pass for another ${PARKS[r.pk].short} Lightning Lane today`),900)}addMood(-10,`${r.name} is temporarily down!`);sayBubble('Noooo');return}
+    if(s.ll){const u=s.use;let pre=0;
+      if(u&&u.kind==='pass'){const w=llWinState(u.p,t);
+        if(u.p.st!=='active'){s.abort=true;G.node=NI[r.nodeId];addMood(-4,'That Lightning Lane booking is no longer valid');return}
+        if(w==='early'){pre=u.p.start-LL_EARLY-t;if(pre>20){s.abort=true;G.node=NI[r.nodeId];addMood(-4,`Too early: your ${r.short} window opens ${fmtClock(u.p.start)}`);sayBubble('Too early!');return}}
+        if(w==='late'){u.p.st='expired';s.abort=true;G.node=NI[r.nodeId];addMood(-6,`Your ${r.short} window has passed`);return}}
+      else if(u&&!parkOpenPublic(r.pk,t)){s.abort=true;G.node=NI[r.nodeId];addMood(-4,'Lightning Lane only runs during regular park hours');return}
+      llTap(u,r,t);s.dur=Math.round(pre+rnd(4,11));sayBubble(pre>0?'Waiting for my window':'Skipping the line!')}
     else{s.dur=rawWait(r,t);if(st==='early'){s.dur=(accessOpen(r.pk)-t)+rawWait(r,accessOpen(r.pk));sayBubble(PARKS[r.pk].ee!=null?'Early Entry!':'Rope drop!')}else sayBubble(s.dur>=60?'This line…':'Into the queue')}}
   if(s.k==='onride'){sayBubble(s.ride.thrill>=8?'Wheee!':'Ooh!')}
 }
@@ -1029,7 +1166,6 @@ function endSeg(s){
     G.ridden.push(r.id);G.score+=Math.round(joy);G.node=NI[r.nodeId];
     const actual=G.trip?G.t-G.trip.start-r.dur:0;let msg=`${r.short} done · ${fmtDur(actual)} to get on`;
     addMood(Math.round(joy),msg);
-    if(G.trip&&G.trip.ll&&G.passes===0){G.passes=1;setTimeout(()=>toast('You can book one more Lightning Lane'),900)}
     G.trip=null;G.tripEnd=null}
   if(s.k==='snack'){toast('Recharged with a snack')}
   G.seg++;if(G.seg>=G.segs.length){G.segs=null}}
@@ -1071,11 +1207,12 @@ let qTimer=0,downTimer=0,lastWaitKey='';
 function periodic(dt){qTimer-=dt;downTimer-=dt;
   if(downTimer<=0){downTimer=10;for(const r of RIDES){if(rideState(r,G.t)==='open'&&Math.random()<(r.thrill>=6?0.018:0.008)){r.downUntil=G.t+rnd(15,55)}}}
   if(qTimer<=0){qTimer=3;rebuildQueues();refreshPins()}
+  llTick(dt);
   const closeAll=lastClose();if(G.t>=closeAll&&!G.over)endDay()}
 function waitClass(w){return w<=20?'g':w<=40?'m':w<=65?'o':'b'}
 const WCOL={g:0x4fd18d,m:0xe6d35b,o:0xf6a347,b:0xf2665f,x:0x6b7489};
 function refreshPins(){for(const r of RIDES){const st=rideState(r,G.t),w=st==='open'?rawWait(r,G.t):0,c=st==='open'?waitClass(w):'x';r.head.material.color.setHex(WCOL[c]);
-  if(r.lbl){r.lblW.className='w '+c;r.lblW.textContent=st==='open'?w:st==='down'?'Down':st==='early'?'Soon':'Closed';r.lblLL.hidden=!llAvail(r,G.t)}}}
+  if(r.lbl){r.lblW.className='w '+c;r.lblW.textContent=st==='open'?w:st==='down'?'Down':st==='early'?'Soon':'Closed';r.lblLL.hidden=!llUse(r)}}}
 
 // ================= SKY / FIREWORKS =================
 const SKY=[[5,0x141c33],[7,0xb4cfe8],[8.5,0xbfe3ff],[16.5,0xb3dcff],[18,0xf6b878],[19,0x8a64a6],[20,0x1d2654],[24,0x0a1128]];
@@ -1136,7 +1273,7 @@ function updateHUD(){
   $('#clockT').textContent=fmtClock(G.t);$('#clockS').textContent=nextOpenText();
   const m=Math.round(G.mood);$('#moodNum').textContent=m;$('#moodWord').textContent=moodWord(m);$('#moodBar').style.width=m+'%';$('#moodBar').style.setProperty('--bw',(10000/Math.max(m,1))+'%');
   const fk=Math.round(m/5);if(fk!==hudT){hudT=fk;$('#moodFace').innerHTML=faceSVG(m);meFace.innerHTML=faceSVG(m)}
-  $('#llN').textContent=G.passes;
+  {const act=G.LL.passes.filter(p=>p.st==='active').sort((a,b)=>a.start-b.start);$('#llN').textContent=act.length;$('#llS').textContent=act.length?fmtClock(act[0].start).replace(/ [AP]M/,''):G.LL.mp||G.LL.premier?'LL':'none'}
   const s=G.segs&&G.segs[G.seg];let txt='',eta='';
   if(!s){const n=NODES[G.node];txt=`At ${n.ride?n.ride.short:n.label}. Pick your next ride.`}
   else{const tgt=G.segs[G.segs.length-1].ride;
@@ -1155,12 +1292,12 @@ function updateHUD(){
 
 // ================= SHEETS =================
 const sheet=$('#sheet'),sheetIn=$('#sheetIn');let sheetTab=null,wasSpeed=1;
-function openSheet(html){sheetIn.innerHTML=html;sheet.hidden=false;if(!G.sheetPaused){G.sheetPaused=true}sheetIn.querySelector('.x').onclick=closeSheet}
+function openSheet(html){sheetIn.innerHTML=html;sheet.hidden=false;if(!G.sheetPaused){G.sheetPaused=true}sheetIn.querySelectorAll('.x').forEach(x=>x.onclick=closeSheet)}
 function closeSheet(){sheet.hidden=true;G.sheetPaused=false}
 function currentPark(){const st=effectiveStart();const n=NODES[st.node];if(n.park)return n.park;if(n.outside)return n.outside;
   let best='MK',bd=Infinity;for(const pk in PARKS){const P=PARKS[pk],d=Math.hypot(n.x-P.c[0],n.z-P.c[1]);if(d<bd){bd=d;best=pk}}return best}
 function rideRowMeta(r,D,st){const eta=D.dist[NI[r.nodeId]];const s=rideState(r,G.t+eta);const parts=[`${fmtDur(eta)} away`];
-  if(llAvail(r,G.t))parts.push('<span class="tag ll">LL</span>');else if(r.ll&&G.t/60>=llSell(r))parts.push('<span class="tag so">LL sold out</span>');
+  parts.push(llTagHTML(r));
   if(rideState(r,G.t)==='down')parts.push('<span class="tag dn">Down</span>');if(G.ridden.includes(r.id))parts.push('<span class="tag rd">Ridden</span>');return{eta,s,meta:parts.join('')}}
 function parkHoursHTML(pk){const P=PARKS[pk];if(!P.events)return '';const parts=[`<b>${fmtClock(P.open*60)} – ${fmtClock(P.close*60)}</b>`,`Early Entry ${fmtClock(P.ee*60)}`];if(P.party)parts.push(`<span style="color:var(--warn)">${P.party} tonight · closes early to day guests</span>`);if(P.eeh)parts.push(`<span style="color:var(--ll)">Extended Evening ${fmtClock(P.eeh.from*60)}–${fmtClock(P.eeh.to*60)}${G.deluxe?' (you’re eligible)':' (deluxe hotels only)'}</span>`);const ev=P.events.map(e=>`${e.n} ${fmtClock(e.t*60)}`).join(' · ');return `<div class="parkhrs">${parts.join(' · ')}${ev?'<br>'+ev:''}${G.hours&&G.hours.estimated?'<br><i>Estimated from the usual pattern; Disney posts hours about 2 months ahead.</i>':''}</div>`}
 function openRides(pk){sheetTab=pk||sheetTab||currentPark();const st=effectiveStart(),D=dijkstra(st.node,G.t/60);
@@ -1180,7 +1317,7 @@ function stepsHTML(plan,r,useLL){const out=[];let walk=0;const flush=()=>{if(wal
   out.push(['fun','★',`Ride ${r.short}`,r.dur]);
   return `<ul class="steps">${out.map(s=>`<li><span class="ic ${s[0]}">${s[1]}</span><span>${s[2]}</span><span class="tm">${fmtDur(s[3])}</span></li>`).join('')}</ul>`}
 function curveHTML(r){const P=PARKS[r.pk];const pts=[];for(let h=P.open;h<P.close;h++)pts.push({h,w:waitAt(r,h*60+30)});const mx=Math.max(...pts.map(p=>p.w),10);const lo=pts.reduce((a,b)=>b.w<a.w?b:a);const hi=pts.reduce((a,b)=>b.w>a.w?b:a);const nowH=Math.floor(G.t/60);const fmtH=h=>{const x=h%12||12;return x+(h<12?'a':'p')};return liveLineHTML(r)+`<p class="note" style="margin-bottom:0"><b>${liveUse(r)&&liveUse(r).open?'Standby today (live-adjusted)':'Typical standby today'}</b> · peaks near ${hi.w}m around ${fmtH(hi.h)}, lowest about ${lo.w}m around ${fmtH(lo.h)}</p><div class="curve" role="img" aria-label="Hourly standby forecast">${pts.map(p=>`<i class="${p.h===nowH?'now':p.h===lo.h?'lo':''}" style="height:${Math.round(p.w/mx*100)}%" title="${fmtH(p.h)} ${p.w}m"></i>`).join('')}</div><div class="curvex"><span>${fmtH(P.open)}</span><span>${fmtH(Math.round((P.open+P.close)/2))}</span><span>${fmtH(P.close)}</span></div>`}
-function openRide(r){const plan=planTo(r,false),now=rideState(r,G.t),llOK=llAvail(r,G.t),why=llWhyNot(r,G.t),closedAtArr=plan.state==='closed';
+function openRide(r){const plan=planTo(r,false),now=rideState(r,G.t),closedAtArr=plan.state==='closed',LB=llRideBlock(r,plan);
   const nowW=now==='open'?rawWait(r,G.t)+'m':now==='down'?'Down':now==='early'?'—':'Closed';
   const totS=plan.eta+plan.wait+r.dur,totL=plan.eta+plan.llWait+r.dur;
   openSheet(`<div class="sh"><button class="x" aria-label="Back" style="font-size:15px" data-back>‹</button><h2>${r.name}</h2><button class="x" aria-label="Close">×</button></div>
@@ -1192,23 +1329,134 @@ function openRide(r){const plan=planTo(r,false),now=rideState(r,G.t),llOK=llAvai
   ${curveHTML(r)}
   <p class="note">Standby total about <b>${fmtDur(totS)}</b>${r.ll?` · with Lightning Lane about <b>${fmtDur(totL)}</b>`:''}. ${r.kind==='show'?'This is a show, so the wait is mostly until the next performance.':`Thrill ${r.thrill}/10 · ride time ${r.dur} min.`}</p>
   <div class="go"><button class="btn pri" id="goS" ${!plan.st.can||closedAtArr?'disabled':''}>Go · standby</button>
-  ${r.ll?`<button class="btn ll" id="goL" ${!plan.st.can||!llOK||closedAtArr?'disabled':''}>${llOK?`Go · Lightning Lane (saves ~${fmtDur(Math.max(0,plan.wait-plan.llWait))})`:why}</button>`:''}
+  ${LB.html}
   <button class="btn" id="goCam">Show on map</button></div></div>`);
   sheetIn.querySelector('[data-back]').onclick=()=>openRides(r.pk);
-  const gs=$('#goS');if(gs)gs.onclick=()=>go(r,false);const gl=$('#goL');if(gl)gl.onclick=()=>go(r,true);
+  const gs=$('#goS');if(gs)gs.onclick=()=>go(r,false);LB.bind();
   $('#goCam').onclick=()=>{closeSheet();setFollow(false);flyTo(r.x,r.z,260)}}
 function openPicks(){const st=effectiveStart(),D=dijkstra(st.node,G.t/60);const rows=[];
   for(const r of RIDES){const eta=D.dist[NI[r.nodeId]];const arr=G.t+eta,s=rideState(r,arr);if(s==='closed'||rideState(r,G.t)==='down')continue;
     const wait=s==='early'?rawWait(r,accessOpen(r.pk))+(accessOpen(r.pk)-arr):rawWait(r,arr);const cnt=G.ridden.filter(x=>x===r.id).length;
-    let val=(4+r.thrill*1.6+r.base/12)*Math.pow(0.55,cnt);const sS=val/(eta+wait+r.dur+15)*60;const ll=llAvail(r,G.t);const sL=ll?val/(eta+7+r.dur+15)*60:0;
+    let val=(4+r.thrill*1.6+r.base/12)*Math.pow(0.55,cnt);const sS=val/(eta+wait+r.dur+15)*60;const ll=llUseOK(llUse(r),r,arr);const sL=ll?val/(eta+7+r.dur+15)*60:0;
     rows.push({r,eta,wait,sS,sL,ll,best:Math.max(sS,sL*0.8),save:wait-7})}
   rows.sort((a,b)=>b.best-a.best);const top=rows.slice(0,7);
-  const llc=rows.filter(x=>x.ll).sort((a,b)=>(b.save*(b.r.thrill+4))-(a.save*(a.r.thrill+4)))[0];
+  const recs=llCanBookAny(G.t)?llRecs(G.t):[],nx=G.LL.passes.filter(p=>p.st==='active').sort((a,b)=>a.start-b.start)[0];
+  let llc='';if(nx){const r=llR(nx),eta=D.dist[NI[r.nodeId]];llc=`<b>Next Lightning Lane:</b> ${r.name} ${fmtClock(nx.start)}–${fmtClock(nx.end)} · ${fmtDur(eta)} away${nx.start-eta>G.t?` · leave by ${fmtClock(nx.start-eta)}`:''}.`}
+  if(recs[0])llc+=`${llc?'<br>':''}<b>Book next:</b> ${recs[0].r.name} returns ${fmtClock(recs[0].ret)}, standby then ~${recs[0].sb}m${recs[0].why.length?' ('+recs[0].why[0]+')':''}.`;
+  if(!llc)llc=llTips(G.t)[0]||'';
   openSheet(`<div class="sh"><h2>Top picks from here</h2><span class="paused">Clock paused</span><button class="x" aria-label="Close">×</button></div><div class="sb">
-  ${llc&&G.passes>0?`<div class="callout"><b>Best Lightning Lane right now:</b> ${llc.r.name}. Standby there will be about ${fmtDur(llc.wait)} when you arrive, so a pass saves roughly ${fmtDur(llc.save)}.</div>`:G.passes>0?'':'<div class="callout">No Lightning Lane passes left. Ride one you booked and a new one opens up.</div>'}
+  ${llc?`<div class="callout">${llc}</div>`:''}<button class="btn ll" id="pkLL" style="width:100%;margin-bottom:6px">Manage Lightning Lanes</button>
   <div class="list">${top.map((x,i)=>`<button class="pick" data-id="${x.r.id}"><span class="rk">${i+1}</span><span><span class="n" style="font-weight:700">${x.r.name}</span><br><span style="font-size:12px;color:var(--muted)">${fmtDur(x.eta)} away · ${fmtDur(x.wait)} standby${x.ll&&x.sL*0.8>x.sS?' · <span style="color:var(--ll)">use LL</span>':''}</span></span><span class="sc">${Math.round(x.best)}<small>fun/hr</small></span></button>`).join('')}</div>
   <p class="note">Fun per hour weighs thrill and popularity against travel, the line, and the ride itself. Rides you've already done count for less.</p></div>`);
-  sheetIn.querySelectorAll('.pick').forEach(b=>b.onclick=()=>openRide(RIDE_BY[b.dataset.id]))}
+  sheetIn.querySelectorAll('.pick').forEach(b=>b.onclick=()=>openRide(RIDE_BY[b.dataset.id]));$('#pkLL').onclick=()=>{llView.confirm=null;openLL()}}
+
+// ================= LIGHTNING LANE UI =================
+function llTagHTML(r){if(!r.ll)return '';const p=llPassFor(r);if(p)return `<span class="tag ll">⚡ ${fmtClock(p.start)}</span>`;const u=llUse(r);if(u)return `<span class="tag ll">⚡ ${u.kind==='prem'?'Premier':'MEP'}</span>`;
+  const c=llCanBook(r,G.t);if(c.ok)return `<span class="tag ll">LL ${fmtClock(c.ret)}</span>`;if(c.why==='Sold out for today')return '<span class="tag so">LL sold out</span>';return ''}
+function llToast(text,key,slow){const L=G.LL;if(key){if(L.rem[key])return;L.rem[key]=1}
+  const el=document.createElement('div');el.className='toast ll';el.innerHTML=`<span>${text}</span>`;el.onclick=()=>{if(G.started&&!G.over){llView.confirm=null;openLL()}};
+  const box=$('#toasts');box.appendChild(el);while(box.children.length>3)box.firstChild.remove();setTimeout(()=>el.remove(),6500);
+  if(slow&&G.speed>1){const b=$('#speedSeg [data-s="1"]');if(b)b.click()}}
+function llRideBlock(r,plan){const none={html:'',bind:()=>{}};if(!r.ll)return none;
+  const u=llUse(r),arr=plan.arr,canGo=plan.st.can&&plan.state!=='closed',save=Math.max(0,plan.wait-plan.llWait);let html='',nowOK=false;
+  if(u){if(u.kind==='pass'){const p=u.p,w=llWinState(p,arr),win=`${fmtClock(p.start)}–${fmtClock(p.end)}`;
+      if(w==='open'||w==='grace')html=`<button class="btn ll" id="goL" ${canGo?'':'disabled'}>Go · Lightning Lane ${win} (saves ~${fmtDur(save)})</button>${w==='grace'?'<p class="note">You\'d get there after the window ends. Tap points usually still take you up to an hour late.</p>':''}`;
+      else if(w==='early')html=`<button class="btn ll" disabled>Your window is ${win} · leave by ${fmtClock(p.start-plan.eta)}</button>`;
+      else html=`<button class="btn ll" disabled>Your ${win} window has passed</button>`;
+      html+=`<button class="btn" id="llMine">Change time${p.type==='mp'?', swap or cancel':''}</button>`}
+    else html=`<button class="btn ll" id="goL" ${canGo&&llUseOK(u,r,arr)?'':'disabled'}>Go · ${u.kind==='prem'?'Premier Pass':'Multiple Experience Pass'} (saves ~${fmtDur(save)})</button>`}
+  else{const c=llCanBook(r,G.t);
+    if(c.ok){nowOK=c.ret-LL_EARLY<=arr;const price=r.llType==='sp'?` · ≈$${llPrice(LL_SP_PRICE[r.id],G.pf[r.pk])}`:'';
+      html=`<button class="btn ll" id="llBook">${nowOK&&canGo?'Book & go':'Book'} · Lightning Lane ${fmtClock(c.ret)}–${fmtClock(c.ret+LL_WIN)}${price}</button><p class="note">${llGroupName(r)} · ${r.llType==='mp'?`you hold ${llHeld().length} of 3`:`${llSps().length} of 2 Single Passes bought today, no refunds`}. ${nowOK?'The window is open by the time you get there.':`The window opens ${fmtDur(c.ret-G.t)} from now; standby then is about ${waitAt(r,Math.min(c.ret+30,PARKS[r.pk].close*60-1))}m.`}</p>`}
+    else if(c.buy)html=`<button class="btn ll" id="llMine">No Multi Pass today · buy one</button>`;
+    else html=`<button class="btn ll" disabled>${c.why}</button>`}
+  return{html,bind:()=>{const gl=$('#goL');if(gl)gl.onclick=()=>go(r,true);const lm=$('#llMine');if(lm)lm.onclick=()=>{llView.confirm=null;openLL()};
+    const lb=$('#llBook');if(lb)lb.onclick=()=>{const res=llBook(r,G.t);if(!res.ok){toast(res.why);return}
+      if(nowOK&&canGo&&llUseOK(llUse(r),r,planTo(r,true).arr))go(r,true);else{toast(`Booked ${r.short} · ${fmtClock(res.p.start)}–${fmtClock(res.p.end)}`);openRide(r)}}}}}
+let llView={all:false,confirm:null};
+function llPassRow(p,D,t){const r=llR(p),win=`${fmtClock(p.start)}–${fmtClock(p.end)}`;let meta='',btns='';const b=(a,txt,cls)=>`<button class="btn sm${cls?' '+cls:''}" data-a="${a}" data-p="${p.id}">${txt}</button>`;
+  if(p.st==='active'){const eta=D.dist[NI[r.nodeId]],w=llWinState(p,t);
+    meta=w==='early'?`opens in ${fmtDur(p.start-t)} · ${fmtDur(eta)} away · leave by ${fmtClock(p.start-eta)}`:w==='open'?`<b style="color:var(--good)">open now</b> · ${fmtDur(eta)} away`:`window ended · grace until about ${fmtClock(p.end+LL_LATE)}`;
+    btns=b('go','Go','ll')+b('time','Change time')+(p.type==='mp'?b('swap','Swap ride')+b('cancel',llView.confirm===p.id?'Tap again to cancel':'Cancel'):'')}
+  else if(p.st==='mep'){meta=`ride broke down · use this on any other ${PARKS[r.pk].short} Multi Pass ride today`;btns=b('mep','Pick a ride','ll')}
+  else if(p.st==='used')meta=`used at ${fmtClock(p.usedAt)}`;
+  else if(p.st==='mepused')meta=`Multiple Experience Pass used on ${RIDE_BY[p.usedOn].short}`;
+  else if(p.st==='expired'){meta='missed · expired';if(p.type==='mp')btns=b('cancel',llView.confirm===p.id?'Tap again to remove':'Remove (lets you rebook it)')}
+  const tag=p.st==='mep'||p.st==='mepused'?'MEP':p.type==='sp'?'Single':llGroupName(r);
+  return `<div class="llp ${p.st}"><div class="n">${r.name} <span class="tag ll">${tag}</span></div><div class="m">${win} · ${meta}</div>${btns?`<div class="row llb">${btns}</div>`:''}</div>`}
+function openLL(){const L=G.LL,t=G.t,D=dijkstra(effectiveStart().node,t/60),held=llHeld();
+  const order={active:0,mep:1,used:2,mepused:2,expired:3};const ps=L.passes.filter(p=>p.st!=='cancelled').sort((a,b)=>order[a.st]-order[b.st]||a.start-b.start);
+  const status=[L.mp?`<b>Multi Pass · ${PARKS[L.mp].short}</b> · holding ${held.length} of 3 · ${L.tapped?'book any park, any group':`until your first tap-in: ${PARKS[L.mp].short} only${L.mp==='AK'?'':', one Group 1'}`}`:'<b>No Multi Pass</b>',
+    `Single Pass ${llSps().length} of 2`,L.premier?`<b>Premier Pass · ${PARKS[L.premier].short}</b> · ${Object.keys(L.premUsed).length} of ${RIDES.filter(r=>r.pk===L.premier&&r.ll).length} used`:''].filter(Boolean).join('<br>');
+  const tips=llTips(t);let book='';
+  if(L.mp){if(llCanBookAny(t)){const recs=llRecs(t,llView.all);
+      book=`<h3>Book next${llView.all?'':' · top picks'}</h3>`+recs.map((x,i)=>`<div class="llp"><div class="n">${!llView.all&&i===0?'★ ':''}${x.r.name}</div><div class="m">returns ${fmtClock(x.ret)} · standby then ~${x.sb}m · saves ~${fmtDur(x.save)}${x.why.length?` · <span style="color:var(--warn)">${x.why.join(' · ')}</span>`:''}</div><div class="row llb"><button class="btn sm ll" data-a="book" data-r="${x.r.id}">Book ${fmtClock(x.ret)}</button><button class="btn sm" data-a="ride" data-r="${x.r.id}">Details</button></div></div>`).join('')+`<button class="btn sm" data-a="all" style="margin-top:8px">${llView.all?'Show top picks':'Show every ride you can book'}</button>`}
+    else book=`<h3>Book next</h3><p class="note">${held.length>=3?(L.tapped?'You hold 3. Use one and you can book again.':'You hold 3. Tap into one and you can book more.'):'Nothing left you can book right now.'}</p>`}
+  else book=`<h3>Buy Multi Pass</h3><p class="note">Day-of purchase. Until your first tap-in you hold up to 3 in that park, one from Group 1.</p><div class="row" style="flex-wrap:wrap">${['MK','EP','HS','AK'].map(k=>`<button class="btn sm ll" data-a="buymp" data-k="${k}">${PARKS[k].short} ≈$${llPrice(LL_MP_PRICE[k],G.pf[k])}</button>`).join('')}</div>`;
+  const spR=RIDES.filter(r=>r.llType==='sp'&&!L.passes.some(p=>p.rid===r.id));
+  const sp=`<h3>Single Pass <small>${llSps().length} of 2 today · pay per ride</small></h3>`+(llSps().length>=2?'<p class="note">You\'ve used your 2 Single Passes for today.</p>':spR.map(r=>{const c=llCanBook(r,t);return `<div class="llp"><div class="n">${r.name}</div><div class="m">${c.ok?`next ${fmtClock(c.ret)} · standby then ~${waitAt(r,Math.min(c.ret+30,PARKS[r.pk].close*60-1))}m · ≈$${llPrice(LL_SP_PRICE[r.id],G.pf[r.pk])}`:c.why}</div>${c.ok?`<div class="row llb"><button class="btn sm ll" data-a="book" data-r="${r.id}">Buy ${fmtClock(c.ret)}</button></div>`:''}</div>`}).join(''));
+  const prem=L.premier?'':`<details class="lld"><summary>Premier Pass</summary><p class="note">One Lightning Lane use on every ride in one park, any time, no booking.</p><div class="row" style="flex-wrap:wrap">${['MK','EP','HS','AK'].map(k=>`<button class="btn sm" data-a="buyprem" data-k="${k}">${PARKS[k].short} ≈$${llPrice(LL_PREM_PRICE[k],G.pf[k])}</button>`).join('')}</div></details>`;
+  openSheet(`<div class="sh"><h2>Lightning Lanes</h2><span class="paused">Clock paused</span><button class="x" aria-label="Close">×</button></div><div class="sb">
+  <p class="note" style="color:var(--text)">${status}</p>${tips.length?`<div class="callout">${tips.map(x=>'<b>Tip:</b> '+x).join('<br>')}</div>`:''}
+  <h3>Your bookings</h3>${ps.length?ps.map(p=>llPassRow(p,D,t)).join(''):'<p class="note">None yet.</p>'}
+  ${book}${sp}${prem}
+  <p class="note" style="margin-top:12px">1-hour return windows; tap points take you 5 min early to about an hour late. Multi Pass: each ride once a day. Single Pass: max 2 a day, no refunds. Prices are estimates. Spent today ≈$${L.spent}/person.</p></div>`);
+  sheetIn.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>{const a=b.dataset.a,p=G.LL.passes.find(x=>x.id==b.dataset.p),r=RIDE_BY[b.dataset.r];
+    switch(a){case 'go':openRide(llR(p));break;case 'time':openLLTime(p);break;case 'swap':openLLSwap(p);break;
+      case 'cancel':if(llView.confirm===p.id){llCancel(p);llView.confirm=null;toast(`${llR(p).short} booking cancelled`)}else llView.confirm=p.id;openLL();break;
+      case 'mep':openRides(llR(p).pk);break;
+      case 'book':{const res=llBook(r,G.t);toast(res.ok?`Booked ${r.short} · ${fmtClock(res.p.start)}–${fmtClock(res.p.end)}`:res.why);openLL();break}
+      case 'ride':openRide(r);break;case 'all':llView.all=!llView.all;openLL();break;
+      case 'buymp':llBuy('mp',b.dataset.k);toast(`Multi Pass for ${PARKS[b.dataset.k].short}`);openLL();break;
+      case 'buyprem':llBuy('prem',b.dataset.k);toast(`Premier Pass for ${PARKS[b.dataset.k].short}`);openLL();break}})}
+function openLLTime(p){const r=llR(p),lo=llNext(r,G.t),last=PARKS[r.pk].close*60-LL_WIN;if(lo==null){toast('No other return times left today');return}
+  const opts=[];for(let s=lo;s<=last&&opts.length<18;s+=opts.length<4?5:15)opts.push(s);
+  openSheet(`<div class="sh"><button class="x" aria-label="Back" style="font-size:15px" data-back>‹</button><h2>${r.short} · new time</h2><button class="x" aria-label="Close">×</button></div><div class="sb">
+  <p class="note">Now ${fmtClock(p.start)}–${fmtClock(p.end)}. The earliest return you can get right now is ${fmtClock(lo)}.</p>
+  <div class="list">${opts.map(s=>`<button class="ri" data-s="${s}"><span class="n">${fmtClock(s)} – ${fmtClock(s+LL_WIN)}</span><span class="m">standby then ~${waitAt(r,Math.min(s+30,PARKS[r.pk].close*60-1))}m</span><span class="w x">${s===p.start?'Now':'Pick'}</span></button>`).join('')}</div></div>`);
+  sheetIn.querySelector('[data-back]').onclick=openLL;
+  sheetIn.querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>{llRetime(p,+b.dataset.s);toast(`${r.short} moved to ${fmtClock(p.start)}–${fmtClock(p.end)}`);openLL()})}
+function openLLSwap(p){const old=llR(p),rows=RIDES.filter(r=>r.llType===p.type&&r!==old).map(r=>({r,c:llCanBook(r,G.t,p)})).filter(x=>x.c.ok).sort((a,b)=>a.c.ret-b.c.ret);
+  openSheet(`<div class="sh"><button class="x" aria-label="Back" style="font-size:15px" data-back>‹</button><h2>Swap ${old.short}</h2><button class="x" aria-label="Close">×</button></div><div class="sb">
+  <p class="note">Swapping keeps your slot. ${G.LL.tapped?'Any park, any group.':`Before your first tap-in: ${PARKS[G.LL.mp].short} only${G.LL.mp==='AK'?'':', one Group 1'}.`}</p>
+  <div class="list">${rows.length?rows.map(x=>`<button class="ri" data-r="${x.r.id}"><span class="n">${x.r.name}</span><span class="m">${PARKS[x.r.pk].short} · ${llGroupName(x.r)} · standby then ~${waitAt(x.r,Math.min(x.c.ret+30,PARKS[x.r.pk].close*60-1))}m</span><span class="w x">${fmtClock(x.c.ret).replace(/ [AP]M/,'')}</span></button>`).join(''):'<p class="note">Nothing available to swap to.</p>'}</div></div>`);
+  sheetIn.querySelector('[data-back]').onclick=openLL;
+  sheetIn.querySelectorAll('[data-r]').forEach(b=>b.onclick=()=>{const r=RIDE_BY[b.dataset.r],res=llBook(r,G.t,null,p);toast(res.ok?`Swapped to ${r.short} · ${fmtClock(p.start)}–${fmtClock(p.end)}`:res.why);openLL()})}
+// ---- pre-day planner (start screen)
+let LLP=null;
+function llSetupDate(){return inDate.value||ymd(new Date())}
+function llSumUpdate(){const pl=llLoadPlan(llSetupDate()),bits=[];const fm=k=>`${RIDE_BY[k.rid].short} ${fmtClock(k.start).replace(/ [AP]M/,'')}`;
+  if(pl.mp)bits.push(`Multi Pass ${PARKS[pl.mp].short}${(pl.picks||[]).filter(Boolean).length?': '+pl.picks.filter(Boolean).map(fm).join(', '):' (nothing booked)'}`);
+  const sp=(pl.sp||[]).filter(Boolean);if(sp.length)bits.push('Single Pass: '+sp.map(fm).join(', '));if(pl.prem)bits.push(`Premier ${PARKS[pl.prem].short}`);
+  $('#llSum').innerHTML=bits.length?bits.join('<br>'):'No passes yet. Plan them here or buy during the day.'}
+function openLLSetup(){LLP=llLoadPlan(llSetupDate());const d=parseDay(llSetupDate())||new Date();G.date=ymd(d);applyHours(d);RIDES.forEach(r=>r.seed=hash(G.date+r.id)*10);renderLLSetup();$('#llsetup').hidden=false;$('#llsetup').scrollTop=0}
+function renderLLSetup(){const d=parseDay(llSetupDate())||new Date(),HR=hoursFor(d),mult=+$('#segCrowd [aria-pressed="true"]').dataset.v,f=k=>dayFactor(k,d)*mult,P=LLP;
+  P.picks=P.picks||[];P.sp=P.sp||[];
+  const timeOpts=(pk,sel)=>{const H=HR.parks[pk];let o='';for(let s=Math.round(H.open*60);s<=H.close*60-LL_WIN;s+=5)o+=`<option value="${s}"${s===sel?' selected':''}>${fmtClock(s)}</option>`;return o};
+  const parkSeg=(key,cur)=>`<div class="seg" data-k="${key}"><button data-v="" aria-pressed="${!cur}">None</button>${['MK','EP','HS','AK'].map(k=>`<button data-v="${k}" aria-pressed="${cur===k}">${PARKS[k].short}</button>`).join('')}</div>`;
+  const o=(r,sel)=>`<option value="${r.id}"${r.id===sel?' selected':''}>${r.name}</option>`;let mpRows='',spRows='';
+  if(P.mp){const pool=RIDES.filter(r=>r.pk===P.mp&&r.llType==='mp'),g1=pool.filter(r=>r.tier===1),g2=pool.filter(r=>r.tier!==1);
+    for(let i=0;i<3;i++){const k=P.picks[i]||{};const opts='<option value="">— none —</option>'+(P.mp==='AK'?g2.map(r=>o(r,k.rid)).join(''):`<optgroup label="Group 1 (pick one)">${g1.map(r=>o(r,k.rid)).join('')}</optgroup><optgroup label="Group 2">${g2.map(r=>o(r,k.rid)).join('')}</optgroup>`);
+      mpRows+=`<div class="llrow"><select data-mp="${i}" aria-label="Multi Pass ride ${i+1}">${opts}</select><select data-mpt="${i}" aria-label="Return time ${i+1}" ${k.rid?'':'disabled'}>${k.rid?timeOpts(P.mp,k.start):'<option>time</option>'}</select></div>`}}
+  for(let i=0;i<2;i++){const k=P.sp[i]||{};spRows+=`<div class="llrow"><select data-sp="${i}" aria-label="Single Pass ${i+1}"><option value="">— none —</option>${RIDES.filter(r=>r.llType==='sp').map(r=>`<option value="${r.id}"${r.id===k.rid?' selected':''}>${r.short} (${PARKS[r.pk].short})</option>`).join('')}</select><select data-spt="${i}" aria-label="Single Pass time ${i+1}" ${k.rid?'':'disabled'}>${k.rid?timeOpts(RIDE_BY[k.rid].pk,k.start):'<option>time</option>'}</select></div>`}
+  const errs=llPlanErrors(P,HR);
+  $('#llsetIn').innerHTML=`<h1 style="font-size:28px">Lightning <span>Lanes</span></h1><p class="sub">Enter the passes you've booked for ${d.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})}, or let the sim suggest some. Saved on this phone. You can buy, add and change passes during the day too.</p>
+  <div class="fld"><label>Multi Pass park${P.mp?` · ≈$${llPrice(LL_MP_PRICE[P.mp],f(P.mp))} per person`:''}</label>${parkSeg('mp',P.mp)}</div>
+  ${P.mp?`<div class="fld"><label>Pre-booked rides · ${P.mp==='AK'?'any 3 (no groups at AK)':'up to one Group 1, rest Group 2'}</label>${mpRows}<button class="btn sm" id="llSug" type="button" style="align-self:flex-start">Suggest picks for me</button></div>`:''}
+  <div class="fld"><label>Single Pass · up to 2, any park</label>${spRows}</div>
+  <div class="fld"><label>Premier Pass${P.prem?` · ≈$${llPrice(LL_PREM_PRICE[P.prem],f(P.prem))} per person`:''}</label>${parkSeg('prem',P.prem)}</div>
+  ${errs.length?`<div class="callout warnc">${errs.join('<br>')}</div>`:''}
+  <p class="note">Disney hotel guests can book 7 days before check-in, everyone else 3 days ahead. Windows last 1 hour, and pre-booked windows can overlap by 20 min at most.</p>
+  <div class="row"><button class="btn" id="llClr" type="button">Clear</button><button class="btn pri" id="llDone" type="button" ${errs.length?'disabled':''}>Done</button></div>`;
+  const R=renderLLSetup,H0=k=>Math.round(HR.parks[k].open*60);
+  $('#llsetIn').querySelectorAll('.seg[data-k]').forEach(sg=>sg.querySelectorAll('button').forEach(b=>b.onclick=()=>{const k=sg.dataset.k,v=b.dataset.v||null;if(k==='mp'&&v!==P.mp)P.picks=[];P[k]=v;R()}));
+  $('#llsetIn').querySelectorAll('[data-mp]').forEach(s=>s.onchange=()=>{const i=+s.dataset.mp;P.picks[i]=s.value?{rid:s.value,start:(P.picks[i]&&P.picks[i].start)||H0(P.mp)+30+40*i}:null;R()});
+  $('#llsetIn').querySelectorAll('[data-mpt]').forEach(s=>s.onchange=()=>{const i=+s.dataset.mpt;if(P.picks[i])P.picks[i].start=+s.value;R()});
+  $('#llsetIn').querySelectorAll('[data-sp]').forEach(s=>s.onchange=()=>{const i=+s.dataset.sp;P.sp[i]=s.value?{rid:s.value,start:H0(RIDE_BY[s.value].pk)+60+60*i}:null;R()});
+  $('#llsetIn').querySelectorAll('[data-spt]').forEach(s=>s.onchange=()=>{const i=+s.dataset.spt;if(P.sp[i])P.sp[i].start=+s.value;R()});
+  const sug=$('#llSug');if(sug)sug.onclick=()=>{P.picks=llSuggest(P.mp,HR);R()};
+  $('#llClr').onclick=()=>{LLP={mp:null,picks:[],sp:[],prem:null};R()};
+  $('#llDone').onclick=()=>{P.picks=P.picks.filter(Boolean);P.sp=P.sp.filter(Boolean);llSavePlan(llSetupDate(),P);$('#llsetup').hidden=true;llSumUpdate()}}
 
 // ================= FLOW =================
 const selH=$('#selHotel');RESORTS.forEach(h=>{const o=document.createElement('option');o.value=h.id;o.textContent=h.name;selH.appendChild(o)});selH.value='pop';
@@ -1217,11 +1465,12 @@ const inDate=$('#inDate');inDate.value=ymd(new Date());
 function showForecast(){liveNoteUpdate();livePoll(false);const d=parseDay(inDate.value);if(!d){$('#crowdFc').textContent='';$('#hoursFc').textContent='';return}showHours(d);const hol=holiday(d)[1];const mult=+$('#segCrowd [aria-pressed="true"]').dataset.v;$('#crowdFc').innerHTML=`Crowd forecast (1–10): `+['MK','EP','HS','AK'].map(k=>`${PARKS[k].short} <b>${crowdLevel(dayFactor(k,d)*mult*(hoursFor(d).parks[k].party?0.85:1))}</b>`).join(' · ')+(hol?` · ${hol}`:'')}
 function showHours(d){const HR=hoursFor(d),deluxe=DELUXE.has(selH.value);const ks=['MK','EP','HS','AK'];let html=ks.map(k=>{const P=HR.parks[k];return `${PARKS[k].short} <b>${hh(P.open)}–${hh(P.close)}</b>`}).join(' · ');html+=`<br>Early Entry 30 min before opening at every park for Disney hotel guests.`;ks.forEach(k=>{const P=HR.parks[k];if(P.party)html+=`<br><span class="ev">${P.party}: ${PARKS[k].short} closes ${hh(P.close)} to day guests.</span>`;if(P.eeh)html+=`<br><span class="eeh">Extended Evening Hours: ${PARKS[k].short} ${hh(P.eeh.from)}–${hh(P.eeh.to)} ${deluxe?'(your hotel qualifies)':'(deluxe hotels only)'}</span>`});if(HR.estimated)html+=`<br><i>Hours estimated from the usual pattern.</i>`;$('#hoursFc').innerHTML=html;const first=Math.min(...['MK','EP','HS'].map(k=>HR.parks[k].ee));const rd=Math.round(clamp(first-0.75,7,9)*4)*15;const b=$('#segTime button');b.dataset.v=rd;b.textContent='Rope drop · '+fmtClock(rd).replace(' AM','')}
 selH.addEventListener('change',showForecast);
-inDate.addEventListener('change',showForecast);inDate.addEventListener('input',showForecast);
-segPick('#segCrowd',showForecast);segPick('#segTime');showForecast();
+inDate.addEventListener('change',()=>{showForecast();llSumUpdate()});inDate.addEventListener('input',()=>{showForecast();llSumUpdate()});
+segPick('#segCrowd',showForecast);segPick('#segTime');showForecast();llSumUpdate();
 segPick('#speedSeg',b=>{G.speed=+b.dataset.s});
 $('#bPlay').onclick=startDay;$('#bAgain').onclick=()=>{$('#end').hidden=true;$('#start').hidden=false;G.over=false;G.started=false;$('#top').hidden=true;$('#bottom').hidden=true;me.visible=false;flyTo(150,330,5000,1200)};
-$('#bRides').onclick=()=>openRides();$('#bPicks').onclick=openPicks;
+$('#bRides').onclick=()=>openRides();$('#bPicks').onclick=openPicks;$('#llchip').onclick=()=>{if(G.started&&!G.over){llView.confirm=null;openLL()}};
+$('#bLLPlan').onclick=openLLSetup;
 $('#bBreak').onclick=()=>{if(G.segs)return;G.segs=[{k:'snack',dur:20,el:0,started:false}];G.seg=0;sayBubble('Snack time')};
 $('#bFollow').onclick=()=>{const v=!G.follow;setFollow(v);if(v)flyTo(G.pos[0],G.pos[2],Math.max(180,Math.min(520,camera.position.distanceTo(controls.target))),700)};
 $('#bMap').onclick=()=>{setFollow(false);flyTo(150,330,5000,1200)};
@@ -1229,16 +1478,17 @@ function startDay(){
   const mult=+$('#segCrowd [aria-pressed="true"]').dataset.v,day=parseDay(inDate.value)||new Date();G.date=ymd(day);livePoll(false);
   G.deluxe=DELUXE.has(selH.value);const HR=applyHours(day);for(const k in G.pf)G.pf[k]=clamp(dayFactor(k,day)*mult*(PARKS[k].party?0.85:1),0.6,1.7);G.crowd=Object.values(G.pf).reduce((a,b)=>a+b,0)/4;
   RIDES.forEach(r=>r.seed=hash(G.date+r.id)*10);G.t=+$('#segTime [aria-pressed="true"]').dataset.v;
-  Object.assign(G,{passes:3,llUsed:{},ridden:[],mood:72,score:0,stats:{wait:0,transit:0,walk:0,ride:0},segs:null,seg:0,started:true,over:false,trip:null,tripEnd:null,llUses:0});
+  Object.assign(G,{ridden:[],mood:72,score:0,stats:{wait:0,transit:0,walk:0,ride:0},segs:null,seg:0,started:true,over:false,trip:null,tripEnd:null});G.LL=llFromPlan(llLoadPlan(G.date));llClock=0;
   RIDES.forEach(r=>r.downUntil=0);G.node=NI['R:'+selH.value];placePlayer();
   AG.forEach(g=>g.on=false);stepAgents(0.01,true);rebuildQueues();refreshPins();hudT=-1;
   $('#start').hidden=true;$('#top').hidden=false;$('#bottom').hidden=false;me.visible=true;setFollow(true);
   const n=NODES[G.node];flyTo(n.x,n.z,520,1300);
-  setTimeout(()=>toast('Tap Rides or Top picks to choose where to go first'),1400)}
+  setTimeout(()=>toast('Tap Rides or Top picks to choose where to go first'),1400);
+  const nb=G.LL.passes.length;setTimeout(()=>llToast(nb?`You have ${nb} Lightning Lane${nb===1?'':'s'} booked · tap ⚡ to see or change them`:G.LL.mp?'Multi Pass ready · tap ⚡ to book rides':'No Lightning Lanes yet · tap ⚡ to buy or book'),3200)}
 function endDay(){G.over=true;closeSheet();const m=Math.round(G.mood);
   $('#endFace').innerHTML=faceSVG(m);$('#endTitle').textContent=m>=70?'What a day':m>=45?'Day’s done':'Rough day';
   $('#endSub').textContent=`Your guest finished the day ${moodWord(m).toLowerCase()} at ${m}/100 after ${G.ridden.length} ride${G.ridden.length===1?'':'s'}.`;
-  const S=G.stats;$('#endStats').innerHTML=`<div><b>${G.score}</b><span>Magic points</span></div><div><b>${G.ridden.length}</b><span>Rides & shows</span></div><div><b>${fmtDur(S.wait)}</b><span>Waiting</span></div><div><b>${fmtDur(S.transit+S.walk)}</b><span>Getting around</span></div>`;
+  const S=G.stats;$('#endStats').innerHTML=`<div><b>${G.score}</b><span>Magic points</span></div><div><b>${G.ridden.length}</b><span>Rides & shows</span></div><div><b>${fmtDur(S.wait)}</b><span>Waiting</span></div><div><b>${fmtDur(S.transit+S.walk)}</b><span>Getting around</span></div><div><b>${G.LL.used}</b><span>Lightning Lanes used</span></div><div><b>≈$${G.LL.spent}</b><span>Spent on LL per person</span></div>`;
   $('#ridden').textContent=G.ridden.length?'Rode: '+G.ridden.map(id=>RIDE_BY[id].short).join(', '):'No rides today. Next time try rope drop.';
   $('#end').hidden=false}
 
@@ -1256,7 +1506,7 @@ function tick(now){checkSize();const dtR=Math.min(0.1,Math.max(0,(now-last)/1000
   camStep(now);controls.update();skyDome.position.copy(camera.position);if(!G.segs&&tripLine)showTrip(null);renderer.render(scene,camera);updateLabels();
   if(G.started)updateHUD();
 }
-window.WDW={LIVE,liveIngest,liveFor,curveAt,orlandoNow,livePoll,G,go,flyTo,setFollow,RIDE_BY,PARKS,camera,controls,openRide,closeSheet,rawWait,waitAt,dayFactor,holiday,hoursFor,applyHours,accessOpen,lastClose,renderer,dijkstra,NI,NODES,RESORTS,RIDES,LINES};
+window.WDW={llCanBook,llBook,llNext,llRecs,llUse,llHeld,llTick,llPlanErrors,llSuggest,llLoadPlan,openLL,openRides,openPicks,LIVE,liveIngest,liveFor,curveAt,orlandoNow,livePoll,G,go,flyTo,setFollow,RIDE_BY,PARKS,camera,controls,openRide,closeSheet,rawWait,waitAt,dayFactor,holiday,hoursFor,applyHours,accessOpen,lastClose,renderer,dijkstra,NI,NODES,RESORTS,RIDES,LINES};
 requestAnimationFrame(frame);
 })();
 </script>
