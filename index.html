@@ -1455,7 +1455,162 @@ const EPV=(k,d)=>{const n=PARKS.EP.nodes[k],L=PARKS.EP.lagoon,dx=n[0]-L[0],dz=n[
   hs(16,6,9,5,7,WD,SL,0,{rows:1,cols:2})
 
  B.build({[WN]:'win',[GD]:'gold',[CR]:'uplit',[WH]:'uplit',[ST]:'uplit',[TN]:'uplit',[PK]:'uplit',[BR]:'uplit',[OC]:'uplit'},[RK,0x9a9080,GR,0x2f5e35])}
-{const t=RIDE_BY.tot;box(t.x,t.z,18,62,18,0xb9876a);nightLit('tot',[box(t.x,t.z,20,4,20,0x8a5b46,62)]);const r=RIDE_BY.rotr;box(r.x,r.z,30,16,30,0x8a6f55);cyl(r.x+16,r.z-6,5,7,26,0x9b7f62,0,7)}
+// ================= Hollywood Studios landmark models (Visuals 2) =================
+// HSV(lx,lz,tx,tz): frame at park-local (lx,lz) whose front (+z) faces park-local point (tx,tz); with no target the frame lines up with the park's axes.
+// Inside a frame, units are world units (park-local distances × 0.75).
+const HSV=(lx,lz,tx,tz)=>{const c=toWorld('HS',lx,lz);return[c[0],c[1],-PARKS.HS.rot+(tx==null?0:Math.atan2(tx-lx,tz-lz))]};
+LMB.prototype.gl=function(x,y,z,c,s,tw){_lv.set(x,y,z).applyMatrix4(this.o);GL(_lv.x,_lv.y,_lv.z,c,s,tw);return this};
+// window grid on a face: face centre (cx,cz) in builder frame, face turned ry, w wide, rows between y0 and y1
+LMB.prototype.wins=function(cx,cz,ry,w,y0,y1,rows,cols,col,ww,wh){const f=R2(cx,cz,ry);ww=ww||0.9;wh=wh||1.6;
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){const p=f(-w/2+(c+0.5)*w/cols,0);this.box(p[0],y0+(r+0.5)*(y1-y0)/rows-wh/2,p[1],ww,wh,0.4,col,ry)}return this};
+
+// ---- Sunset Boulevard: Tower of Terror (Hollywood Tower Hotel: lobby wing, stepped side wings, main tower with the lightning scar and
+//      the red sign, tile roofs and pinnacles, drop shaft behind), Rock 'n' Roller Coaster (studio front with neon bands, show building,
+//      giant guitar), Theater of the Stars (band shell, stage, seating arcs)
+{const B=new LMB(0,0,0),TW=0xd59c7a,TW2=0xc4876a,TT=0xeee0c4,TR=0xb4552f,TB=0x2e2522,TS=0xd2342b,TG=0xd8b040,TN=0x2c2a33,PT=0x7a5a3a,PF=0x3f7f35;
+ // Tower of Terror, front faces down Sunset Boulevard
+ B.move(...HSV(98,96,55,68));
+ // lobby wing with an arcade of arches
+ B.box(0,0,9,24,11,8,TW);B.box(0,11,9,24.6,0.7,8.6,TT);B.gable(0,11.7,9,24.6,3,8.6,TR);
+ for(const x of[-8,-4,0,4,8]){B.box(x,0,13.05,2.4,5,0.4,TN);B.at(new THREE.CylinderGeometry(1.2,1.2,0.4,10),TN,x,5,13.05,1,1,1,0,Math.PI/2)}
+ B.wins(0,13.05,0,24,6.6,10.2,1,8,TN);B.box(0,3.6,14.6,7,0.5,3.2,TR);for(const x of[-3.2,3.2])B.cyl(x,0,15.8,0.25,0.25,3.6,TT,6);
+ // side wings
+ for(const [x,h] of[[-10,28],[10,34]]){B.box(x,0,-1,9,h,12,TW2);B.box(x,h,-1,9.6,0.8,12.6,TT);B.frus(x,h+0.8,-1,9.6,3.5,12.6,0.32,TR);
+   B.wins(x,5.05,0,9,12.5,h-1,Math.round((h-13)/2.6),3,TN);B.wins(x+Math.sign(x)*4.55,-1,Math.sign(x)*Math.PI/2,12,12.5,h-1,Math.round((h-13)/2.6),4,TN)}
+ B.box(13.2,29,3,3.4,5.6,4.6,TB);B.box(12.4,25.5,4.6,2,3.6,1.6,TB); // scorched notch in the right wing
+ // main tower
+ B.box(0,0,-3,13,54,12,TW);B.box(0,36,-3,13.6,0.6,12.6,TT);B.box(0,54,-3,13.8,0.9,12.8,TT);
+ B.wins(0,3.05,0,13,13,46,11,4,TN);for(const s of[-1,1])B.wins(s*6.55,-3,s*Math.PI/2,12,36.6,53,5,3,TN);
+ B.box(3.6,29,3.1,2.4,6,0.5,TB);B.box(4.6,34.5,3.1,2.8,5.5,0.5,TB);B.box(3.4,39.5,3.1,2.2,5,0.5,TB);B.box(4.2,44,3.1,1.6,3,0.5,TB); // lightning scar
+ B.box(0,47.6,3.2,10.4,3.4,0.7,TS);B.box(0,47.2,3.0,11,0.4,0.9,TT);
+ B.box(0,54.9,-3,10,5,9.5,TW);B.wins(0,1.8,0,10,55.6,59.4,1,4,TN,1.1,2.6);B.box(0,59.9,-3,10.6,0.6,10.1,TT);B.frus(0,60.5,-3,10.6,4.2,10.1,0.22,TR);
+ B.cyl(0,64.6,-3,0.1,0.35,2.6,TG,6);B.ball(0,67.3,-3,0.4,TG,0);
+ for(const sx of[-1,1])for(const sz of[-1,1]){const x=sx*6.2,z=-3+sz*5.8;B.cyl(x,54.9,z,0.95,1.05,5,TW,8);B.lathe(x,59.9,z,spireP(0.95,3.6),TR,8);B.ball(x,63.5,z,0.25,TG,0)}
+ // drop shaft behind with the window that opens at the top
+ B.box(0,0,-13,8,64,7,TW2);B.box(0,64,-13,8.6,0.8,7.6,TT);B.frus(0,64.8,-13,8.6,2.6,7.6,0.3,TR);B.box(0,50,-16.55,3.6,5,0.4,TN);B.box(0,58,-16.55,3.6,3,0.4,TN);
+ // garden wall and palms
+ B.box(0,0,16.4,26,1,0.6,TT);for(const x of[-11,11]){B.cyl(x,0,15,0.35,0.5,8,PT,6);B.ball(x,8.4,15,2,PF,0,0.45)}
+ B.gl(0,49,4.5,0xff7a40,16).gl(-8,4,14,0xffc070,9).gl(8,4,14,0xffc070,9);
+
+ // Rock 'n' Roller Coaster, front faces the street
+ B.move(...HSV(96,52,76,82));const RS=0x40384f,RF=0xe3d3b9,RN=0xff3d7f,RN2=0x40c8ff,RG=0xc8202a,RW=0xf2efe6,RD=0x2a2320,RB=0x5a3d24;
+ B.box(0,0,-9,28,13,18,RS);B.box(0,0,1.5,22,10,5,RF);B.box(0,10,1.5,22.6,0.6,5.6,RS);
+ B.box(0,7.4,4.05,22,0.5,0.3,RN);B.box(0,8.4,4.05,22,0.5,0.3,RN2);B.box(0,0,4.05,6,5,0.4,RD);B.wins(0,4.05,0,22,5.4,7,1,6,RD,1.6,1.2);
+ B.box(9,0,5,4,9,3,RF);B.box(9,9,5,4.4,0.5,3.4,RN); // corner tower
+ // giant guitar on a plinth beside the entrance
+ {const gx=-12,gz=7;B.box(gx,0,gz,6,1.2,3.6,RD);
+  B.at(new THREE.IcosahedronGeometry(1,2),RG,gx,5.4,gz,3.4,4.2,1.1);B.at(new THREE.IcosahedronGeometry(1,2),RG,gx,9.4,gz,2.7,2.9,1.1);
+  B.at(new THREE.IcosahedronGeometry(1,1),RW,gx+0.8,5.6,gz+0.7,1.6,2.6,0.5);B.box(gx,10.5,gz+0.1,1.1,13.5,0.7,RB);B.box(gx,10.5,gz+0.5,0.8,13.5,0.2,RD);
+  B.box(gx,24,gz,2.1,3.8,0.6,RG);for(const s of[-1,1])for(let k=0;k<3;k++)B.cyl(gx+s*1.3,24.6+k*1.1,gz,0.22,0.22,0.5,RW,6)}
+ B.gl(0,9,5,0xff4d8f,14).gl(-12,6,9,0xffd0a0,10);
+
+ // Theater of the Stars: band shell, stage, seating arcs facing the street
+ B.move(...HSV(58,102,72,78));const SH=0xefe9dc,SC=0x7c5a8c,SSt=0x8a6a4a;
+ B.at(new THREE.SphereGeometry(9,20,10,0,Math.PI,0,Math.PI/2),SH,0,0,-6,1,1,1,Math.PI,0,0,true);
+ for(let k=1;k<4;k++)B.at(new THREE.TorusGeometry(9-k*1.6,0.25,6,20,Math.PI),SC,0,0,-6+k*0.9,1,1,1,0);
+ B.box(0,0,-9,15,1.4,8,SSt);for(let r=0;r<4;r++)for(let i=-3;i<=3;i++){const a=i*0.26,R=8+r*2.2;B.box(Math.sin(a)*R,0,-8+Math.cos(a)*R,3.6,0.6+r*0.5,1.4,0xb0a090,a)}
+ B.gl(0,6,-6,0xffe0b0,12);
+ B.build({[TN]:'win',[TS]:'tot',[TW]:'uplit',[TW2]:'uplit',[TT]:'uplit',[RN]:'self',[RN2]:'self',[RG]:'uplit',[TG]:'gold',[SH]:'uplit'},[PF])}
+
+// ---- Hollywood Boulevard / Echo Lake: Chinese Theatre (red columns, two-tier green pagoda roof, side wings, obelisks; Runaway Railway inside),
+//      Indiana Jones stunt arena (temple-ruin set, broken columns, seating arcs), Star Tours (curved-roof hangar)
+{const B=new LMB(0,0,0),CR=0xb8392c,CRD=0x922e24,CG=0x3f8a6e,CB=0x2b2422,CS=0xdccaa6,GD=0xd8b040,SN=0xbaa47c,MS=0x6d8a4a,SE=0x8a6a4a,HG=0xc6cad1,HG2=0x8e959f,HY=0xe8c02a;
+ B.move(...HSV(0,2,0,40));
+ B.box(0,0,-5,16,12,10,CRD);
+ for(const s of[-1,1]){const x=s*12;B.box(x,0,-1,8,8,9,CS);B.box(x,8,-1,8.6,0.5,9.6,CRD);B.frus(x,8.5,-1,8.8,2.6,9.8,0.4,CG);B.wins(x,3.55,0,8,2.5,6.5,1,2,CB,1.2,2.6);
+   B.frus(s*16.8,0,4,1.8,11,1.8,0.45,CS);B.frus(s*16.8,11,4,0.81,1.4,0.81,0.01,GD)}
+ B.box(0,0,0.6,8.6,9.5,0.8,CB);
+ for(const s of[-1,1]){B.cyl(s*4.4,0,3.6,0.9,1,14,CR,10);B.cyl(s*4.4,14,3.6,1.3,0.9,1.2,CB,10)}
+ B.box(0,15.2,0.5,16,0.7,10.4,CG);B.frus(0,15.9,0.5,15,2.4,9.8,0.62,CG);
+ for(const sx of[-1,1])for(const sz of[-1,1])B.beam([sx*7.6,15.9,0.5+sz*4.9],[sx*8.9,17.3,0.5+sz*5.7],0.5,CG,4);
+ B.box(0,18.3,-0.5,7,2.6,5.6,CR);B.box(0,20.9,-0.5,10,0.5,7.6,CG);B.frus(0,21.4,-0.5,9.4,5.2,7.2,0.12,CG);B.cyl(0,26.4,-0.5,0.12,0.4,2.2,GD,6);
+ for(const sx of[-1,1])for(const sz of[-1,1])B.beam([sx*4.7,21.4,-0.5+sz*3.6],[sx*5.6,22.6,-0.5+sz*4.3],0.4,CG,4);
+ B.gl(0,8,4,0xffb070,14).gl(-12,6,4,0xffd0a0,8).gl(12,6,4,0xffd0a0,8);
+
+ // Indiana Jones Epic Stunt Spectacular: temple ruins at the back, seating in front
+ B.move(...HSV(-94,18,-55,35));
+ B.box(0,0,-10,26,2.4,9,SN);B.box(0,2.4,-12,18,3,5,SN);B.box(0,5.4,-13,10,4,3,SN);B.frus(0,9.4,-13,10,3,3,0.4,SN);
+ [[-10,9],[-6,9],[-2,6.5],[2,9],[6,4],[10,9]].forEach(([x,h])=>{B.cyl(x,2.4,-6.5,0.75,0.85,h,SN,8)});B.box(-8,11.4,-6.5,5.2,1,1.8,SN);B.box(4,11.4,-6.5,10,1,1.8,SN);
+ B.box(6,2.4,-4.6,3,1,1.6,SN,0.7);[[-13,-3,2.4],[13,-5,3],[-14,-12,3.6]].forEach(([x,z,s],i)=>B.ball(x,s*0.5,z,s,MS,0,0.7,i));
+ for(let r=0;r<4;r++)for(let i=-4;i<=4;i++){const a=i*0.2,R=13+r*2.4;B.box(Math.sin(a)*R,0,-9+Math.cos(a)*R,3.4,0.6+r*0.6,1.5,SE,a)}
+
+ // Star Tours: hangar with a curved roof, big door, hazard stripes
+ B.move(...HSV(-90,54,-55,40));
+ B.box(0,0,-2,18,7,14,HG);B.at(new THREE.CylinderGeometry(7,7,18,16,1,false,0,Math.PI),HG2,0,7,-2,0.55,1,1,0,0,Math.PI/2);
+ B.box(0,0,5.05,9,6,0.4,CB);B.box(0,6,5.1,9.6,0.6,0.3,HY);for(const s of[-1,1])B.box(s*4.8,0,5.1,0.6,6,0.3,HY);
+ B.beam([6,10.5,-2],[6,15,-2],0.25,HG2,4);B.ball(6,15.2,-2,0.5,0xff5040,0);B.gl(0,5,6,0x9fd0ff,10).gl(6,15.2,-2,0xff5040,4,1);
+ B.build({[CB]:'win',[CR]:'uplit',[CRD]:'uplit',[CS]:'uplit',[GD]:'gold'},[MS])}
+
+// ---- Galaxy's Edge: petrified-tree rock spires (leaning, tapering, banded, with root buttresses and branch stubs), Black Spire Outpost
+//      domed buildings, the Rise of the Resistance base (rock cliff with the entrance, show building behind, tents, radar dish),
+//      and the Smugglers Run gantry crane, fuel tanks and rock hangar round the parked freighter
+{const B=new LMB(0,0,0),[GX,GZ]=PARKS.HS.nodes.ge,SPC=[0xb5a48e,0xc8b69c,0xb5a48e,0xa49584,0xcc9e66,0xc8b69c],ST=0xd2bc98,ST2=0xc3aa84,DK=0x2a2420,PP=0x6d6a66,RK=0xbcaa90,RK2=0xa8987f,CV=0xd2c5a4,MT=0xd8d8d8;
+ const gp=(lx,lz)=>[(lx-GX)*0.75,(lz-GZ)*0.75];
+ B.move(...HSV(GX,GZ));
+ const spire=(lx,lz,h,r,seed)=>{const R=LM_RAND(seed),[x0,z0]=gp(lx,lz),a=R()*Math.PI*2,lean=h*0.1,n=8;let x=x0,z=z0;
+   for(let i=0;i<n;i++){const f0=i/n,f1=(i+1)/n,y0=h*f0,r0=r*Math.pow(1-f0,0.75)+0.25,r1=r*Math.pow(1-f1,0.75)*(0.85+0.25*R())+0.25;
+     B.cyl(x,y0,z,r1,r0,h/n+0.3,SPC[Math.floor(y0/4.5)%SPC.length],7,R()*Math.PI);
+     if(R()<0.45){const b=R()*Math.PI*2;B.ball(x+Math.cos(b)*r0*0.8,y0+h/n*0.5,z+Math.sin(b)*r0*0.8,r0*0.45,SPC[(i+2)%SPC.length],0,1.4,b)}
+     const d=lean/n*(0.6+0.8*R());x+=Math.cos(a)*d;z+=Math.sin(a)*d}
+   for(let k=0;k<4;k++){const b=k/4*Math.PI*2+R();B.beam([x0+Math.cos(b)*r*1.9,0,z0+Math.sin(b)*r*1.9],[x0+Math.cos(b)*r*0.4,h*0.16,z0+Math.sin(b)*r*0.4],r*0.55,SPC[3],5)}
+   for(let k=0;k<2;k++){const b=R()*Math.PI*2,y=h*(0.62+0.2*R()),f=y/h,px=x0+(x-x0)*f,pz=z0+(z-z0)*f;B.beam([px,y,pz],[px+Math.cos(b)*r*1.8,y+r*1.3,pz+Math.sin(b)*r*1.8],r*0.3,SPC[0],5)}};
+ [[-100,-72,40,3.4],[-80,-112,34,3],[-110,-94,46,3.8],[-74,-40,26,2.4],[-20,-90,30,2.6],[-60,-104,24,2.2],[-100,-55,32,2.8],[-40,-55,22,2],[-10,-72,26,2.3],[-20,-110,28,2.5],[-118,-62,36,3.2],[-92,-122,30,2.6]]
+   .forEach(([lx,lz,h,r],i)=>spire(lx,lz,h,r*1.35,101+i*37));
+ // Black Spire Outpost: domed stucco buildings with annexes and pipes
+ [[-46,-76,4,6],[-80,-70,4.6,7],[-70,-50,3.6,5.5],[-30,-76,3.8,6],[-62,-90,3.4,5],[-86,-48,4.2,6.5]].forEach(([lx,lz,r,h],i)=>{const R=LM_RAND(500+i*11),[x,z]=gp(lx,lz),b=R()*Math.PI*2,c=Math.cos(b),s=Math.sin(b);
+   B.cyl(x,0,z,r,r*1.06,h,ST,12);B.at(new THREE.SphereGeometry(r,12,6,0,Math.PI*2,0,Math.PI/2),ST2,x,h,z,1,0.7,1);B.cyl(x,h-0.4,z,r*1.04,r*1.04,0.5,ST2,12);
+   B.box(x+c*r*0.9,0,z+s*r*0.9,r*1.1,h*0.65,r*1.3,ST,-b);B.box(x+c*r*0.9,h*0.65,z+s*r*0.9,r*1.2,0.4,r*1.4,ST2,-b);
+   B.box(x-s*r*0.98,0,z+c*r*0.98,1.4,2.4,0.5,DK,-b);B.box(x+s*r*0.95,h*0.55,z-c*r*0.95,0.8,0.8,0.4,DK,-b);
+   B.beam([x+c*r*1.4,h*0.65,z+s*r*1.4],[x+c*r*1.4+s*2,h*0.65+1.6,z+s*r*1.4-c*2],0.4,PP,5);B.beam([x,h*1.6,z],[x+c*0.6,h*1.6+2,z+s*0.6],0.3,PP,4);
+   B.gl(x-s*(r+0.6),1.6,z+c*(r+0.6),0xffb060,6)});
+ // Rise of the Resistance: rock cliff with the entrance, big show building behind, encampment
+ B.move(...HSV(-92,-92,GX,GZ));
+ {const R=LM_RAND(901);B.box(0,0,-16,30,15,20,0xb3a48a);
+  for(let i=0;i<10;i++){const x=-18+i*4;if(Math.abs(x)<3.5)continue;const h=10+R()*9;B.at(new THREE.DodecahedronGeometry(1,0),i%2?RK:RK2,x,h*0.45,-3+R()*2,3+R()*1.4,h*0.55,3.6,R()*3)}
+  B.at(new THREE.DodecahedronGeometry(1,0),RK,0,9.6,-2.4,4.4,2.8,3.4,0.4);B.box(0,0,-0.2,5.4,6.6,2.4,DK);
+  [[-12,15.5,-14],[8,15.5,-20],[14,15.5,-10],[-4,15.5,-24]].forEach(([x,y,z],i)=>B.ball(x,y,z,3+i%2,RK2,0,0.6,i));
+  for(const s of[-1,1]){B.gable(s*10,0,7,5,3,4,CV);B.box(s*10,0,9.05,1.2,1.8,0.3,DK)}
+  [[-5,6],[5,7.5],[6.4,6]].forEach(([x,z],i)=>B.box(x,0,z,1.6,1.2+i%2*0.6,1.2,0x6e6a5c,i));
+  B.beam([12,0,-4],[12,20,-4],0.7,PP,6);B.at(new THREE.SphereGeometry(3,14,6,0,Math.PI*2,0,0.9),MT,12,20.6,-4,1,1,1,0.6,-0.95,0,true);
+  B.gl(0,4,1.4,0xffa860,10).gl(12,21,-4,0xff5040,4,1).gl(-10,2,9.4,0xffc080,5).gl(10,2,9.4,0xffc080,5)}
+ // Smugglers Run: gantry crane over the freighter, fuel tanks, rock hangar behind
+ {const f=PARKS.HS.nodes.ge,GT=0x9a5236;B.move(...HSV(-45,-108,f[0],f[1]));
+  for(const s of[-1,1]){const x=s*14;for(const dz of[-2,2]){B.beam([x-1.5,0,dz],[x-0.6,17,dz*0.5],0.8,GT,4);B.beam([x+1.5,0,dz],[x+0.6,17,dz*0.5],0.8,GT,4)}
+    for(let k=1;k<4;k++)B.box(x,k*4.2,0,2.6-k*0.4,0.5,3.6-k*0.6,GT)}
+  B.box(0,17,0,31,1.6,2,GT);B.box(3,13.6,0,2.4,3.4,2,0xd0a040);B.beam([3,13.6,0],[3,8,0],0.15,DK,4);
+  for(const [x,z] of[[-14,9],[-14,13]]){B.at(new THREE.CylinderGeometry(1.6,1.6,7,12),0xc9c2b6,x,1.8,z,1,1,1,Math.PI/2,0,Math.PI/2)}
+  B.box(0,0,-23,30,11,10,RK2);[[-10,11,-23,4],[2,11,-25,5],[11,11,-22,3.6]].forEach(([x,y,z,r],i)=>B.ball(x,y,z,r,RK,0,0.55,i));
+  B.box(0,0,-17.9,10,7,0.4,DK);B.gl(0,5,-17,0xffb070,12).gl(3,13,0,0xffc040,4)}
+ B.build({[DK]:'win',[ST]:'uplit'},[...SPC,RK,RK2])}
+
+// ---- Toy Story Land: backyard-scale toys — coaster on a toy-set frame (track, coloured supports, train), Toy Story Mania behind a giant
+//      game-box front with crayon columns, saucer ride under a big umbrella, Tinkertoy tower, block stacks, spinning top, stacking rings
+{const B=new LMB(0,0,0),[TX,TZ]=PARKS.HS.nodes.tsl,tp=(lx,lz)=>[(lx-TX)*0.75,(lz-TZ)*0.75],RD=0xd8392f,YL=0xf4c430,BL=0x2f6fd0,GN=0x43a047,OR=0xf08a3c,PU=0x8e44ad,WD=0xd8a35a,CRM=0xefe4c8,TK=0x7cc242;
+ B.move(...HSV(TX,TZ));
+ // coaster: oval with hills and a dip, track ribbon, coloured supports, a short train
+ {const [cx,cz]=tp(76,-82),N=72,P=[];for(let i=0;i<=N;i++){const a=i/N*Math.PI*2;P.push([cx+Math.cos(a)*13.5*(1+0.12*Math.sin(2*a)),Math.max(1.4,3.6+2.6*Math.sin(2*a+0.5)+1.5*Math.sin(3*a)),cz+Math.sin(a)*9])}
+  B.ribbon(P,1.5,TK);B.ribbon(P.map(p=>[p[0],p[1]-0.35,p[2]]),0.6,0x3d7a2a);
+  for(let i=0;i<N;i+=3){const p=P[i];B.beam([p[0],0,p[2]],[p[0],p[1]-0.3,p[2]],0.5,[BL,RD,YL][(i/3)%3],4)}
+  [RD,YL,BL,OR,GN].forEach((c,k)=>{const p=P[8+k*2],q=P[9+k*2];B.box(p[0],p[1]+0.1,p[2],1.5,0.9,1.3,c,Math.atan2(q[0]-p[0],q[2]-p[2]))})}
+ // Toy Story Mania: building with a giant game-box front and crayon columns
+ B.move(...HSV(58,-38,TX,TZ));
+ B.box(0,0,-5,18,9,12,CRM);B.box(0,9,-5,18.6,0.6,12.6,0xd9cba8);B.box(0,8.2,-5,18.3,0.6,12.3,RD);B.box(0,0,1.6,14,12,1.2,BL);
+ for(const [y,c] of[[2,YL],[5.5,RD],[9,YL]])B.box(0,y,2.25,14,1.2,0.2,c);B.box(0,0,2.25,4,5,0.3,0x2a2420);
+ [[-9,RD],[-7,YL],[7,GN],[9,PU]].forEach(([x,c],i)=>{const h=9+i%2*1.6;B.cyl(x,0,2.6,0.9,0.9,h,c,8);B.cyl(x,h,2.6,0.12,0.9,1.8,c,8);B.cyl(x,1.4,2.6,0.95,0.95,1,0x2a2420,8)});
+ B.gl(0,4,3,0xffe0a0,10);
+ // Alien Swirling Saucers: round deck, saucers, umbrella canopy
+ B.move(...HSV(34,-90,TX,TZ));
+ B.cyl(0,0,0,9,9.2,0.6,PU,24);B.cyl(0,0,0,0.9,1.2,9,0x9be04a,10);B.lathe(0,9,0,[[0,1.8],[3,1.4],[7,0.5],[9.6,-0.6],[9.4,-0.8]],BL,16);B.ball(0,11.2,0,0.8,YL,1);
+ for(let k=0;k<6;k++){const a=k/6*Math.PI*2,x=Math.cos(a)*6,z=Math.sin(a)*6;B.cyl(x,0.6,z,1.7,1.4,0.6,0x9be04a,12);B.ball(x,1.3,z,0.9,0xbfe8ff,1,0.8)}
+ B.gl(0,8,0,0x9be04a,12);
+ // giant toys round the land
+ B.move(...HSV(TX,TZ));
+ {const [x,z]=tp(28,-28);B.cyl(x,0,z,2.2,2.2,1.6,WD,12);for(let k=0;k<3;k++){const y=6+k*6;B.cyl(x,y,z,2,2,1.6,WD,12);B.beam([x,y-6+1.6,z],[x,y,z],0.5,[RD,BL,GN][k],6);
+   for(let j=0;j<4;j++){const a=j/4*Math.PI*2+k*0.4;B.beam([x,y+0.8,z],[x+Math.cos(a)*5.5,y+0.8,z+Math.sin(a)*5.5],0.45,[RD,BL,GN,YL][(j+k)%4],6);B.cyl(x+Math.cos(a)*5.5,y+0.1,z+Math.sin(a)*5.5,0.8,0.8,1.4,WD,10)}}}
+ [[16,-42],[22,-62]].forEach(([lx,lz],n)=>{const [x,z]=tp(lx,lz);[[0,0,0],[4.2,0,0.6],[2,4,0.3],[-0.2,0,4.3]].forEach(([dx,y,dz],i)=>B.box(x+dx,y,z+dz,4,4,4,[RD,YL,BL,GN,OR,PU][(i+n*2)%6],0.2*i))});
+ {const [x,z]=tp(48,-20);B.lathe(x,0,z,[[0,0],[0.6,0.4],[3.6,2.4],[3.8,3],[2.2,4.4],[0.5,5],[0.5,7],[0,7.2]],RD,16);B.cyl(x,2.6,z,3.85,3.85,0.5,YL,16)}
+ {const [x,z]=tp(88,-50);B.cyl(x,0,z,3.4,3.6,1,RD,16);[OR,YL,GN,BL,PU].forEach((c,k)=>B.at(new THREE.TorusGeometry(2.6-k*0.38,0.62,8,18),c,x,1.6+k*1.15,z,1,1,1,0,Math.PI/2));B.cyl(x,1,z,0.5,0.5,7.4,WD,8);B.ball(x,8.4,z,0.9,RD,1)}
+ B.build({},[])}
 {const c=toWorld('AK',0,15);nightLit('tol',[cyl(c[0],c[1],7,11,36,0x7a5638,0,8)]);const tolC=[];[[0,0,46,22],[10,6,38,16],[-9,-7,40,15],[3,-10,52,13]].forEach(([dx,dz,y,r])=>{const s=new THREE.Mesh(new THREE.IcosahedronGeometry(r,1),M(0x4e8b3a,{flatShading:true}));s.position.set(c[0]+dx,y,c[1]+dz);scene.add(s);tolC.push(s)});nightLit('tolc',tolC);
  const e=RIDE_BY.ee;const mt=new THREE.Mesh(new THREE.ConeGeometry(36,90,7),M(0x8c8f96,{flatShading:true}));mt.position.set(e.x+14,45,e.z);scene.add(mt);
  const cap=new THREE.Mesh(new THREE.ConeGeometry(14,35,7),M(0xf5f7fa,{flatShading:true}));cap.position.set(e.x+14,72.5,e.z);scene.add(cap);
@@ -1532,12 +1687,11 @@ const WATER=0x4b9bd0;
  p=w(-42,62);kd(p[0],p[1],13,WATER,0.46);PARK_AVOID.push([p[0],p[1],15]);
  const deco=[0xf3e1c8,0xe7c9d6,0xcfe0e8,0xf1d9a8,0xd9e6c9,0xf0c4b0];
  let j=0;for(let z=78;z<=108;z+=8,j++)for(const s of[-1,1]){p=w(8+s*13,z);const h=8+(j%3)*2;kb(p[0],p[1],9,h,8,deco[(j*2+(s>0?1:0))%6],0,-PARKS.HS.rot);kb(p[0],p[1],9.4,1,8.4,0xc9a96e,h,-PARKS.HS.rot)}
- p=w(0,2);kb(p[0],p[1],16,9,10,0xb83a32,0,-PARKS.HS.rot);kn(p[0],p[1],10,8,0x2f6b4f,9,U.cone4,-PARKS.HS.rot);
- const ge=PARKS.HS.nodes.ge;for(let k=0;k<16;k++){const a=k/16*Math.PI*2+0.3,r=24+(k%3)*9,lx=ge[0]+Math.cos(a)*r,lz=ge[1]+Math.sin(a)*r;if(Math.hypot(lx,lz)>136)continue;
-   if([[-92,-92],[-45,-98],[-40,0],[40,-50],[-60,-65]].some(q=>Math.hypot(lx-q[0],lz-q[1])<14))continue;p=w(lx,lz);kn(p[0],p[1],3+(k%4),18+(k*7)%18,[0x9c8b7a,0x8a7a6a,0xb3a08a][k%3],0,U.cone6);PARK_AVOID.push([p[0],p[1],6])}
+ // landmark buildings are LMB models (Hollywood Studios landmark models); keep in-park trees off them
+ [[0,0,22],[98,92,22],[96,46,20],[58,98,14],[-94,14,20],[-90,52,14],[-98,-102,26],[-45,-118,24],[58,-42,16],[34,-90,13],[76,-82,20],[28,-28,8],[16,-42,6],[22,-62,6],[48,-20,5],[88,-50,5],
+  [-100,-72,5],[-80,-112,5],[-110,-94,6],[-74,-40,4],[-20,-90,4],[-60,-104,4],[-100,-55,4],[-40,-55,3],[-10,-72,4],[-20,-110,4],[-118,-62,5],[-92,-122,4],
+  [-46,-76,7],[-80,-70,8],[-70,-50,6],[-30,-76,7],[-62,-90,6],[-86,-48,7]].forEach(([x,z,r])=>{p=w(x,z);PARK_AVOID.push([p[0],p[1],r])});
  p=w(-45,-108);kc(p[0],p[1],11,2.4,0xb9bcc2,1.2);kb(p[0]+8,p[1]+4,3,2,5,0xa5a8ae,1.2);PARK_AVOID.push([p[0],p[1],13]);
- [[22,-62,0xe53935],[28,-28,0xfdd835],[48,-20,0x1e88e5],[16,-42,0x43a047],[58,-58,0xfb8c00],[88,-50,0x8e24aa]].forEach(([lx,lz,c],k)=>{p=w(lx,lz);kb(p[0],p[1],6,6+(k%3)*2,6,c,0,k);PARK_AVOID.push([p[0],p[1],6])});
- const sl=ellipse('HS',76,-82,18,12,30);K.ribbon(sl,2.4,sl.map((q,i)=>5+3*Math.sin(i/30*Math.PI*4)),0x4caf50);for(let k=0;k<30;k+=3)kc(sl[k][0],sl[k][1],0.5,5,0x8d6e63);
  p=w(120,72);ring(p[0],p[1],12,24,0x9aa3ad,0.6,Math.PI);kd(p[0],p[1],10,WATER,0.5);kn(p[0],p[1],5,12,0x7d8a6a,0.5,U.cone6);PARK_AVOID.push([p[0],p[1],25]);
 }
 // ---- Animal Kingdom
@@ -1608,9 +1762,9 @@ function updateExtras(){const t=G.t;
   for(const g of EXTRA.clouds)g.position.x=((g.userData.x0+t*3)%4400)-2300}
 
 // ride buildings + pins
-const CUSTOM=new Set(['tron','btm','space','tot','ee','sse','tea','dumbo','astro','hm','tiana','sdmt','barn','soar','lwtl','seas','fig','tt','msp','gotg','fea','remy','aa','gft','mmrr','sdd','msr']);
+const CUSTOM=new Set(['tron','btm','space','tot','ee','sse','tea','dumbo','astro','hm','tiana','sdmt','barn','soar','lwtl','seas','fig','tt','msp','gotg','fea','remy','aa','gft','mmrr','sdd','msr','rotr','rnrc','tsm','ass','st','indy','bob']);
 const LANDCOL={adv:0x5c8f4a,frl:0x9a6b45,lib:0x6e7b8f,fant:0xc98bb9,tomo:0x8ca7c9,main:0xd8b28a,fwe:0x7f93ad,fww:0x5fa3a0,se:0xa9b6c4,mex:0xd7934e,nor:0x8b5a4a,fra:0x8fa3c4,usa:0xb98a6a,ge:0x8d755e,tsl:0xe0b04a,sun:0xc77a8e,cen:0xc94f4f,echo:0x5aa4b0,pan:0x6c8fbf,afr:0xc49a58,asia:0xb5543e,di:0x6f9d4f};
-const PIN_Y={space:31,tot:66,ee:90,sse:52,btm:36,tron:18,hm:30,sdmt:16,gotg:24,tt:15,msp:15,soar:22,lwtl:22,seas:16,fig:26,gft:30,aa:34,fea:16,remy:14};
+const PIN_Y={space:31,ee:90,sse:52,btm:36,tron:18,hm:30,sdmt:16,gotg:24,tt:15,msp:15,soar:22,lwtl:22,seas:16,fig:26,gft:30,aa:34,fea:16,remy:14,tot:70,rotr:24,rnrc:20,mmrr:27,msr:18,tsm:16,ass:15,sdd:14,st:16,indy:16,bob:15};
 const pinGeo=new THREE.CylinderGeometry(0.5,0.5,16,5);pinGeo.translate(0,8,0);const headGeo=new THREE.SphereGeometry(3.4,12,10);
 for(const r of RIDES){
   const s=r.kind==='show'?11:9+r.base/10;
