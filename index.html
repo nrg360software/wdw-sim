@@ -1082,13 +1082,175 @@ const NIGHT=[];let CAPT=null,SSE_POS=null;
 const GLOW=[];const GL=(x,y,z,c,sz,tw)=>{GLOW.push([x,y,z,c,sz,tw||0])};const nightLit=(kind,ms)=>{NIGHT.push({kind,m:ms.filter(Boolean)})};
 function box(x,z,w,h,d,c,y,ry){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),M(c));m.position.set(x,(y||0)+h/2,z);if(ry)m.rotation.y=ry;scene.add(m);if(CAPT)CAPT.push(m);return m}
 function cyl(x,z,r1,r2,h,c,y,seg){const m=new THREE.Mesh(new THREE.CylinderGeometry(r1,r2,h,seg||10),M(c));m.position.set(x,(y||0)+h/2,z);scene.add(m);if(CAPT)CAPT.push(m);return m}
-{const c=toWorld('MK',0,-8);CAPT=[];{const q=toWorld('MK',0,64);castleLight.position.set(q[0],3,q[1]);castleLight.target.position.set(c[0],34,c[1]);castleLight.target.updateMatrixWorld()}box(c[0],c[1],40,18,26,0xc9d3e6);cyl(c[0],c[1],6,7,52,0xdfe5f0);cyl(c[0],c[1],0.1,8.5,24,0x3f6fb6,52,8);
- [[-16,-9],[16,-9],[-16,9],[16,9]].forEach(([dx,dz])=>{cyl(c[0]+dx,c[1]+dz,3,3.4,30,0xdfe5f0);cyl(c[0]+dx,c[1]+dz,0.1,4.4,13,0x3f6fb6,30,8)});
- [-8,8].forEach(dx=>{cyl(c[0]+dx,c[1]-4,2.6,3,40,0xe9edf5);cyl(c[0]+dx,c[1]-4,0.1,3.6,14,0x5f86c8,40,8)});
- nightLit('castle',CAPT);CAPT=null;GL(c[0],20,c[1]+8,0x9c78e6,46);
- const sm=RIDE_BY.space;const dome=new THREE.Mesh(new THREE.ConeGeometry(24,28,24),M(0xf3f5f8));dome.position.set(sm.x,14,sm.z);scene.add(dome);nightLit('space',[dome]);
- const bt=RIDE_BY.btm;cyl(bt.x,bt.z,8,14,26,0xb85a3c,0,6);cyl(bt.x+12,bt.z+6,5,9,18,0xc46a46,0,6);
- const tr=RIDE_BY.tron;const can=new THREE.Mesh(new THREE.CylinderGeometry(22,22,3,24,1,true,0,Math.PI),M(0x2a3f66,{side:THREE.DoubleSide}));can.position.set(tr.x,16,tr.z);scene.add(can);nightLit('tron',[can]);}
+// ================= LANDMARK MODELS (Visuals 2) =================
+// LMB: one landmark assembled from many simple parts and merged into one mesh per colour (few draw calls on a phone).
+// Parts go in the landmark's own frame: x east, y up, z south, origin on the ground at the anchor. build(kinds,flat) makes the meshes,
+// registers night-light kinds per colour (see updateNight) and flat-shades the listed colours (rock).
+const _lq=new THREE.Quaternion(),_le=new THREE.Euler(),_lv=new THREE.Vector3(),_ls=new THREE.Vector3(),_lm=new THREE.Matrix4(),_lo=new THREE.Matrix4(),_lu=new THREE.Vector3(0,1,0),_ld=new THREE.Vector3();
+function LMB(x,z,ry){this.parts=new Map();this.ds=new Set();this.o=new THREE.Matrix4().compose(new THREE.Vector3(x,0,z),new THREE.Quaternion().setFromEuler(new THREE.Euler(0,ry||0,0)),new THREE.Vector3(1,1,1))}
+LMB.prototype.put=function(geo,col,m,ds){const g=geo.index?geo.toNonIndexed():geo.clone();geo.dispose();g.applyMatrix4(_lo.multiplyMatrices(this.o,m));
+  if(!g.attributes.normal)g.computeVertexNormals();if(!this.parts.has(col))this.parts.set(col,[]);this.parts.get(col).push(g);if(ds)this.ds.add(col);return this};
+LMB.prototype.at=function(geo,col,x,y,z,sx,sy,sz,ry,rx,rz,ds){_le.set(rx||0,ry||0,rz||0,'YXZ');_lq.setFromEuler(_le);_lm.compose(_lv.set(x,y,z),_lq,_ls.set(sx,sy,sz));return this.put(geo,col,_lm,ds)};
+LMB.prototype.box=function(x,y,z,w,h,d,col,ry){return this.at(new THREE.BoxGeometry(w,h,d),col,x,y+h/2,z,1,1,1,ry)};
+LMB.prototype.cyl=function(x,y,z,r1,r2,h,col,seg,ry){return this.at(new THREE.CylinderGeometry(r1,r2,h,seg||12),col,x,y+h/2,z,1,1,1,ry)};
+// square-cornered frustum (mansard roofs, plinths): bottom w×d, top scaled by t
+LMB.prototype.frus=function(x,y,z,w,h,d,t,col,ry){return this.at(new THREE.CylinderGeometry(t*0.7071,0.7071,1,4,1).rotateY(Math.PI/4),col,x,y+h/2,z,w,h,d,ry)};
+// gabled roof prism over a w×d footprint (like box): ridge runs along x (w), slopes fall to the ±z sides
+LMB.prototype.gable=function(x,y,z,w,h,d,col,ry){return this.at(new THREE.CylinderGeometry(1,1,1,3).rotateX(-Math.PI/2).translate(0,0.5,0).scale(1/1.732,1/1.5,1).rotateY(Math.PI/2),col,x,y,z,w,h,d,ry)};
+LMB.prototype.lathe=function(x,y,z,pts,col,seg,ry){return this.at(new THREE.LatheGeometry(pts.map(p=>new THREE.Vector2(p[0],p[1])),seg||12),col,x,y,z,1,1,1,ry,0,0,true)};
+LMB.prototype.ball=function(x,y,z,r,col,det,sy,ry){return this.at(new THREE.IcosahedronGeometry(r,det||0),col,x,y,z,1,sy||1,1,ry)};
+LMB.prototype.beam=function(a,b,w,col,seg){_ld.set(b[0]-a[0],b[1]-a[1],b[2]-a[2]);const L=_ld.length()||0.01;_ld.normalize();_lq.setFromUnitVectors(_lu,_ld);
+  _lm.compose(_lv.set((a[0]+b[0])/2,(a[1]+b[1])/2,(a[2]+b[2])/2),_lq,_ls.set(1,1,1));return this.put(new THREE.CylinderGeometry(w/2,w/2,L,seg||4),col,_lm)};
+// flat strip through 3D points (track, flume, light bars); bank = sideways tilt in radians
+LMB.prototype.ribbon=function(pts,w,col){const P=[];for(let k=1;k<pts.length;k++){const a=pts[k-1],b=pts[k],dx=b[0]-a[0],dz=b[2]-a[2],L=Math.hypot(dx,dz)||1,nx=-dz/L*w/2,nz=dx/L*w/2;
+    P.push(a[0]+nx,a[1],a[2]+nz,b[0]+nx,b[1],b[2]+nz,a[0]-nx,a[1],a[2]-nz,a[0]-nx,a[1],a[2]-nz,b[0]+nx,b[1],b[2]+nz,b[0]-nx,b[1],b[2]-nz)}
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(P,3));g.computeVertexNormals();_lm.identity();return this.put(g,col,_lm,true)};
+// smooth parametric surface fn(u,v) → [x,y,z] over an nu×nv grid
+LMB.prototype.surf=function(nu,nv,fn,col){const P=[],I=[];for(let j=0;j<=nv;j++)for(let i=0;i<=nu;i++)P.push(...fn(i/nu,j/nv));
+  for(let j=0;j<nv;j++)for(let i=0;i<nu;i++){const a=j*(nu+1)+i,b=a+1,c=a+nu+1,d=c+1;I.push(a,c,b,b,c,d)}
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(P,3));g.setIndex(I);g.computeVertexNormals();_lm.identity();return this.put(g,col,_lm,true)};
+// battlements round the top of a w×d wall block
+LMB.prototype.crenel=function(cx,y,cz,w,d,s,h,col){const n=Math.max(2,Math.round(w/(s*2))),m=Math.max(2,Math.round(d/(s*2)));
+  for(let i=0;i<n;i++){const x=cx-w/2+(i+0.5)*w/n;this.box(x,y,cz-d/2+0.3,s,h,0.6,col);this.box(x,y,cz+d/2-0.3,s,h,0.6,col)}
+  for(let j=0;j<m;j++){const z=cz-d/2+(j+0.5)*d/m;this.box(cx-w/2+0.3,y,z,0.6,h,s,col);this.box(cx+w/2-0.3,y,z,0.6,h,s,col)}return this};
+LMB.prototype.build=function(kinds,flat){const out=[];for(const [col,gs] of this.parts){let n=0;gs.forEach(g=>n+=g.attributes.position.count);const P=new Float32Array(n*3),N=new Float32Array(n*3);let o=0;
+    gs.forEach(g=>{P.set(g.attributes.position.array,o*3);N.set(g.attributes.normal.array,o*3);o+=g.attributes.position.count;g.dispose()});
+    const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(P,3));geo.setAttribute('normal',new THREE.BufferAttribute(N,3));geo.computeBoundingSphere();
+    const m=new THREE.Mesh(geo,M(col,{side:this.ds.has(col)?THREE.DoubleSide:THREE.FrontSide,flatShading:!!(flat&&flat.includes(col))}));scene.add(m);out.push(m);
+    const k=kinds&&kinds[col];if(k)nightLit(k,[m])}
+  this.parts.clear();return out};
+const LM_RAND=s=>()=>{s=(s*16807)%2147483647;return s/2147483647};
+// spire roof profile (flared eave, slightly concave cone) for radius r, height h
+const spireP=(r,h)=>[[0,-0.02],[r*1.24,0],[r*1.12,h*0.07],[r*0.8,h*0.28],[r*0.45,h*0.58],[r*0.16,h*0.88],[0,h]];
+
+// ---- Cinderella Castle: stone base with battlements, gate arch and bridge; three tiers of keep; gabled roof under the central spire;
+//      ~20 turrets with flared blue spires and gold finials; windows that glow warm at night (night kinds castle / gold / win)
+{const c=toWorld('MK',0,-8),B=new LMB(c[0],c[1],0);
+ const CGT=0x1e2436,CW=0xe5e8f0,CS=0xc8bfae,CR=0x3f6fb6,CR2=0x5683c8,CG=0xd8b040,CN=0x28324c,CT=0xcdd3df;
+ {const q=toWorld('MK',0,64);castleLight.position.set(q[0],3,q[1]);castleLight.target.position.set(c[0],34,c[1]);castleLight.target.updateMatrixWorld()}
+ const tur=(x,z,r,h,rh,y0,win,roof)=>{const y=y0||0;B.cyl(x,y,z,r,r*1.05,h,CW,12);B.cyl(x,y+h-0.7,z,r*1.13,r*1.13,0.7,CT,12);
+   B.lathe(x,y+h,z,spireP(r,rh),roof||CR,12);B.cyl(x,y+h+rh-0.3,z,0.06,Math.max(0.18,r*0.13),Math.max(2,rh*0.28),CG,6);B.ball(x,y+h+rh*0.93,z,Math.max(0.22,r*0.12),CG,0);
+   for(let k=0;k<(win||0);k++)B.box(x,y+h*(0.3+k*0.22),z+r*1.0,0.7,2,0.4,CN)};
+ // plinth, base walls, gate, bridge
+ B.cyl(0,0,0,23.5,24.5,2,CS,28);B.box(0,2,0,42,8,28,CS);B.crenel(0,10,0,42,28,1.3,1.4,CS);
+ B.box(0,2,14.05,7,6.2,0.6,CGT);B.at(new THREE.CylinderGeometry(3.5,3.5,0.6,16),CGT,0,8.2,14.05,1,1,1,0,Math.PI/2);
+ B.box(0,0.2,23.5,8,1.6,19,CS);B.box(-4,1.8,23.5,0.6,1.1,19,CT);B.box(4,1.8,23.5,0.6,1.1,19,CT);
+ for(const x of[-16,-10,10,16])B.box(x,4,14.05,1.4,3.2,0.5,CN);
+ // keep: tier 1
+ B.box(0,10,0,32,11.5,22,CW);B.box(0,21.5,0,32.8,0.8,22.8,CT);B.crenel(0,22.3,0,32,22,1.1,1.2,CW);
+ for(const x of[-12.5,-8,8,12.5]){B.box(x,13,11.05,1.7,4.6,0.4,CN);B.at(new THREE.ConeGeometry(0.85,1.6,4),CN,x,18.4,11.05,1,1,0.3,Math.PI/4)}
+ // tier 2 with rose window
+ B.box(0,22.3,-1,22,10,16,CW);B.box(0,32.3,-1,22.8,0.8,16.8,CT);
+ for(const x of[-8,-4.5,4.5,8])B.box(x,25,7.05,1.4,4,0.4,CN);
+ B.at(new THREE.CylinderGeometry(2.7,2.7,0.4,20),CG,0,27.5,7.05,1,1,1,0,Math.PI/2);B.at(new THREE.CylinderGeometry(2.2,2.2,0.5,20),CN,0,27.5,7.15,1,1,1,0,Math.PI/2);
+ // tier 3 + steep gabled roof
+ B.box(0,33.1,-1,14,7.5,11,CW);for(const x of[-4,0,4])B.box(x,35,4.55,1.2,3.4,0.4,CN);
+ B.gable(0,40.6,-1,15.4,9,12,CR);B.gable(0,40.6,-1,12.4,7.5,9,CR,Math.PI/2);
+ // central spire: octagonal tower, balcony, drum, tall spire
+ B.cyl(0,40,-1,5,5.4,7,CW,8);B.cyl(0,46.6,-1,6.6,6.6,0.8,CT,8);B.cyl(0,47.4,-1,4.4,4.7,6,CW,8);B.cyl(0,52.8,-1,4.9,4.9,0.7,CG,8);
+ for(let k=0;k<8;k++){const a=k/8*Math.PI*2+Math.PI/8;B.box(Math.sin(a)*4.6,49,-1+Math.cos(a)*4.6,0.9,2.6,0.4,CN,a)}
+ B.lathe(0,53.4,-1,spireP(4.6,24),CR,8);B.cyl(0,76.6,-1,0.08,0.5,6,CG,6);B.ball(0,77.8,-1,0.7,CG,1);
+ // turrets
+ tur(-8.5,12.5,2.6,30,12,2,3);tur(8.5,12.5,2.6,30,12,2,3);
+ tur(-20,12.5,3.6,21,11,2,2);tur(20,12.5,3.6,21,11,2,2);
+ tur(-20,-12.5,3.4,27,12,2);tur(20,-12.5,3.4,27,12,2);
+ tur(-16.5,0,3,32,13,2,2);tur(16.5,0,3,32,13,2,2);
+ tur(-6.5,-9.8,2.6,42,15,2);tur(6.5,-9.8,2.6,42,15,2);
+ tur(-11,7,1.8,9,7,22.3,0,CR2);tur(11,7,1.8,9,7,22.3,0,CR2);tur(-11,-9,2,15,8,22.3,0,CR2);tur(11,-9,2,15,8,22.3,0,CR2);
+ tur(-5,3.6,1.3,7,6,33.1,0,CR2);tur(5,3.6,1.3,7,6,33.1,0,CR2);tur(-4.5,-5.5,1.4,11,7,33.1,0,CR2);tur(4.5,-5.5,1.4,11,7,33.1,0,CR2);
+ // oriel turrets hanging on the front wall (corbel underneath)
+ for(const x of[-14.5,14.5]){B.at(new THREE.ConeGeometry(1.5,3.6,12),CW,x,11.2,11.6,1,1,1,0,Math.PI);tur(x,11.6,1.4,7,5.5,13)}
+ B.build({[CW]:'castle',[CS]:'castle',[CT]:'castle',[CR]:'castle',[CR2]:'castle',[CG]:'gold',[CN]:'win',[CGT]:'gate'});
+ GL(c[0],20,c[1]+8,0x9c78e6,46);for(const x of[-12.5,-8,8,12.5])GL(c[0]+x,15,c[1]+11.5,0xffd28a,3);GL(c[0],27.5,c[1]+7.5,0xffd28a,5)}
+
+// ---- Space Mountain: concave white shell with 12 concrete ribs that splay out to the ground, spire cluster, entrance tunnel
+{const r=RIDE_BY.space,B=new LMB(r.x,r.z,0),SW=0xf3f5f8,SR=0xc3c9d4,SB=0xd6dae2,SD=0x5a6272;
+ const rad=t=>2.2+22.8*Math.pow(1-t,1.3),H=t=>2+28*t,prof=[[0,0],[25.6,0]];for(let i=0;i<=14;i++){const t=i/14;prof.push([rad(t),H(t)])}prof.push([0,30.2]);
+ B.cyl(0,0,0,27,28,1.4,SB,48);B.lathe(0,0,0,prof,SW,48);B.cyl(0,1.4,0,25.8,25.8,0.8,SR,48);
+ for(let k=0;k<12;k++){const a=(k+0.5)/12*Math.PI*2,ca=Math.cos(a),sa=Math.sin(a);const pts=[[29.5,0]];for(let i=0;i<=13;i++){const t=i/14;pts.push([rad(t)+0.9,H(t)])}
+   for(let i=1;i<pts.length;i++)B.beam([ca*pts[i-1][0],pts[i-1][1],sa*pts[i-1][0]],[ca*pts[i][0],pts[i][1],sa*pts[i][0]],1.5,SR,4)}
+ B.cyl(0,29.6,0,2.6,2.6,1.4,SR,12);[[0,0,9],[1.1,0.6,6.5],[-0.9,0.8,5.5],[0.2,-1.1,7]].forEach(([x,z,h])=>{B.cyl(x,30.8,z,0.18,0.32,h,SD,6);B.ball(x,30.8+h,z,0.35,0xd9534f,0)});
+ B.box(-25,0,4,10,4.2,6.5,SB);B.box(-25,4.2,4,10.4,0.6,6.9,0x3f7fe0);B.box(-30.1,0,4,0.4,3.2,4,SD);
+ B.build({[SW]:'space'});
+ for(let k=0;k<24;k++){const a=k/24*Math.PI*2;GL(r.x+Math.cos(a)*27.5,2.4,r.z+Math.sin(a)*27.5,0xbfd8ff,3.4)}GL(r.x,40,r.z,0xff6a5a,3,0.6)}
+
+// ---- Big Thunder Mountain: striped red-rock buttes and hoodoos (strata line up across the buttes), mine-train track on trestles,
+//      mining-town buildings and a water tower. Kept off the Rivers of America (north-east) and inside the railroad.
+{const r=RIDE_BY.btm,B=new LMB(r.x,r.z,0),rn=LM_RAND(91),RK=[0xb5532f,0xc8693d,0xdc9156,0xa2462a,0xcf7a45,0xe6ad72],WOOD=0x7a5634,TAN=0xc9a26b,ROOFB=0x6b4a32;
+ B.cyl(-1,0,8,14,15.5,1.2,0xc98a58,9);
+ const strata=y=>RK[Math.floor(y/2.3)%RK.length];
+ const butte=(x,z,r0,h,seg)=>{let y=1.2,rr=r0;const n=Math.max(3,Math.round((h-1.2)/2.3)),bh=(h-1.2)/n,sx=0.72+rn()*0.5,sz=0.72+rn()*0.5,ry=rn()*6,lx=(rn()-0.5)*0.35,lz=(rn()-0.5)*0.35,sg=seg||(6+Math.floor(rn()*3));
+   for(let i=0;i<n;i++){const ledge=rn()<0.22&&i<n-2;const r2=rr*(ledge?0.74:(0.86+rn()*0.08));
+     B.at(new THREE.CylinderGeometry(r2,rr,bh+0.04,sg),strata(y),x+lx*i,y+bh/2,z+lz*i,sx,1,sz,ry);y+=bh;rr=ledge?r2*1.12:r2}
+   B.at(new THREE.CylinderGeometry(rr*1.08,rr,1,sg),strata(y),x+lx*n,y+0.5,z+lz*n,sx,1,sz,ry);
+   for(let k=0;k<4;k++){const a=rn()*6.3,d=r0*(0.9+rn()*0.5);B.ball(x+Math.cos(a)*d*sx,1,z+Math.sin(a)*d*sz,r0*(0.35+rn()*0.3),RK[k%RK.length],0,0.6,rn()*6)}};
+ butte(-2,8,10,12,9);
+ [[-3,7,7.5,32],[6,12,6,24],[-9,15,5.5,20],[4,1,5,17],[11,5,4,14],[-10,4,4,26],[1,18,4,12],[-5,-2,3.6,15],[9,17,3,10],[-7,9,2.4,30]].forEach(b=>butte(...b));
+ const tp=[];for(let i=0;i<=72;i++){const s=i/72*Math.PI*2;tp.push([-1+14.5*Math.cos(s)+1.5*Math.cos(3*s),4+4.5*(1+Math.sin(2*s+0.7)),8+12*Math.sin(s)+1.5*Math.sin(2*s)])}
+ B.ribbon(tp,1.9,WOOD);B.ribbon(tp.map(p=>[p[0],p[1]+0.12,p[2]]),0.9,0x9a9590);
+ for(let i=0;i<72;i+=3){const p=tp[i];B.beam([p[0],0,p[2]],[p[0],p[1],p[2]],0.4,0x8a6a4a,4);if(i%9===0)GL(r.x+p[0],p[1]+1.2,r.z+p[2],0xffb860,2.2,0.4)}
+ // mine train (static, five cars) on the track
+ for(let k=0;k<5;k++){const p=tp[40+k],q=tp[41+k];B.box(p[0],p[1]+0.2,p[2],1.4,1.1,1.8,k?0xb84a2e:0x2e2e33,Math.atan2(q[0]-p[0],q[2]-p[2]))}
+ // town: assay office, shed, water tower
+ B.box(12,0,15,6,4,5,TAN,0.3);B.gable(12,4,15,6.4,2.4,5.4,ROOFB,0.3);B.box(-12,0,-3,5,3.6,4,0xb08a5a,-0.4);B.gable(-12,3.6,-3,5.4,2,4.4,ROOFB,-0.4);
+ for(const [dx,dz] of[[-1,-1],[1,-1],[-1,1],[1,1]])B.beam([13+dx*1.4,0,9+dz*1.4],[13+dx*1,5,9+dz*1],0.35,WOOD);B.cyl(13,5,9,1.9,1.9,2.6,0x8a6240,10);B.cyl(13,7.6,9,0.2,2.2,1.4,ROOFB,10);
+ B.build(null,RK)}
+
+// ---- TRON Lightcycle / Run: rippled canopy arcing round the launch building with light bars along the ribs and rim,
+//      blue coaster track sweeping out the open side; canopy and track glow at night (tron / tronC / tronT)
+{const r=RIDE_BY.tron,B=new LMB(r.x,r.z,0),TC=0x3a4b70,TL=0x56e8ff,TD=0x1b2232,TT=0x3d8bff;
+ // sheet: u runs along a curved spine (arc radius 34 round a centre north-west of the anchor), v across; width swells in the middle,
+ // height ripples in 9 crests along u like the real canopy's scales, edges sag
+ const cx=-22,cz=-16,A0=-0.1,A1=1.45,Rs=26;
+ const cf=(u,v)=>{const a=A0+(A1-A0)*u,wd=6+6.5*Math.sin(Math.PI*u),R=Rs+(v-0.5)*2*wd,sv=Math.sin(Math.PI*v),su=Math.sin(Math.PI*u);
+   return[cx+Math.cos(a)*R,4+9*Math.pow(sv,0.7)*(0.45+0.55*su)+1.6*Math.pow(Math.abs(Math.sin(u*Math.PI*9)),1.5)*sv,cz+Math.sin(a)*R]};
+ B.surf(90,12,cf,TC);
+ for(let i=0;i<=18;i++){const u=(i+0.5)/18.9,pts=[];for(let j=0;j<=12;j++){const p=cf(u,j/12);pts.push([p[0],p[1]+0.25,p[2]])}B.ribbon(pts,0.5,TL)}
+ for(const v of[0,1]){const pts=[];for(let i=0;i<=90;i++){const p=cf(i/90,v);pts.push([p[0],p[1]+0.2,p[2]])}B.ribbon(pts,0.8,TL)}
+ for(let i=1;i<=9;i++)for(const v of[0.2,0.8]){const p=cf(i/10,v);B.beam([p[0],0,p[2]],[p[0],p[1]-0.2,p[2]],0.6,TD,6)}
+ {const p=cf(0.5,0.5);B.box(p[0],0,p[2],16,7,11,TD,-(A0+(A1-A0)*0.5));B.box(p[0],5.4,p[2],16.3,0.5,11.3,TL,-(A0+(A1-A0)*0.5))}
+ const tk=[];for(let i=0;i<=56;i++){const t=i/56,a=A1+0.15-(A1-A0+0.3)*t,R=Rs+10+3*Math.sin(t*Math.PI*3);tk.push([cx+Math.cos(a)*R,2.2+3.5*Math.sin(t*Math.PI)+1.2*Math.sin(t*Math.PI*6),cz+Math.sin(a)*R])}
+ B.ribbon(tk,1.6,TT);for(let i=0;i<=56;i+=4){const p=tk[i];B.beam([p[0],0,p[2]],[p[0],p[1],p[2]],0.45,0x9aa4b4,4)}
+ B.build({[TL]:'tron',[TC]:'tronC',[TT]:'tronT',[TD]:'tronC'});
+ for(let i=0;i<=30;i++)for(const v of[0,1]){const p=cf(i/30,v);GL(r.x+p[0],p[1]+0.5,r.z+p[2],0x56e8ff,3,0.3)}}
+
+// ---- Haunted Mansion: brick manor with white trim, slate mansard roofs and dormers, tall tower with cupola, columned porch
+{const r=RIDE_BY.hm,B=new LMB(r.x,r.z,0),BR=0x8e4a3a,WH=0xf0ece2,SL=0x434957,WN=0x2a2f3c;
+ B.box(0,0,0,16,10,11,BR);B.box(0,10,0,16.6,0.6,11.6,WH);B.frus(0,10.6,0,16.4,4.4,11.4,0.62,SL);B.box(0,15,0,10.4,0.4,7.2,WH);
+ for(const x of[-5,0,5]){B.box(x,11,5.2,1.8,2.4,1.4,WH);B.gable(x,13.4,5.2,1.8,1.5,2.2,SL,Math.PI/2)}
+ for(const y of[2.6,6.4])for(const x of[-6,-3,3,6])B.box(x,y,5.56,1.3,2.4,0.3,WN);
+ B.box(-9.5,0,1,5,7,8,BR);B.box(-9.5,7,1,5.4,0.5,8.4,WH);B.frus(-9.5,7.5,1,5.2,3,8.2,0.5,SL);
+ B.box(5,0,-2.5,5,21,5,BR);B.box(5,21,-2.5,5.6,0.6,5.6,WH);B.frus(5,21.6,-2.5,5.4,3,5.4,0.55,SL);for(const y of[11,15,18.5])B.box(5,y,0.06,1.1,2,0.3,WN);
+ B.cyl(5,24.6,-2.5,1.5,1.5,2.6,WH,8);B.cyl(5,27.2,-2.5,0.2,1.8,2.4,SL,8);B.beam([5,29.4,-2.5],[5,32,-2.5],0.15,0x222222);
+ for(const x of[-3,-1,1,3])B.cyl(x,0,7.4,0.35,0.4,6,WH,8);B.box(0,6,6.9,8,0.7,3,WH);B.box(0,0,6.9,8.4,0.5,3.4,0xbfb8a8);
+ B.build({[WN]:'win'});GL(r.x+5,17,r.z,0x9fe8b0,2.4,0.8)}
+
+// ---- Tiana's Bayou Adventure: Chick-A-Pin Hill with a great live oak on top hung with Spanish moss, waterfall, bayou shack
+{const p0=toWorld('MK',-154,16),B=new LMB(p0[0],p0[1],0),rn=LM_RAND(57),EA=0x8a6a4a,GR=0x6b8e4e,LF=0x4f7d3a,LF2=0x5f8f42,MS=0x9aa58a;
+ B.lathe(0,0,0,[[0,0],[20,0],[18.5,3],[15,7.5],[10,12],[5,15],[0,16]],EA,10);B.lathe(0,0,0,[[13.6,8.6],[10,12.2],[5,15.2],[0,16.2]].map(q=>[q[0],q[1]+0.15]),GR,10);
+ B.cyl(0,15,0,1.8,2.6,7,0x5a4632,7);[[1,0.2],[-1,0.4],[0.2,1],[-0.3,-1]].forEach(([dx,dz])=>B.beam([0,20,0],[dx*7,24,dz*7],1,0x5a4632,5));
+ [[0,26,0,7],[6,24.5,2,5],[-6,25,-1,5.5],[2,25,-6,5],[-2,24,6,5]].forEach(([x,y,z,s],i)=>B.ball(x,y,z,s,i%2?LF2:LF,1,0.55));
+ for(let k=0;k<14;k++){const a=rn()*Math.PI*2,d=3+rn()*6;B.at(new THREE.ConeGeometry(0.5,2.6,5),MS,Math.cos(a)*d,21.5+rn()*1.5,Math.sin(a)*d,1,1,1,0,Math.PI)}
+ const FL=0x58b6e0,fp=[];for(let i=0;i<=40;i++){const t=i/40,a=-Math.PI*0.95+t*Math.PI*1.35,R=19.5-t*7.5;fp.push([Math.cos(a)*R,2+t*10.5,Math.sin(a)*R])}
+ const ad=Math.PI*0.4,dc=Math.cos(ad),ds=Math.sin(ad);for(let i=1;i<=8;i++){const t=i/8;fp.push([dc*(12+t*12),12.5-11.4*Math.pow(t,0.8),ds*(12+t*12)])}
+ B.ribbon(fp,3,FL);B.ribbon(fp.map(p=>[p[0],p[1]+0.5,p[2]]),0.6,0xd8f2ff);B.cyl(dc*26,0,ds*26,4,4.3,0.7,FL,18);
+ for(let i=0;i<40;i+=5){const p=fp[i];const h=Math.max(0,p[1]-2);if(h>1)B.beam([p[0],0,p[2]],[p[0],p[1],p[2]],0.5,0x6b5a46)}
+ B.box(Math.cos(1.2)*17,2,Math.sin(1.2)*17,3,8,0.6,0xd6f0ff,-1.2+Math.PI/2);
+ for(let k=0;k<7;k++){const a=rn()*6.3,d=12+rn()*6;B.ball(Math.cos(a)*d,Math.max(1,(20-d)*0.8),Math.sin(a)*d,1.6+rn()*1.6,0x8f8676,0,0.7,rn()*6)}
+ for(let k=0;k<10;k++){const a=rn()*6.3,d=8+rn()*9;B.ball(Math.cos(a)*d,Math.max(1,(20-d)*0.85),Math.sin(a)*d,1.4+rn(),k%2?LF:LF2,0,0.8)}
+ B.box(22,0,-4,5,3.4,4,0x9a7a52,0.7);B.gable(22,3.4,-4,5.6,1.8,4.6,0x5a4a3a,0.7);
+ B.build(null,[EA,GR,LF,LF2,0x8f8676])}
+
+// ---- Seven Dwarfs Mine Train: forested rocky mountain with a mine entrance, swinging track and the cottage at its foot
+{const p0=toWorld('MK',25,-110),B=new LMB(p0[0],p0[1],0),rn=LM_RAND(33),RK=[0x9a8a74,0x8a7c68,0xae9c80],TR=0x3a6e33,TR2=0x4d8a3c;
+ [[0,7,0,10,1],[-6,5,4,7,1],[7,5,-2,7,0.9],[2,13,-2,6,1.2],[-4,11,-3,5,1.1],[5,3,6,5,0.8],[-2,17,0,3.5,1.4]].forEach(([x,y,z,s,sy],i)=>B.ball(x,y,z,s,RK[i%3],0,sy,rn()*3));
+ for(let k=0;k<30;k++){const a=rn()*Math.PI*2,d=7+rn()*8,x=Math.cos(a)*d,z=Math.sin(a)*d,y=Math.max(0,12.5-d*1.05);B.cyl(x,y,z,0.01,1.6+rn(),5+rn()*4,k%2?TR:TR2,6)}
+ for(let k=0;k<8;k++){const a=rn()*Math.PI*2,d=3+rn()*5;B.ball(Math.cos(a)*d,13-d*0.9,Math.sin(a)*d,2+rn()*1.5,k%2?TR:TR2,0,0.8)}
+ B.box(-2,0,10.6,5,5,1,0x3a2e26);B.box(-2,5,10.6,6,1,1.6,0x6b4a32);
+ const tp=[];for(let i=0;i<=40;i++){const s=i/40*Math.PI*1.6+0.6;tp.push([Math.cos(s)*15,1.5+3*Math.sin(s*2.2)+2,Math.sin(s)*13])}
+ B.ribbon(tp,1.6,0x6b4a32);for(let i=0;i<=40;i+=4){const p=tp[i];B.beam([p[0],0,p[2]],[p[0],p[1],p[2]],0.35,0x8a6a4a)}
+ B.box(10,0,13,6,3.5,4,0xd9c39a,0.4);B.gable(10,3.5,13,6.6,3.8,4.6,0x7a4b2a,0.4);B.box(11.5,3,12,0.8,4,0.8,0x8f7f6a,0.4);
+ B.build(null,[...RK,TR,TR2])}
 {const c=toWorld('EP',0,-112);const s=new THREE.Mesh(new THREE.IcosahedronGeometry(22,1),M(0xd5dbe3,{flatShading:true}));s.position.set(c[0],30,c[1]);scene.add(s);nightLit('sse',[s]);SSE_POS=[c[0],30,c[1]];
  [[0,1],[0.87,-0.5],[-0.87,-0.5]].forEach(([a,b])=>{const l=new THREE.Mesh(new THREE.CylinderGeometry(1.2,1.6,12,6),M(0xb8c1cc));l.position.set(c[0]+a*12,6,c[1]+b*12);scene.add(l)})}
 {const t=RIDE_BY.tot;box(t.x,t.z,18,62,18,0xb9876a);nightLit('tot',[box(t.x,t.z,20,4,20,0x8a5b46,62)]);const r=RIDE_BY.rotr;box(r.x,r.z,30,16,30,0x8a6f55);cyl(r.x+16,r.z-6,5,7,26,0x9b7f62,0,7)}
@@ -1137,11 +1299,10 @@ const WATER=0x4b9bd0;
  p=w(-118,-74);kd(p[0],p[1],27,WATER,0.46);kd(p[0],p[1],11,0x6c9e4b,0.52);PARK_AVOID.push([p[0],p[1],29]);
  for(let j=0;j<5;j++)kn(p[0]+Math.cos(j*1.3)*6,p[1]+Math.sin(j*1.3)*6,2.2,8,0x2f6e2c,0.5);kb(p[0],p[1],3,6,3,0x8a6b4a,0.5);
  p=w(-108,72);kd(p[0],p[1],15,0x4c8f8a,0.46);PARK_AVOID.push([p[0],p[1],17]);
- p=w(-154,16);kn(p[0],p[1],20,24,0x8a6a4a,0,U.cone6);kn(p[0]+5,p[1]-5,12,18,0x6b8e4e,3,U.cone6);PARK_AVOID.push([p[0],p[1],22]);
- K.ribbon([w(-138,28),w(-150,34),w(-166,24),w(-170,4)],3,[1,6,10,4],0x58b6e0);
- p=w(-82,-62);kb(p[0],p[1],16,13,12,0x8f8a86);kn(p[0],p[1],11,8,0x3b3f4a,13,U.cone4);kb(p[0]+6,p[1]-3,4,20,4,0x8f8a86);kn(p[0]+6,p[1]-3,3.2,5,0x3b3f4a,20,U.cone4);
+ p=w(-154,16);PARK_AVOID.push([p[0],p[1],22]);
+ 
  p=w(-114,25);kb(p[0],p[1],15,7,12,0xd2b48c);kb(p[0]-6,p[1]-5,3,11,3,0xc4a47c);kb(p[0]-6,p[1]-5,0.4,8,0.4,0x333333,11);kb(p[0]-4.6,p[1]-5,2.6,1.6,0.2,0x222222,17);
- p=w(25,-110);kn(p[0],p[1],18,20,0x6d8f4c,0,U.cone6);kn(p[0]-7,p[1]+3,8,15,0x9a8a74,0,U.cone6);PARK_AVOID.push([p[0],p[1],19]);
+ p=w(25,-110);PARK_AVOID.push([p[0],p[1],19]);
  p=w(62,-126);kn(p[0],p[1],15,14,0x7d9a58,0,U.cone6);kb(p[0],p[1],12,8,8,0xe7dfd0,11);for(const dx of[-5,5]){kc(p[0]+dx,p[1],1.8,12,0xe7dfd0,11);kn(p[0]+dx,p[1],2.4,6,0x6a4f8a,23)}PARK_AVOID.push([p[0],p[1],16]);
  p=w(42,-38);kd(p[0],p[1],9,0xe8a6c4,0.6);[0xf06292,0x9575cd,0x4fc3f7,0xffd54f,0x81c784,0xff8a65].forEach((c,j)=>{const a=j/6*Math.PI*2;kc(p[0]+Math.cos(a)*6,p[1]+Math.sin(a)*6,1.8,2,c,0.6)});
  p=w(74,-74);kd(p[0],p[1],9,0xb3d4f0,0.6);kc(p[0],p[1],0.9,11,0xd4af37);for(let j=0;j<8;j++){const a=j/8*Math.PI*2;ks(p[0]+Math.cos(a)*7,6,p[1]+Math.sin(a)*7,1.6,0xa8b8d8)}
@@ -1259,13 +1420,14 @@ function updateExtras(){const t=G.t;
   for(const g of EXTRA.clouds)g.position.x=((g.userData.x0+t*3)%4400)-2300}
 
 // ride buildings + pins
-const CUSTOM=new Set(['space','tot','ee','sse','tea','dumbo','astro','hm','tiana','sdmt','barn','soar','lwtl','seas','fig','tt','msp','gotg','fea','remy','aa','gft','mmrr','sdd','msr']);
+const CUSTOM=new Set(['tron','btm','space','tot','ee','sse','tea','dumbo','astro','hm','tiana','sdmt','barn','soar','lwtl','seas','fig','tt','msp','gotg','fea','remy','aa','gft','mmrr','sdd','msr']);
 const LANDCOL={adv:0x5c8f4a,frl:0x9a6b45,lib:0x6e7b8f,fant:0xc98bb9,tomo:0x8ca7c9,main:0xd8b28a,fwe:0x7f93ad,fww:0x5fa3a0,se:0xa9b6c4,mex:0xd7934e,nor:0x8b5a4a,fra:0x8fa3c4,usa:0xb98a6a,ge:0x8d755e,tsl:0xe0b04a,sun:0xc77a8e,cen:0xc94f4f,echo:0x5aa4b0,pan:0x6c8fbf,afr:0xc49a58,asia:0xb5543e,di:0x6f9d4f};
+const PIN_Y={space:31,tot:66,ee:90,sse:52,btm:36,tron:18,hm:30,sdmt:16};
 const pinGeo=new THREE.CylinderGeometry(0.5,0.5,16,5);pinGeo.translate(0,8,0);const headGeo=new THREE.SphereGeometry(3.4,12,10);
 for(const r of RIDES){
   const s=r.kind==='show'?11:9+r.base/10;
   if(!CUSTOM.has(r.id)){box(r.x,r.z,s,6+r.thrill*0.7,s*0.8,LANDCOL[r.land]||0xbfa98a,0,(r.seed%3)-1.5)}GL(r.x,4,r.z,0xffe6b8,s*0.7)
-  const pin=new THREE.Mesh(pinGeo,new THREE.MeshBasicMaterial({color:0xffffff,toneMapped:false}));pin.position.set(r.x,r.id==='space'?28:r.id==='tot'?66:r.id==='ee'?90:r.id==='sse'?52:12,r.z);scene.add(pin);
+  const pin=new THREE.Mesh(pinGeo,new THREE.MeshBasicMaterial({color:0xffffff,toneMapped:false}));pin.position.set(r.x,PIN_Y[r.id]||12,r.z);scene.add(pin);
   const hd=new THREE.Mesh(headGeo,new THREE.MeshBasicMaterial({color:0x4fd18d,toneMapped:false}));hd.position.set(0,16,0);pin.add(hd);r.head=hd;r.pin=pin;
 }
 // trees
@@ -1567,6 +1729,11 @@ function updateNight(nf,ts){for(const N of NIGHT)for(const m of N.m){const mat=m
    case 'castle':{const roof=mat.color.b>mat.color.r*1.5;if(roof)_e.setHSL(0.62+0.03*Math.sin(ts*0.3),0.8,0.5),k*=0.14;else _e.setHSL(0.76+0.09*Math.sin(ts*0.22),0.6,0.55),k*=0.16;break}
    case 'space':_e.setHex(0xbcd6ff);k*=0.55;break;
    case 'tron':_e.setHex(0x30e4ff);k*=1.3*(0.85+0.15*Math.sin(ts*2.2));break;
+   case 'tronC':_e.setHex(0x1d4a9a);k*=0.3;break;
+   case 'tronT':_e.setHex(0x3d8bff);k*=0.7;break;
+   case 'gold':_e.setHex(0xffc456);k*=0.32;break;
+   case 'win':_e.setHex(0xffc274);k*=0.95;break;
+   case 'gate':_e.setHex(0xffb060);k*=0.3;break;
    case 'sse':_e.setHex(0x9fc4ff);k*=0.42;break;
    case 'tot':_e.setHex(0xffa04a);k*=0.75;break;
    case 'tol':_e.setHex(0x5a46c8);k*=0.3;break;
@@ -2146,7 +2313,7 @@ function tick(now){checkSize();const dtR=Math.min(0.1,Math.max(0,(now-last)/1000
   camStep(now);controls.update();skyDome.position.copy(camera.position);if(!G.segs&&tripLine)showTrip(null);renderFrame();updateLabels();
   if(G.started)updateHUD();
 }
-window.WDW={stRun,stHTML,stCalib,stModelDay,dpParseTP,dpApplyImport,scene,setGfx,LIGHT,sunDir,fwShows,fwSim:(n,dt)=>{for(let i=0;i<n;i++)updateFireworks(dt)},holdTime:t=>{G.holdT=t==null?null:t*60;if(t!=null)G.t=t*60},dpRun,dpMakeGame,dpProgress,dpLoad,dpSave,openPlan,openDaySetup,prepDay,llFromPlan,llFresh,llBook,llNext,llRecs,llUse,llHeld,llTick,llPlanErrors,llSuggest,llLoadPlan,openLL,openRides,openPicks,LIVE,liveIngest,liveFor,curveAt,orlandoNow,livePoll,G,go,flyTo,setFollow,RIDE_BY,PARKS,camera,controls,openRide,closeSheet,rawWait,waitAt,dayFactor,holiday,hoursFor,applyHours,accessOpen,lastClose,renderer,dijkstra,NI,NODES,RESORTS,RIDES,LINES};
+window.WDW={camera,controls,stRun,stHTML,stCalib,stModelDay,dpParseTP,dpApplyImport,scene,setGfx,LIGHT,sunDir,fwShows,fwSim:(n,dt)=>{for(let i=0;i<n;i++)updateFireworks(dt)},holdTime:t=>{G.holdT=t==null?null:t*60;if(t!=null)G.t=t*60},dpRun,dpMakeGame,dpProgress,dpLoad,dpSave,openPlan,openDaySetup,prepDay,llFromPlan,llFresh,llBook,llNext,llRecs,llUse,llHeld,llTick,llPlanErrors,llSuggest,llLoadPlan,openLL,openRides,openPicks,LIVE,liveIngest,liveFor,curveAt,orlandoNow,livePoll,G,go,flyTo,setFollow,RIDE_BY,PARKS,camera,controls,openRide,closeSheet,rawWait,waitAt,dayFactor,holiday,hoursFor,applyHours,accessOpen,lastClose,renderer,dijkstra,NI,NODES,RESORTS,RIDES,LINES};
 requestAnimationFrame(frame);
 })();
 </script>
