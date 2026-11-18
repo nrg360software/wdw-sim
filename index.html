@@ -1251,8 +1251,210 @@ const spireP=(r,h)=>[[0,-0.02],[r*1.24,0],[r*1.12,h*0.07],[r*0.8,h*0.28],[r*0.45
  B.ribbon(tp,1.6,0x6b4a32);for(let i=0;i<=40;i+=4){const p=tp[i];B.beam([p[0],0,p[2]],[p[0],p[1],p[2]],0.35,0x8a6a4a)}
  B.box(10,0,13,6,3.5,4,0xd9c39a,0.4);B.gable(10,3.5,13,6.6,3.8,4.6,0x7a4b2a,0.4);B.box(11.5,3,12,0.8,4,0.8,0x8f7f6a,0.4);
  B.build(null,[...RK,TR,TR2])}
-{const c=toWorld('EP',0,-112);const s=new THREE.Mesh(new THREE.IcosahedronGeometry(22,1),M(0xd5dbe3,{flatShading:true}));s.position.set(c[0],30,c[1]);scene.add(s);nightLit('sse',[s]);SSE_POS=[c[0],30,c[1]];
- [[0,1],[0.87,-0.5],[-0.87,-0.5]].forEach(([a,b])=>{const l=new THREE.Mesh(new THREE.CylinderGeometry(1.2,1.6,12,6),M(0xb8c1cc));l.position.set(c[0]+a*12,6,c[1]+b*12);scene.add(l)})}
+// ================= EPCOT landmark models (Visuals 2) =================
+// move(): re-place the same builder somewhere else, so several landmarks share one mesh per colour (World Showcase = one builder).
+LMB.prototype.move=function(x,z,ry){this.o.compose(new THREE.Vector3(x,0,z),new THREE.Quaternion().setFromEuler(new THREE.Euler(0,ry||0,0)),new THREE.Vector3(1,1,1));return this};
+// R2(cx,cz,ry): offset (x,z) in a part's own rotated frame → builder frame (same rotation as the ry argument of box/gable)
+const R2=(cx,cz,ry)=>{const c=Math.cos(ry||0),s=Math.sin(ry||0);return(x,z)=>[cx+x*c+z*s,cz-x*s+z*c]};
+// World Showcase pavilion frame: centre d (park-local units) beyond the promenade node, away from the lagoon; front (+z) faces the lagoon.
+// In that frame the promenade runs along z≈+20 and the lagoon shore is at z≈+36 (world units).
+const EPV=(k,d)=>{const n=PARKS.EP.nodes[k],L=PARKS.EP.lagoon,dx=n[0]-L[0],dz=n[1]-L[1],l=Math.hypot(dx,dz),ux=dx/l,uz=dz/l,c=toWorld('EP',n[0]+ux*d,n[1]+uz*d);return[c[0],c[1],Math.atan2(-ux,-uz)]};
+
+// ---- Spaceship Earth: geodesic ball with a low pyramid on each of its ~960 facets (the real one has 954 panels), three pairs of legs,
+//      ring planter and the entrance canopy; twinkles at night (sse)
+{const c=toWorld('EP',0,-112),B=new LMB(c[0],c[1],0),SS=0xd7dde5,SL=0xa9b2bf,SB=0xe6e2d8,SD=0x4a5262;SSE_POS=[c[0],30,c[1]];
+ {const g=new THREE.IcosahedronGeometry(21.6,3).toNonIndexed(),p=g.attributes.position.array,P=[];
+  for(let i=0;i<p.length;i+=9){const a=[p[i],p[i+1],p[i+2]],b=[p[i+3],p[i+4],p[i+5]],q=[p[i+6],p[i+7],p[i+8]],m=[(a[0]+b[0]+q[0])/3,(a[1]+b[1]+q[1])/3,(a[2]+b[2]+q[2])/3],L=Math.hypot(m[0],m[1],m[2]),k=(L+1.1)/L,t=[m[0]*k,m[1]*k,m[2]*k];
+   P.push(...a,...b,...t,...b,...q,...t,...q,...a,...t)}
+  g.dispose();const G=new THREE.BufferGeometry();G.setAttribute('position',new THREE.Float32BufferAttribute(P,3));G.computeVertexNormals();B.at(G,SS,0,30,0,1,1,1)}
+ // legs: three pairs, splayed, meeting the ball low down
+ for(let k=0;k<3;k++){const a=k/3*Math.PI*2+Math.PI/6;for(const s of[-1,1]){const a0=a+s*0.2,a1=a+s*0.07;B.beam([Math.cos(a0)*17,0,Math.sin(a0)*17],[Math.cos(a1)*12,13,Math.sin(a1)*12],2.6,SL,6);
+   B.cyl(Math.cos(a0)*17,0,Math.sin(a0)*17,2,2.4,1,SD,8)}}
+ B.cyl(0,7.6,0,6,4,1.4,SL,16);
+ // ring planter with a gap for the walkway, entrance canopy on the west side
+ for(let i=0;i<28;i++){const a=i/28*Math.PI*2;if(Math.abs(Math.sin(a))>0.97)continue;B.box(Math.cos(a)*27,0,Math.sin(a)*27,6.2,1,2,SB,-a+Math.PI/2)}
+ B.box(-20,0,6,9,4.4,7,SB,0.5);B.box(-20,4.4,6,10,0.6,8,SD,0.5);
+ B.build({[SS]:'sse'},[SS])}
+
+// ---- Future World east: Guardians of the Galaxy (Wonders of Xandar entrance, giant show building, Starblaster on a pylon),
+//      Test Track (round World of Motion drum with the outdoor speed loop), Mission: SPACE (crescent building, planets, gravity wheel)
+{const B=new LMB(0,0,0),NV=0x34466e,NV2=0x45598a,XW=0xeef2f6,XT=0x46d6e8,OR=0xf08a3c,MG=0xc6509c,TS=0xc9ced6,TB=0x2f6fd0,TR=0xd8392f,TG=0x6d7686,MO=0xc9784a,MR=0xb04a2c,MP=0x9aa3ad,WN=0x2a2f3c;
+ // Guardians: front (+z) faces west into the park
+ {const r=RIDE_BY.gotg;B.move(r.x,r.z,-Math.PI/2);
+  B.box(0,0,-12,44,19,30,NV);B.box(0,19,-12,44.6,0.8,30.6,NV2);
+  for(const [y,col] of[[4,OR],[7,MG],[10,XT]])B.box(0,y,-12,44.3,0.9,30.3,col);
+  for(const [x,z,w,d] of[[-10,-18,6,5],[8,-6,5,7],[14,-20,4,4]])B.box(x,19.8,z,w,1.6,d,0x5a6a8a);
+  // Wonders of Xandar: white faceted hall with a teal band and sweeping white ribs
+  B.frus(0,0,9,26,9,10,0.62,XW);B.box(0,3.2,14.2,18,1.2,0.4,XT);B.box(0,0,14.05,6,3.2,0.4,WN);
+  const xs=(u,t)=>[(u-0.5)*24*(1-0.3*t),15*Math.sin(t*Math.PI*0.62)+1.5*Math.sin(u*Math.PI),19-14*t];
+  B.surf(12,12,xs,XW);for(const u of[0,0.5,1]){const pts=[];for(let j=0;j<=12;j++){const p=xs(u,j/12);pts.push([p[0],p[1]+0.3,p[2]])}for(let j=1;j<pts.length;j++)B.beam(pts[j-1],pts[j],0.6,XT,4)}
+  B.ball(0,16.5,6,2.4,XT,0,1.6);
+  // Nova Corps Starblaster on a leaning pylon
+  B.beam([10,0,24],[8,8,24],1.2,TS,6);
+  B.at(new THREE.ConeGeometry(2.4,11,4),XW,7.5,9.2,24,1,1,0.38,0.4,Math.PI/2,0);B.box(7.5,8.8,24,10,0.35,3,OR,0.4);B.box(7.5,9.5,24,1.6,0.9,1.6,XT,0.4)}
+ // Test Track: front faces west
+ {const r=RIDE_BY.tt;B.move(r.x,r.z,-Math.PI/2);
+  B.cyl(0,0,-2,19,19,9,TS,40);B.cyl(0,9,-2,19.6,19.6,1,TB,40);B.cyl(0,10,-2,17,19,1.6,0xe3e6ea,40);
+  for(const y of[2.6,5.2])B.cyl(0,y,-2,19.15,19.15,0.6,TB,40);
+  B.box(0,0,18,14,6,6,0xe3e6ea);B.box(0,6,18,15,0.7,7,TB);B.box(0,0,21.05,6,4,0.4,WN);
+  // outdoor loop: leaves the drum, runs round the front at speed, banked; red/blue edge stripes, columns
+  const tk=[];for(let i=0;i<=64;i++){const s=i/64*Math.PI*2;tk.push([25*Math.sin(s)+2*Math.sin(2*s),2.6+3.2*(1-Math.cos(s))/2+1.5*Math.max(0,Math.sin(s*2)),-2+21*Math.cos(s)])}
+  B.ribbon(tk,3.4,TG);B.ribbon(tk.map(p=>[p[0]*1.072,p[1]+0.25,p[2]*1.07-0.14]),0.5,TR);B.ribbon(tk.map(p=>[p[0]*0.93,p[1]+0.25,p[2]*0.93-0.14]),0.5,TB);
+  for(let i=0;i<64;i+=4){const p=tk[i];B.beam([p[0],0,p[2]],[p[0],p[1],p[2]],0.7,0x9aa4b4,4)}
+  {const p=tk[14],q=tk[15];B.box(p[0],p[1]+0.2,p[2],1.8,1,3.4,TR,Math.atan2(q[0]-p[0],q[2]-p[2]))}}
+ // Mission: SPACE: crescent building wrapped round a plaza with Mars, the Moon and the gravity wheel; front faces the park centre
+ {const r=RIDE_BY.msp,f=toWorld('EP',0,-70);B.move(r.x,r.z,Math.atan2(f[0]-r.x,f[1]-r.z));
+  for(let i=0;i<9;i++){const a=-1.1+i*0.275;B.box(Math.sin(a)*15,0,-Math.cos(a)*15+6,6,9+(i%2),7,MO,-a);B.box(Math.sin(a)*15,9+(i%2),-Math.cos(a)*15+6,6.2,0.6,7.2,MR,-a)}
+  B.at(new THREE.TorusGeometry(10,0.9,6,40,Math.PI*1.25),MP,0,0,-6,1,1,1,0,0,-Math.PI*0.125);
+  B.cyl(0,0,8,4.6,5,1,0x8a8f98,16);B.ball(0,6.2,8,5,MR,2);B.ball(-8,2.5,10,2,0xbfc3c8,1);B.ball(8,3,9,1.6,0xd9b48a,1)}
+ B.build({[XT]:'self',[OR]:'self',[MG]:'self',[TR]:'self',[TB]:'self',[WN]:'win'},[MR])}
+
+// ---- Future World west: The Land (striped earth walls under a field of glass pyramids, Soarin' wing), The Seas (wave-roofed hall,
+//      rockwork with a breaking-wave sculpture and gulls), Imagination (two leaning glass pyramids)
+{const B=new LMB(0,0,0),E1=0x9a6a44,E2=0xc58b55,E3=0xb5703f,E4=0xd9a96a,GLS=0x8fc3d6,GL2=0xb5dceb,SW=0xd8c39a,SA=0x5aa3bd,SR=0xd5eaf1,RK=0x8f8676,WV=0xf2f8fb,IG=0x7fb3e0,IG2=0x9fd0f0,DK=0x3e4a5c,WN=0x2a2f3c,WT=0x58b6e0;
+ // The Land: front faces the Future World west hub
+ {const c=toWorld('EP',-120,-58),h=toWorld('EP',-62,-72);B.move(c[0],c[1],Math.atan2(h[0]-c[0],h[1]-c[1]));
+  B.box(0,0,0,46,9,34,E4);[[1.6,E1],[3.4,E2],[5.2,E3],[7.0,E1]].forEach(([y,col])=>B.box(0,y,0,46.3,1.1,34.3,col));
+  B.frus(0,9,0,44,3,32,0.86,GLS);
+  for(let i=0;i<5;i++)for(let j=0;j<4;j++)B.at(new THREE.ConeGeometry(4.6,5,4),(i+j)%2?GLS:GL2,-15.2+i*7.6,14.5,-9.9+j*6.6,1.05,1,0.95,Math.PI/4);
+  B.box(0,0,18,16,7,3,SW);B.box(0,0,19.55,7,5,0.4,WN);B.box(0,7,18,17,0.8,4,E1);
+  B.box(-4,0,-27,34,14,18,SW);B.box(-4,14,-27,34.6,0.8,18.6,E2)}
+ // The Seas: front faces the park (south-east)
+ {const c=toWorld('EP',-94,-112),h=toWorld('EP',-40,-80);B.move(c[0],c[1],Math.atan2(h[0]-c[0],h[1]-c[1]));
+  B.box(0,0,-2,48,7,20,SA);
+  B.surf(48,6,(u,v)=>[-24+48*u,7+2.2*Math.sin(u*Math.PI*4)*Math.sin(v*Math.PI)+3.5*Math.sin(v*Math.PI)*(0.6+0.4*Math.sin(u*Math.PI)),-12+20*v],SR);
+  for(let k=0;k<12;k++){const a=k*0.55,d=5+(k%4)*2;B.ball(-6+Math.cos(a)*d,0.5,12+Math.sin(a)*d*0.5,2+(k%3),RK,0,0.8,k)}
+  B.ball(-6,2,12,4.6,RK,0,1.1);
+  {const cp=[[19,0],[16.5,2.5],[14,6],[13.4,8.6],[14.6,10.2],[17,10],[18.6,8.4],[18.2,6.8]],at=t=>{const s=t*(cp.length-1),i=Math.min(cp.length-2,Math.floor(s)),f=s-i;return[cp[i][0]+(cp[i+1][0]-cp[i][0])*f,cp[i][1]+(cp[i+1][1]-cp[i][1])*f]};
+   B.surf(12,14,(u,v)=>{const q=at(v),k=0.55+0.45*Math.sin(u*Math.PI);return[-13+14*u,q[1]*k,12+(q[0]-12)*(0.8+0.2*k)]},WV);
+   B.surf(12,3,(u,v)=>{const k=0.55+0.45*Math.sin(u*Math.PI);return[-13+14*u,0.1+2.6*k*v,19.2-2*v]},WT)}
+  for(const [x,z] of[[-2,10],[-8,13],[1,14]])B.box(x,5.2,z,1.6,0.3,0.6,WV)}
+ // Imagination: two glass pyramids, the big one leaning, on a dark base; upside-down waterfall in front
+ {const c=toWorld('EP',-86,-34);B.move(c[0],c[1],0.6);
+  B.box(0,0,0,26,3,20,DK);
+  B.at(new THREE.ConeGeometry(9,16,4),IG,-3,10.5,-1,1,1,1,Math.PI/4,0.12,0.05);
+  B.at(new THREE.ConeGeometry(6,11,4),IG2,7,8,4,1,1,1,Math.PI/4,-0.1,-0.08);
+  B.cyl(-2,0,14,3.4,3.6,1,0x9aa3ad,14);B.cyl(-2,1,14,0.5,0.5,5,WT,8)}
+ B.build({[GLS]:'glass',[GL2]:'glass',[IG]:'glass',[IG2]:'glass',[WN]:'win'},[RK,GLS,GL2,IG,IG2])}
+
+// ---- World Showcase: all 11 pavilions in one builder (one mesh per colour across the whole lagoon)
+{const B=new LMB(0,0,0),
+  CR=0xf1e6cf,WH=0xf6f3ec,ST=0xcdb79a,ST2=0xb3a083,TN=0xdcc19a,BR=0xa5533f,RR=0x9a3f2e,SL=0x4d5566,CU=0x66a387,GD=0xd8b040,WD=0x6b4a32,WR=0x3a2e24,
+  WN=0x2a2f3c,RD=0xc0392b,BL=0x2e5a8a,TL=0x2e8f7a,GR=0x5f8a45,RK=0x8f8676,PK=0xe7a796,OC=0xd9a441,SH=0xb7aa94,BT=0x2f6fb0,EF=0x7a6a58,TH=0xb8975a;
+ // building helpers (all take the part's rotation ry in the pavilion frame)
+ const win=(f,ry,w,d,h,rows,cols,ww,wh)=>{for(let i=0;i<rows;i++)for(let j=0;j<cols;j++){const x=-w/2+(j+0.5)*w/cols,y=h*(0.18+i*(0.72/rows)),p=f(x,d/2+0.06);B.box(p[0],y,p[1],ww||w/cols*0.38,wh||h*0.16,0.3,WN,ry)}};
+ // house with a gabled roof; ridge along the street (end=false) or gable end to the street (end=true); optional half-timbering
+ const hs=(x,z,w,h,d,wall,roof,ry,o)=>{o=o||{};ry=ry||0;const f=R2(x,z,ry);B.box(x,0,z,w,h,d,wall,ry);
+   if(o.end)B.gable(x,h,z,d*1.08,o.rh||w*0.62,w*1.08,roof,ry+Math.PI/2);else B.gable(x,h,z,w*1.06,o.rh||d*0.55,d*1.1,roof,ry);
+   if(o.tim){const zf=d/2+0.05;for(const xi of[-w/2+0.3,-w/6,w/6,w/2-0.3]){const p=f(xi,zf);B.box(p[0],0,p[1],0.45,h,0.25,WD,ry)}for(const yy of[h*0.48,h-0.4]){const p=f(0,zf);B.box(p[0],yy,p[1],w,0.4,0.25,WD,ry)}}
+   if(o.win!==false)win(f,ry,w,d,h,o.rows||2,o.cols||3)};
+ // Parisian block: stone walls, white cornice, slate mansard with dormers
+ const mans=(x,z,w,h,d,ry,wall)=>{ry=ry||0;const f=R2(x,z,ry);B.box(x,0,z,w,h,d,wall||CR,ry);B.box(x,h,z,w+0.5,0.6,d+0.5,WH,ry);B.frus(x,h+0.6,z,w,h*0.42,d,0.72,SL,ry);
+   win(f,ry,w,d,h,3,Math.max(2,Math.round(w/3.2)));const n=Math.max(1,Math.round(w/4.5));for(let j=0;j<n;j++){const p=f(-w/2+(j+0.5)*w/n,d/2-0.9);B.box(p[0],h+1.2,p[1],1.3,1.6,1.4,CR,ry);const q=f(-w/2+(j+0.5)*w/n,d/2-0.15);B.box(q[0],h+1.4,q[1],0.7,1,0.3,WN,ry)}};
+ const roofCN=(r,h)=>[[0,-0.02],[r*1.12,0.25],[r,0.45],[r*0.7,h*0.45],[r*0.38,h*0.8],[0,h]];
+ const P=k=>B.move(...EPV(k,k==='usa'?18:16));
+
+ // MEXICO: stepped temple pyramid with its central stair, serpent heads, temple on top; show building behind
+ P('mex');{let w=38,d=30,y=0;for(let i=0;i<5;i++){B.frus(0,y,-8,w,3.6,d,0.9,i%2?ST2:ST);B.box(0,y+3.6,-8,w*0.9+0.2,0.5,d*0.9+0.2,SH);y+=4.1;w-=6;d-=4.6}
+  for(let i=0;i<12;i++)B.box(0,0,7-i*0.77-0.38,8,(i+1)*1.71,0.8,ST);
+  for(const s of[-1,1]){B.beam([s*4.5,0.6,7.4],[s*4.5,21,-2.2],1.4,ST2,4);B.box(s*4.5,0,8.4,1.8,1.6,2.2,TL)}
+  B.box(0,20.5,-8,12,5,9,TN);B.box(0,25.5,-8,12.6,1,9.6,RD);B.box(0,26.5,-8,11,0.8,8,SH);B.box(0,20.5,-3.45,3,3.4,0.4,WN);
+  B.box(0,0,-31,40,11,14,ST2);B.box(-19,0,4,8,6,10,PK);B.box(-19,6,4,8.4,0.6,10.4,RR);B.box(19,0,4,8,6,10,OC);B.box(19,6,4,8.4,0.6,10.4,RR)}
+
+ // NORWAY: stave church, Akershus fortress with its tower, Bergen harbour houses with turf roofs, Frozen show building (back right)
+ P('nor');
+  {const x=-12,z=4;B.box(x,0,z,7,6,9,WD);B.gable(x,6,z,10,3.6,8,WR,Math.PI/2);B.box(x,6,z,4.6,3.6,6,WD);B.gable(x,9.6,z,6.6,2.8,5.4,WR,Math.PI/2);
+   B.box(x,9.6,z,2.4,4.2,2.4,WD);B.frus(x,13.8,z,2.9,6,2.9,0.05,WR);for(const s of[-1,1]){B.beam([x,9,z+s*4],[x,10.6,z+s*5.2],0.4,WR);B.beam([x,12,z+s*2.6],[x,13.3,z+s*3.6],0.35,WR)}}
+  B.box(10,0,-12,18,11,14,WH);B.gable(10,11,-12,18.8,6.5,14.8,SL);win(R2(10,-12,0),0,18,14,11,2,5);
+  B.box(18,0,-3,6,19,6,WH);B.frus(18,19,-3,6.6,9,6.6,0.05,SL);B.box(18,13,0.06,1.2,2.2,0.3,WN);
+  [[-21,0xb5452e,GR],[-15.6,OC,SL],[-10.2,0xf2ece0,GR],[-4.8,0x6f8fa8,SL]].forEach(([x,col,rf])=>hs(x,-14,5.2,8,8,col,rf,0,{end:true,rows:2,cols:2,rh:4}));
+  B.box(10,0,-30,30,10,14,ST2)
+
+ // CHINA: Temple of Heaven (three marble terraces, red columns, three blue roofs, gold finial), paifang gate, side halls
+ P('chi');
+  [[12.5,0],[10.5,1.2],[8.6,2.4]].forEach(([r,y])=>{B.cyl(0,y,-8,r,r,1.2,WH,28);B.cyl(0,y+1.2,-8,r+0.1,r+0.1,0.15,ST,28)});
+  B.cyl(0,3.6,-8,6.4,6.4,5,RD,20);B.lathe(0,8.6,-8,roofCN(8,2.8),BL,20);B.cyl(0,10.2,-8,5.2,5.2,0.4,GD,20);
+  B.cyl(0,10.6,-8,4.8,4.8,2.4,RD,20);B.lathe(0,13,-8,roofCN(6.4,2.4),BL,20);B.cyl(0,14.4,-8,4,4,0.3,GD,20);
+  B.cyl(0,14.7,-8,3.6,3.6,2,RD,16);B.lathe(0,16.7,-8,roofCN(4.9,4.2),BL,16);B.cyl(0,20.6,-8,0.25,0.6,1.6,GD,8);B.ball(0,22.4,-8,0.8,GD,1);
+  for(const x of[-6,-2,2,6])B.box(x,0,12,0.8,x*x>9?5.6:7,0.8,RD);B.box(0,7,12,5.4,0.8,1.2,RD);B.gable(0,7.8,12,6.4,1.6,2.4,BL);
+  for(const s of[-1,1]){B.box(s*4,5.6,12,4.4,0.7,1,RD);B.gable(s*4,6.3,12,5,1.3,2,BL)}
+  for(const s of[-1,1]){hs(s*17,-4,8,5,13,RD,BL,0,{end:true,rows:1,cols:2,rh:3})}
+  B.box(0,0,-28,30,8,10,ST2)
+
+ // GERMANY: half-timbered and painted gables round the platz, clock tower, castle towers, St. George fountain
+ P('ger');
+  [[-17,-2,PK,true,Math.PI/2],[-14,-14,CR,false,0.6],[-5,-20,TN,true,0],[5,-21,OC,false,0],[14,-14,CR,true,-0.6],[17,-2,0xdbe6d4,false,-Math.PI/2]].forEach(([x,z,col,tim,ry],i)=>
+    hs(x,z,8,9+(i%3)*1.5,8,col,i%2?RR:0x7a3428,ry,{end:true,tim,rh:6,rows:2,cols:2}));
+  B.box(0,0,-24,6,17,6,CR);B.frus(0,17,-24,6.6,8,6.6,0.04,SL);B.cyl(0,12.5,-20.95,1.7,1.7,0.3,GD,16,0);B.at(new THREE.CylinderGeometry(1.7,1.7,0.3,16),GD,0,13,-20.9,1,1,1,0,Math.PI/2);
+  for(const [x,z] of[[13,-24],[19,-19]]){B.cyl(x,0,z,3,3.3,15,ST,12);B.crenel(x,15,z,6,6,0.9,1,ST);B.lathe(x,15,z,spireP(2.6,5),RR,10)}
+  B.cyl(0,0,2,4,4.4,1.1,ST,16);B.cyl(0,1.1,2,0.5,0.7,5,ST,8);B.ball(0,6.6,2,0.9,GD,1)
+
+ // ITALY: St. Mark's campanile, Doge's Palace (arcade below, pink above), the two columns on the lagoon shore, Venetian houses, gondola poles
+ P('ita');
+  B.box(-13,0,-3,5,24,5,BR);B.box(-13,24,-3,5.6,4.2,5.6,WH);for(let k=0;k<4;k++){const p=R2(-13,-3,k*Math.PI/2)(0,2.85);B.box(p[0],24.6,p[1],2.6,3,0.3,WN,k*Math.PI/2)}
+  B.box(-13,28.2,-3,6,1,6,ST);B.box(-13,29.2,-3,4.6,3,4.6,ST);B.frus(-13,32.2,-3,4.8,9,4.8,0.06,CU);B.cyl(-13,41.2,-3,0.2,0.5,1.6,GD,6);B.ball(-13,43.2,-3,0.7,GD,1);
+  B.box(8,0,-6,22,4.4,12,WH);win(R2(8,-6,0),0,22,12,4.4,1,9,1.4,3);B.box(8,4.4,-6,22,6.4,12,PK);win(R2(8,-6,0),0,22,12,6.4,1,6,1.2,2.2);
+  B.box(8,10.8,-6,22.4,0.6,12.4,WH);for(let k=0;k<11;k++)B.box(-1.5+k*2,11.4,0.1,0.6,1.2,0.6,WH);
+  for(const s of[-1,1]){B.cyl(s*5,0,31,0.65,0.75,10,WH,10);B.box(s*5,10,31,1.6,0.8,1.6,ST);B.ball(s*5,11.6,31,0.9,GD,0,1.2)}
+  hs(-4,-22,14,9,8,TN,RR,0,{rows:2,cols:4});hs(13,-22,10,8,8,OC,RR,0,{rows:2,cols:3});
+  for(let k=0;k<6;k++){B.cyl(-10+k*4,0,35,0.25,0.25,4.5,k%2?RD:WH,6);B.cyl(-10+k*4,4.5,35,0.35,0.35,0.5,GD,6)}
+
+ // THE AMERICAN ADVENTURE: Georgian brick hall, white cornice, hipped slate roof, pedimented centre, cupola with gold finial;
+ //   America Gardens Theatre shell on the lagoon side
+ P('usa');
+  B.box(0,0,-10,40,12,18,BR);B.box(0,12,-10,40.6,0.8,18.6,WH);B.frus(0,12.8,-10,40,4,18,0.62,SL);
+  win(R2(0,-10,0),0,40,18,12,2,10,1.4,2.6);
+  B.box(0,0,0,13,13.4,3,BR);B.box(0,13.4,0,13.6,0.6,3.6,WH);B.gable(0,14,0,13.6,2.6,3.6,WH);for(const x of[-4.5,-1.5,1.5,4.5])B.cyl(x,0,1.9,0.45,0.5,10,WH,8);B.box(0,0,1.55,3,5,0.3,WN);
+  B.box(0,16.8,-10,6,4.6,6,WH);B.at(new THREE.CylinderGeometry(1.5,1.5,0.3,16),GD,0,19,-6.9,1,1,1,0,Math.PI/2);
+  B.cyl(0,21.4,-10,2.5,2.5,3.6,WH,8);B.lathe(0,25,-10,spireP(2.4,5.5),CU,8);B.cyl(0,30,-10,0.12,0.3,2.2,GD,6);B.ball(0,32.4,-10,0.5,GD,1);
+  B.at(new THREE.SphereGeometry(8,18,8,0,Math.PI,0,Math.PI/2),WH,0,0,33,1,0.9,0.75,0,0,0,true);B.box(0,0,30,16,1.2,6,ST);
+
+ // JAPAN: five-storey pagoda with gold sorin, White Heron castle, Mitsukoshi hall, torii gate standing in the lagoon
+ P('jap');
+  {const x=-11,z=-1;B.box(x,0,z,7,1.2,7,ST);let s=5.2,y=1.2;for(let i=0;i<5;i++){B.box(x,y,z,s,2.8,s,RD);B.box(x,y+2.8,z,s+0.3,0.4,s+0.3,WH);B.frus(x,y+3.2,z,s+4.6,0.9,s+4.6,0.55,SL);y+=4.1;s-=0.55}
+   B.cyl(x,y,z,0.18,0.3,6,GD,6);for(let k=0;k<5;k++)B.cyl(x,y+1.2+k*0.8,z,0.55,0.55,0.18,GD,8)}
+  {const x=10,z=-17;B.frus(x,0,z,16,4,13,0.88,ST);let w=13,d=10.5,y=4;for(let i=0;i<3;i++){B.box(x,y,z,w,3.6,d,WH);B.frus(x,y+3.6,z,w+2.4,1.8,d+2.4,0.62,SL);y+=5.4;w-=3.4;d-=2.8}
+   B.gable(x,y,z,w+2,2.4,d+2,SL);B.box(x-w/2,y+1.6,z,0.6,1.2,0.6,GD);B.box(x+w/2,y+1.6,z,0.6,1.2,0.6,GD)}
+  hs(10,3,15,5,9,WH,SL,0,{rows:1,cols:5});B.box(10,2.4,7.6,15.4,0.4,0.3,RD);
+  {const z=36;for(const s of[-1,1])B.cyl(s*4,0,z,0.55,0.65,9.5,RD,10);B.box(0,7.2,z,10.6,0.8,0.9,RD);B.box(0,9.4,z,13,0.7,1.3,WR);B.box(0,8.2,z,1,1.2,0.9,RD);
+   B.at(new THREE.BoxGeometry(2,0.7,1.3),WR,-7,9.6,z,1,1,1,0,0,0.35);B.at(new THREE.BoxGeometry(2,0.7,1.3),WR,7,9.6,z,1,1,1,0,0,-0.35)}
+
+ // MOROCCO: Koutoubia minaret, Bab Boujouloud gate with blue tile, medina walls and rooftops, green-tiled roof
+ P('mor');
+  {const x=-13,z=-8;B.box(x,0,z,4.8,23,4.8,TN);B.box(x,17,z,4.9,2.4,4.9,TL);B.crenel(x,23,z,4.8,4.8,0.7,1,TN);B.box(x,23,z,2.2,4,2.2,TN);B.lathe(x,27,z,[[0,0],[1.3,0],[1.2,0.6],[0.7,1.4],[0,1.8]],TL,10);
+   for(let k=0;k<3;k++)B.ball(x,29.2+k*0.9,z,0.42-k*0.08,GD,1)}
+  B.box(0,0,8,15,9.5,3,TN);B.box(0,0,9.56,5.8,7.4,0.3,BT);B.box(0,0,9.7,3.6,5.6,0.3,WN);B.crenel(0,9.5,8,15,3,0.7,0.8,TN);
+  for(const s of[-1,1])B.box(s*12,0,6,8,7,6,OC);B.crenel(12,7,6,8,6,0.6,0.7,OC);B.crenel(-12,7,6,8,6,0.6,0.7,OC);
+  B.box(3,0,-10,16,8,12,TN);B.frus(3,8,-10,10,3,8,0.08,TL);B.box(15,0,-16,8,10,10,OC);B.box(-4,0,-24,26,7,10,SH)
+
+ // FRANCE: Eiffel Tower behind the boulevard, Belle Époque mansard blocks round the plaza, fountain, Remy's building on the south side
+ P('fra');
+  {const z=-24,EFc=EF;for(const [sx,sz] of[[-1,-1],[1,-1],[-1,1],[1,1]]){B.beam([sx*6,0,z+sz*6],[sx*2.6,12,z+sz*2.6],1.2,EFc,4);B.beam([sx*2.6,13,z+sz*2.6],[sx*1.1,24,z+sz*1.1],0.8,EFc,4)}
+   for(const s of[-1,1]){B.beam([-4.7,4.5,z+s*4.7],[4.7,4.5,z+s*4.7],0.5,EFc,4);B.beam([s*4.7,4.5,z-4.7],[s*4.7,4.5,z+4.7],0.5,EFc,4)}
+   B.box(0,12,z,7.4,1,7.4,EFc);B.box(0,24,z,3.4,0.8,3.4,EFc);B.cyl(0,24.8,z,0.25,1.2,14,EFc,4);B.cyl(0,38.8,z,0.1,0.1,3,EFc,4)}
+  mans(-14,-2,11,9,15,Math.PI/2*0.2);mans(14,-2,11,9,15,-Math.PI/2*0.2);mans(-8,-14,9,10,9,0.1);mans(8,-14,9,10,9,-0.1);
+  mans(-24,-8,10,8,14,Math.PI/2,TN);
+  B.cyl(0,0,6,3.4,3.8,0.9,ST,16);B.cyl(0,0.9,6,0.6,0.8,3,ST,8);B.cyl(0,3.9,6,1.4,0.6,0.5,ST,10)
+
+ // UNITED KINGDOM: Tudor half-timbered row, thatched cottage, Hampton Court brick hall with chimneys, Regency terrace, phone box, hedge maze
+ P('uk');
+  hs(-12,-4,8,8,8,CR,SL,0.15,{tim:true,end:true,rows:2,cols:2});hs(-4,-10,8,9,8,WH,RR,0,{tim:true,rows:2,cols:3});
+  B.box(9,0,-12,16,9,9,BR);B.crenel(9,9,-12,16,9,0.9,1,BR);win(R2(9,-12,0),0,16,9,9,2,5);for(const x of[2,6,12,16])B.box(x,9,-14,0.9,4,0.9,BR);
+  B.box(-16,0,8,8,3.6,6,TN);B.gable(-16,3.6,8,9,3,7.2,TH);B.box(-16,0,11.05,1.2,2.2,0.3,WN);
+  for(let k=0;k<3;k++){const x=6+k*5.2;B.box(x,0,4,5,10,7,k%2?WH:CR);B.box(x,10,4,5.2,0.5,7.2,WH);win(R2(x,4,0),0,5,7,10,3,2,1,1.6)}
+  B.box(-3,0,12,0.9,2.2,0.9,RD);B.box(-22,0,-14,10,1.6,10,GR)
+
+ // CANADA: Hotel du Canada (château with steep copper roofs and turrets), Rockies with waterfall and pines, totem poles, trading post
+ P('can');
+  B.box(8,0,-14,20,11,10,0xb6a88f);B.frus(8,11,-14,20,7,10,0.32,CU);win(R2(8,-14,0),0,20,10,11,2,6);
+  for(const x of[-2,18]){B.cyl(x,0,-9,2.2,2.4,14,0xb6a88f,10);B.lathe(x,14,-9,spireP(2.2,7),CU,10)}for(const x of[3,8,13]){B.box(x,12,-9.8,1.6,2.2,1.4,0xb6a88f);B.box(x,12.6,-9.05,0.8,1,0.3,WN)}
+  [[-14,8,-8,9,1.3],[-8,6,-12,7,1.2],[-18,5,-1,6,1],[-10,13,-10,5,1.4],[-15,15,-6,3.6,1.5]].forEach(([x,y,z,s,sy],i)=>B.ball(x,y,z,s,i%2?RK:0x9a9080,0,sy,i));
+  B.box(-9,1,-3.5,2,13,0.4,0xd6f0ff,-0.3);B.cyl(-8,0,0,3.4,3.6,0.7,0x58b6e0,14);
+  for(const [x,z] of[[-22,-12],[-20,4],[-4,-18],[-24,-4]]){B.cyl(x,0,z,0.4,0.5,2,WD,5);B.cyl(x,2,z,0.01,2.4,8,0x2f5e35,6)}
+  for(const [x,z] of[[-3,9],[3,9]]){B.cyl(x,0,z,0.7,0.8,10,WD,8);for(let k=0;k<4;k++)B.cyl(x,1.6+k*2.1,z,0.85,0.85,1,[RD,TL,0xe8d27a,0x2a2a2a][k],8);B.box(x,9.4,z,4,0.5,0.8,RD)}
+  hs(16,6,9,5,7,WD,SL,0,{rows:1,cols:2})
+
+ B.build({[WN]:'win',[GD]:'gold',[CR]:'uplit',[WH]:'uplit',[ST]:'uplit',[TN]:'uplit',[PK]:'uplit',[BR]:'uplit',[OC]:'uplit'},[RK,0x9a9080,GR,0x2f5e35])}
 {const t=RIDE_BY.tot;box(t.x,t.z,18,62,18,0xb9876a);nightLit('tot',[box(t.x,t.z,20,4,20,0x8a5b46,62)]);const r=RIDE_BY.rotr;box(r.x,r.z,30,16,30,0x8a6f55);cyl(r.x+16,r.z-6,5,7,26,0x9b7f62,0,7)}
 {const c=toWorld('AK',0,15);nightLit('tol',[cyl(c[0],c[1],7,11,36,0x7a5638,0,8)]);const tolC=[];[[0,0,46,22],[10,6,38,16],[-9,-7,40,15],[3,-10,52,13]].forEach(([dx,dz,y,r])=>{const s=new THREE.Mesh(new THREE.IcosahedronGeometry(r,1),M(0x4e8b3a,{flatShading:true}));s.position.set(c[0]+dx,y,c[1]+dz);scene.add(s);tolC.push(s)});nightLit('tolc',tolC);
  const e=RIDE_BY.ee;const mt=new THREE.Mesh(new THREE.ConeGeometry(36,90,7),M(0x8c8f96,{flatShading:true}));mt.position.set(e.x+14,45,e.z);scene.add(mt);
@@ -1316,28 +1518,14 @@ const WATER=0x4b9bd0;
 }
 // ---- EPCOT
 {const w=(x,z)=>toWorld('EP',x,z);let p;
- p=w(-120,-58);house(p[0],p[1],40,12,30,0xd9c48f,0x9fc9c4,0,9);
- p=w(-94,-112);kb(p[0],p[1],26,5,18,0x5d9bb0);ks(p[0],5,p[1],12,0x7fc6d6,0.55);
- p=w(-80,-28);kn(p[0],p[1],11,15,0xa8d8f0,0,U.cone4);p=w(-95,-40);kn(p[0],p[1],8,11,0x8fc8e8,0,U.cone4);
- p=w(112,-80);kb(p[0],p[1],20,8,14,0x9aa6b8);const tt=ellipse('EP',112,-80,27,19,36);K.ribbon(tt,3.2,4,0x6c7686);for(let j=0;j<36;j+=3)kc(tt[j][0],tt[j][1],0.6,4,0x8b94a3);
- p=w(88,-114);kb(p[0],p[1],18,8,14,0x6f7a8c);ks(p[0]+7,12,p[1]-2,6,0xc94c3c);
- p=w(122,-22);kb(p[0],p[1],34,16,28,0x4f7299);kb(p[0],p[1],36,2,30,0xe9a33a,16);
+ // Future World buildings are LMB models (EPCOT landmark models); keep in-park trees off them
+ [[-120,-58,34],[-94,-112,28],[-86,-34,20],[0,-112,30],[90,-112,20]].forEach(([x,z,r])=>{p=w(x,z);PARK_AVOID.push([p[0],p[1],r])});
+ [RIDE_BY.gotg,RIDE_BY.tt].forEach(r=>PARK_AVOID.push([r.x,r.z,34]));
  p=w(0,-45);kd(p[0],p[1],10,0x5aa9d6,0.56);kc(p[0],p[1],1.6,9,0xcfeaf8,0.5);ks(p[0],9,p[1],3,0xdff3fb,0.6);
  p=w(22,72);kd(p[0],p[1],6,0x6c9e4b,0.5);kn(p[0],p[1],2,6,0x2f6e2c,0.5);p=w(-24,46);kd(p[0],p[1],4,0x6c9e4b,0.5);
- const pav=(k,d)=>{const n=PARKS.EP.nodes[k],dx=n[0],dz=n[1]-62,L=Math.hypot(dx,dz),ux=dx/L,uz=dz/L;const c=toWorld('EP',n[0]+ux*d,n[1]+uz*d);PARK_AVOID.push([c[0],c[1],15]);GL(c[0],8,c[1],0xffdca0,13);return(a,b)=>toWorld('EP',n[0]+ux*(d+a)-uz*b,n[1]+uz*(d+a)+ux*b)};
- let f;
- f=pav('mex',16);p=f(0,0);kb(p[0],p[1],22,6,22,0xcdb79a);kb(p[0],p[1],16,6,16,0xc4ab8b,6);kb(p[0],p[1],10,6,10,0xbba07f,12);kb(p[0],p[1],5,4,5,0xa88a68,18);
- f=pav('nor',16);p=f(0,-4);house(p[0],p[1],12,7,10,0x8b5a3a,0x4a3a2a,0.5,7);p=f(2,9);kb(p[0],p[1],6,7,6,0x6b4a32);kn(p[0],p[1],4.5,12,0x3a2e24,7,U.cone4);
- f=pav('chi',16);p=f(0,0);kc(p[0],p[1],9,2.5,0xe2d4b4);kc(p[0],p[1],6.5,5,0xb63a2e,2.5);kn(p[0],p[1],9,3,0x2e5a8a,7.5);kc(p[0],p[1],4.5,3,0xb63a2e,10.5);kn(p[0],p[1],6.5,3,0x2e5a8a,13.5);kc(p[0],p[1],3,2.5,0xb63a2e,16.5);kn(p[0],p[1],4.2,3,0x2e5a8a,19);kn(p[0],p[1],0.8,3,0xd4af37,22);
- f=pav('ger',16);[[-6,-6],[6,-5],[-5,7],[7,6]].forEach(([a,b],j)=>{p=f(a,b);house(p[0],p[1],8,7+j%2*2,8,[0xf2e2c4,0xe9cfa8,0xf5ead6,0xdcc3a0][j],[0x8a3f2f,0x6b3a2a][j%2],j*0.4,5)});
- f=pav('ita',16);p=f(-6,-4);kb(p[0],p[1],4,26,4,0xb5523b);kn(p[0],p[1],3.2,5,0x9a3f2e,26,U.cone4);p=f(6,4);house(p[0],p[1],14,9,10,0xe9d8b8,0xb5523b,0,4);
- f=pav('usa',18);p=f(0,0);kb(p[0],p[1],28,10,16,0xa3533f);kb(p[0],p[1],10,13,4,0xf4f1ea);kc(p[0],p[1],3,4,0xf4f1ea,13);kn(p[0],p[1],3.4,4,0x6f8a8a,17);
- f=pav('jap',16);p=f(-2,-6);for(let j=0;j<5;j++){const s=8-j*1.2;kb(p[0],p[1],s,3,s,0xc9493b,j*4);kb(p[0],p[1],s+3.5,0.8,s+3.5,0x3a3f4a,j*4+3)}kc(p[0],p[1],0.4,5,0xd4af37,20);
-   {const q1=f(-28,-3),q2=f(-28,3),ry=Math.atan2(-(q2[1]-q1[1]),q2[0]-q1[0]);kb(q1[0],q1[1],1,9,1,0xd9412e,0.4);kb(q2[0],q2[1],1,9,1,0xd9412e,0.4);kb((q1[0]+q2[0])/2,(q1[1]+q2[1])/2,9,1,1.4,0xd9412e,8.6,ry)}
- f=pav('mor',16);p=f(0,-7);kb(p[0],p[1],4,22,4,0xd8b98c);kb(p[0],p[1],5,2,5,0x2e7d6b,22);p=f(2,6);kb(p[0],p[1],16,7,10,0xe2c79a);
- f=pav('fra',16);p=f(4,0);kn(p[0],p[1],6,34,0x7d7f86,0,U.cone4);[[-6,-9],[-6,9]].forEach(([a,b])=>{p=f(a,b);house(p[0],p[1],10,8,9,0xf1e6cf,0x55657a,0,4)});
- f=pav('uk',16);[[-4,-7],[3,2],[-3,10]].forEach(([a,b],j)=>{p=f(a,b);house(p[0],p[1],9,7,8,j%2?0xf0e6d2:0xd9c7a7,0x6b4c3a,0.3,5)});
- f=pav('can',16);p=f(2,-6);house(p[0],p[1],16,8,10,0x8b6a4a,0x4f6b3a,0.2,6);p=f(4,8);kn(p[0],p[1],10,14,0x8c8a85,0,U.cone6);p=f(-6,4);kc(p[0],p[1],1,12,0xa0522d);
+ // World Showcase pavilions are LMB models; here only their tree-free zones and warm evening glows
+ const pav=(k,d)=>{const n=PARKS.EP.nodes[k],dx=n[0],dz=n[1]-62,L=Math.hypot(dx,dz),ux=dx/L,uz=dz/L;const c=toWorld('EP',n[0]+ux*d,n[1]+uz*d);PARK_AVOID.push([c[0],c[1],27]);GL(c[0],8,c[1],0xffdca0,13)};
+ ['mex','nor','chi','ger','ita','jap','mor','fra','uk','can'].forEach(k=>pav(k,16));pav('usa',18);
 }
 // ---- Hollywood Studios
 {const w=(x,z)=>toWorld('HS',x,z);let p;
@@ -1422,7 +1610,7 @@ function updateExtras(){const t=G.t;
 // ride buildings + pins
 const CUSTOM=new Set(['tron','btm','space','tot','ee','sse','tea','dumbo','astro','hm','tiana','sdmt','barn','soar','lwtl','seas','fig','tt','msp','gotg','fea','remy','aa','gft','mmrr','sdd','msr']);
 const LANDCOL={adv:0x5c8f4a,frl:0x9a6b45,lib:0x6e7b8f,fant:0xc98bb9,tomo:0x8ca7c9,main:0xd8b28a,fwe:0x7f93ad,fww:0x5fa3a0,se:0xa9b6c4,mex:0xd7934e,nor:0x8b5a4a,fra:0x8fa3c4,usa:0xb98a6a,ge:0x8d755e,tsl:0xe0b04a,sun:0xc77a8e,cen:0xc94f4f,echo:0x5aa4b0,pan:0x6c8fbf,afr:0xc49a58,asia:0xb5543e,di:0x6f9d4f};
-const PIN_Y={space:31,tot:66,ee:90,sse:52,btm:36,tron:18,hm:30,sdmt:16};
+const PIN_Y={space:31,tot:66,ee:90,sse:52,btm:36,tron:18,hm:30,sdmt:16,gotg:24,tt:15,msp:15,soar:22,lwtl:22,seas:16,fig:26,gft:30,aa:34,fea:16,remy:14};
 const pinGeo=new THREE.CylinderGeometry(0.5,0.5,16,5);pinGeo.translate(0,8,0);const headGeo=new THREE.SphereGeometry(3.4,12,10);
 for(const r of RIDES){
   const s=r.kind==='show'?11:9+r.base/10;
@@ -1737,6 +1925,9 @@ function updateNight(nf,ts){for(const N of NIGHT)for(const m of N.m){const mat=m
    case 'sse':_e.setHex(0x9fc4ff);k*=0.42;break;
    case 'tot':_e.setHex(0xffa04a);k*=0.75;break;
    case 'tol':_e.setHex(0x5a46c8);k*=0.3;break;
+   case 'uplit':_e.setHex(0xffd6a0);k*=0.1;break;
+   case 'self':_e.copy(mat.color);k*=0.85;break;
+   case 'glass':_e.setHex(0x8fb4ff);k*=0.32;break;
    case 'tolc':_e.setHSL(0.38+0.1*Math.sin(ts*0.35+m.position.y),0.7,0.45);k*=0.32;break;
    default:_e.setHex(0xffcf6a);k*=0.8}
   mat.emissive.copy(_e).multiplyScalar(k)}}
