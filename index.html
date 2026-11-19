@@ -1611,11 +1611,157 @@ LMB.prototype.wins=function(cx,cz,ry,w,y0,y1,rows,cols,col,ww,wh){const f=R2(cx,
  {const [x,z]=tp(48,-20);B.lathe(x,0,z,[[0,0],[0.6,0.4],[3.6,2.4],[3.8,3],[2.2,4.4],[0.5,5],[0.5,7],[0,7.2]],RD,16);B.cyl(x,2.6,z,3.85,3.85,0.5,YL,16)}
  {const [x,z]=tp(88,-50);B.cyl(x,0,z,3.4,3.6,1,RD,16);[OR,YL,GN,BL,PU].forEach((c,k)=>B.at(new THREE.TorusGeometry(2.6-k*0.38,0.62,8,18),c,x,1.6+k*1.15,z,1,1,1,0,Math.PI/2));B.cyl(x,1,z,0.5,0.5,7.4,WD,8);B.ball(x,8.4,z,0.9,RD,1)}
  B.build({},[])}
-{const c=toWorld('AK',0,15);nightLit('tol',[cyl(c[0],c[1],7,11,36,0x7a5638,0,8)]);const tolC=[];[[0,0,46,22],[10,6,38,16],[-9,-7,40,15],[3,-10,52,13]].forEach(([dx,dz,y,r])=>{const s=new THREE.Mesh(new THREE.IcosahedronGeometry(r,1),M(0x4e8b3a,{flatShading:true}));s.position.set(c[0]+dx,y,c[1]+dz);scene.add(s);tolC.push(s)});nightLit('tolc',tolC);
- const e=RIDE_BY.ee;const mt=new THREE.Mesh(new THREE.ConeGeometry(36,90,7),M(0x8c8f96,{flatShading:true}));mt.position.set(e.x+14,45,e.z);scene.add(mt);
- const cap=new THREE.Mesh(new THREE.ConeGeometry(14,35,7),M(0xf5f7fa,{flatShading:true}));cap.position.set(e.x+14,72.5,e.z);scene.add(cap);
- const d=toWorld('AK',72,45);box(d[0],d[1],40,6,34,0xd9a84c);box(d[0],d[1]+0,44,1,38,0xe86b3a,6);
- const f=RIDE_BY.fop;[[0,0,30],[14,10,22],[-10,14,26]].forEach(([dx,dz,y])=>{const s=new THREE.Mesh(new THREE.DodecahedronGeometry(9,0),M(0x6d7d8f,{flatShading:true}));s.position.set(f.x+dx,y,f.z+dz);scene.add(s)})}
+// ================= Animal Kingdom landmark models (Visuals 2) =================
+// AKV(lx,lz,tx,tz): like HSV for Animal Kingdom (inside a frame, units are world units = park-local × 0.85)
+const AKV=(lx,lz,tx,tz)=>{const c=toWorld('AK',lx,lz);return[c[0],c[1],-PARKS.AK.rot+(tx==null?0:Math.atan2(tx-lx,tz-lz))]};
+// tapered strut from a (width w1) to b (width w2)
+LMB.prototype.tb=function(a,b,w1,w2,col,seg){_ld.set(b[0]-a[0],b[1]-a[1],b[2]-a[2]);const L=_ld.length()||0.01;_ld.normalize();_lq.setFromUnitVectors(_lu,_ld);
+  _lm.compose(_lv.set((a[0]+b[0])/2,(a[1]+b[1])/2,(a[2]+b[2])/2),_lq,_ls.set(1,1,1));return this.put(new THREE.CylinderGeometry(w2/2,w1/2,L,seg||6),col,_lm)};
+// craggy noise round a vertical axis: periodic in the angle th, smooth in the height fraction v
+const AKN=s=>{const r=LM_RAND(s),P=[0,0,0,0,0].map(()=>r()*6.283);
+  return(th,v)=>0.16*Math.sin(3*th+P[0]+v*2.1)+0.11*Math.sin(5*th+P[1]-v*3.3)+0.08*Math.sin(8*th+P[2]+v*5)+0.05*Math.sin(13*th+P[3]+v*7)+0.06*Math.sin(2*th+v*9+P[4])};
+// crag: rocky solid round a vertical axis as a surface, v from v0 (a number, or a function of the angle for a ragged edge) to v1.
+// o={rad(v), h (height at v=1), nz (AKN), amp, lean:[dx,dz] at v=1, grow (radius factor for snow/moss overlays)}. Same o = matching edges.
+LMB.prototype.crag=function(x,y,z,o,v0,v1,col,nu,nv){const f0=typeof v0==='function'?v0:()=>v0,g=o.grow||1,a=o.amp==null?1:o.amp,L=o.lean||[0,0];
+  return this.surf(nu||18,nv||8,(u,t)=>{const th=u*6.2832,lo=f0(th),v=lo+(v1-lo)*t,r=o.rad(v)*(1+a*o.nz(th,v))*g;return[x+L[0]*v+Math.cos(th)*r,y+o.h*v,z+L[1]*v+Math.sin(th)*r]},col)};
+
+// ---- Tree of Life: flared trunk wound with twisted strands, root buttresses, carved bumps, six limbs splitting into ~25 branch ends,
+//      each under a cluster of flattened leaf clumps (night: trunk purple projection `tol`, leaves shifting colour `tolc`)
+{const c=toWorld('AK',0,15),B=new LMB(c[0],c[1],0),R=LM_RAND(7),rr=(a,b)=>a+(b-a)*R();
+ const BK=0x8c6c50,BK2=0xb39272,BK3=0x6c5340,L1=0x4f8a3c,L2=0x63a046,L3=0x3c7434;
+ const TP=[[13,0],[10.5,1.2],[8.6,3],[7.4,6],[6.6,10],[6.1,16],[5.9,22],[6.3,27],[7.2,30]];
+ const tr=y=>{for(let i=1;i<TP.length;i++)if(y<=TP[i][1]){const a=TP[i-1],b=TP[i];return a[0]+(b[0]-a[0])*(y-a[1])/(b[1]-a[1])}return 7.2};
+ B.lathe(0,0,0,[...TP,[5.2,31.5],[0,32]],BK,18);
+ for(let s=0;s<10;s++){let p=null;for(let k=0;k<=10;k++){const y=0.6+k*2.94,a=s*0.628+k*0.17,r=tr(y)+0.4,q=[Math.cos(a)*r,y,Math.sin(a)*r];if(p)B.tb(p,q,2.1-k*0.06,2-k*0.06,s%2?BK2:BK3,5);p=q}}
+ for(let i=0;i<8;i++){const a=i*0.785+0.3;B.tb([Math.cos(a)*16,-0.5,Math.sin(a)*16],[Math.cos(a)*6.5,12,Math.sin(a)*6.5],4.4,2,BK,5)}
+ for(let i=0;i<80;i++){const y=rr(3,28),a=rr(0,6.283),r=tr(y)+0.5;B.ball(Math.cos(a)*r,y,Math.sin(a)*r,rr(0.6,1.4),i%3?BK2:BK3,0,rr(0.6,1.5),a)}
+ const ends=[];
+ for(let i=0;i<6;i++){const a=i*1.047+rr(-0.2,0.2),b=[Math.cos(a)*11,rr(42,46),Math.sin(a)*11];B.tb([Math.cos(a)*3,28,Math.sin(a)*3],b,5,2.8,BK,6);
+   for(let j=-1;j<=1;j++){const a2=a+j*0.5+rr(-0.1,0.1),d=rr(17,21),e=[Math.cos(a2)*d,rr(48,53)-Math.abs(j)*2,Math.sin(a2)*d];B.tb(b,e,2.7,1.2,BK,5);ends.push(e)}}
+ [[0,60,0],[5,56,-4],[-5,57,3],[2,55,7],[-3,56,-7]].forEach(e=>{B.tb([0,30,0],e,4.6,1.6,BK,6);ends.push(e)});
+ for(let i=0;i<9;i++){const a=i*0.698+0.35;ends.push([Math.cos(a)*11,rr(53,57),Math.sin(a)*11])}
+ const LC=[L1,L2,L3];
+ ends.forEach((e,k)=>{for(let i=0;i<4;i++){const a=rr(0,6.283),d=i?rr(2.5,5):0;B.ball(e[0]+Math.cos(a)*d,e[1]+(i?rr(-1,2):2),e[2]+Math.sin(a)*d,rr(4.5,6.5),LC[(k+i)%3],1,0.5,a)}});
+ B.build({[BK]:'tol',[BK2]:'tol',[BK3]:'tol',[L1]:'tolc',[L2]:'tolc',[L3]:'tolc'},LC)}
+
+// ---- Asia: Expedition Everest (four craggy peaks with ragged snow caps, foot forest, coaster circuit on trestles, broken track at the top,
+//      train), Serka Zong village (station with pagoda roofs, temple tower, stupa, houses, prayer flags), Kali River Rapids (lift ramp,
+//      ruined temple tower, bamboo, loading pavilion), Anandapur buildings
+{const e=RIDE_BY.ee,B=new LMB(e.x+14,e.z,-Math.PI/2),R=LM_RAND(11),rr=(a,b)=>a+(b-a)*R();
+ const K1=0x958778,K2=0xb2a698,K3=0x7c7064,SN=0xf3f5f8,FG=0x3f6b3a,FG2=0x557f3f,TK=0x4a3b30,TRN=0xa8462e,
+   WL=0xd9b07a,WH=0xebe3d2,RF=0x8e3b2a,WD=0x5a3a26,GD=0xd8b040,WN=0x2e2420,F1=0x3a6fd0,F2=0xf4f4f0,F3=0xd23a2e,F4=0x3fa04a,F5=0xf0c430,BM=0x7ea84a,ST=0xb39a7c;
+ // model frame: +z = west (toward the village and the park), +x = south; the ride sits at (0,14)
+ const peaks=[{x:0,z:-4,h:94,R:30,s:3,lean:[5,-4]},{x:-21,z:4,h:70,R:21,s:5,lean:[-4,2]},{x:17,z:10,h:60,R:20,s:8,lean:[3,4]},{x:-6,z:-27,h:52,R:22,s:13,lean:[0,-3]}];
+ const PO=peaks.map(P=>({x:P.x,z:P.z,o:{rad:v=>P.R*Math.pow(Math.max(0,1-v),1.05)*(1+0.35*Math.max(0,0.25-v)),h:P.h,nz:AKN(P.s),lean:P.lean},P}));
+ PO.forEach(({x,z,o,P})=>{const cut=Math.min(0.9,22/P.h),sn=Math.min(0.88,58/P.h);
+   B.crag(x,0,z,o,0,cut,K1,24,5);B.crag(x,0,z,o,cut,1,K2,24,14);
+   B.crag(x,0,z,Object.assign({},o,{grow:1.03}),th=>sn+0.07*Math.sin(5*th+P.s)+0.04*Math.sin(11*th+1),1,SN,24,7)});
+ const inRock=(x,y,z)=>PO.some(({x:px,z:pz,o})=>{const v=y/o.h;return v<1&&Math.hypot(x-px-o.lean[0]*v,z-pz-o.lean[1]*v)<o.rad(v)*1.25+1});
+ for(let i=0;i<16;i++){const a=rr(0,6.283),d=rr(30,44);B.ball(Math.cos(a)*d,0.6,Math.sin(a)*d,rr(1.4,3.2),K3,0,0.7,a)}
+ for(let i=0;i<34;i++){const a=rr(0,6.283),d=rr(31,46),x=Math.cos(a)*d,z=Math.sin(a)*d;if(z>24&&Math.abs(x)<34)continue;B.cyl(x,0,z,0.5,0.7,4,WD,5);B.ball(x,5.4,z,rr(3,4.6),i%2?FG:FG2,0,1.35)}
+ // coaster circuit (closed), on trestles where it is out in the open
+ const cv=new THREE.CatmullRomCurve3([[-2,4,35],[14,4,34],[30,8,27],[41,18,14],[43,28,0],[37,36,-15],[24,42,-28],[6,46,-34],[-12,44,-32],[-27,34,-24],[-38,18,-12],[-46,7,6],[-36,4,24],[-20,4,34]].map(p=>new THREE.Vector3(...p)),true);
+ const tp=cv.getSpacedPoints(150).map(v=>[v.x,v.y,v.z]);B.ribbon(tp,2.4,TK);
+ tp.forEach((p,i)=>{if(i%3||p[1]<3||inRock(p[0],p[1]*0.5,p[2]))return;B.box(p[0],0,p[2],0.7,p[1],0.7,TK);if(p[1]>12)B.beam([p[0]-2.2,0,p[2]],[p[0],p[1]*0.6,p[2]],0.4,TK)});
+ // the broken track at the top ledge
+ const bt=[[-4,52,-21],[6,53,-24],[15,53,-22],[19,52.6,-20]];B.ribbon(bt,2.4,TK);B.beam([19,52.6,-20.6],[20.6,55,-21.6],0.35,TK);B.beam([19,52.6,-19.4],[21,54,-18.6],0.35,TK);
+ bt.slice(0,3).forEach(p=>B.box(p[0],p[1]-6,p[2],0.8,6,0.8,TK));
+ for(let i=0;i<6;i++){const a=tp[4+i*2],b=tp[5+i*2];B.box(a[0],a[1]+0.3,a[2],2,1.6,3,TRN,Math.atan2(b[0]-a[0],b[2]-a[2]))}
+ // Serka Zong: station
+ B.box(0,0,41,22,6,9,WL);B.box(0,0,45.6,22.4,0.6,0.4,WD);B.wins(0,45.55,0,22,1.6,4.6,1,7,WN,1.3,2.2);
+ B.frus(0,6,41,25,2.6,12,0.6,RF);B.box(0,8.6,41,12,2.2,5,WL);B.frus(0,10.8,41,14,2.2,7,0.35,RF);B.cyl(0,13,41,0.1,0.5,2.2,GD,6);
+ // temple tower
+ B.frus(-19,0,44,10,12,10,0.82,WH);B.box(-19,12,44,8.4,3,8.4,RF);B.wins(-19,48.4,0,8,4,10,2,2,WN,1.1,1.8);B.wins(-19,48.3,0,8,12.6,14.4,1,3,GD,1.2,1);
+ B.frus(-19,15,44,10.4,2.4,10.4,0.5,GD);B.cyl(-19,17.4,44,0.3,1.1,3,GD,8);
+ // stupa
+ B.box(17,0,49,9,2,9,WH);B.lathe(17,2,49,[[4.6,0],[4.8,1.6],[4.4,3.6],[3.4,5.2],[1.8,6.1],[0,6.3]],WH,16);B.box(17,8.1,49,2.6,1.4,2.6,GD);
+ B.lathe(17,9.5,49,[[1.3,0],[1.1,0.6],[0.9,1.2],[1,1.5],[0.7,2.2],[0.75,2.5],[0.45,3.4],[0.1,4.6],[0,4.8]],GD,10);
+ // houses
+ [[-7,53,6,5,6],[7,55,7,4.5,5],[27,40,6,5,7],[-30,40,7,4,6]].forEach(([x,z,w,h,d],k)=>{B.box(x,0,z,w,h,d,k%2?WL:WH);B.gable(x,h,z,w+1,2.2,d+1,WD);B.wins(x,z+d/2+0.05,0,w,1.2,h-0.8,1,2,WN,1,1.4)});
+ // prayer flags strung from the tower top
+ const FL=[F1,F2,F3,F4,F5],fl=(a,b)=>{const n=Math.round(Math.hypot(b[0]-a[0],b[2]-a[2])/1.4);for(let i=1;i<n;i++){const t=i/n,y=a[1]+(b[1]-a[1])*t-Math.sin(t*Math.PI)*2;
+   B.box(a[0]+(b[0]-a[0])*t,y-0.7,a[2]+(b[2]-a[2])*t,0.9,0.7,0.06,FL[i%5],Math.atan2(b[0]-a[0],b[2]-a[2])+Math.PI/2)}};
+ fl([-19,18,44],[0,12,41]);fl([-19,18,44],[-30,6,40]);fl([-19,18,44],[-7,7,53]);fl([0,12.5,41],[17,13,49]);fl([0,12.5,41],[27,7,40]);
+ B.gl(0,3,46,0xffc070,10).gl(-19,6,49,0xffc070,8).gl(17,6,49,0xffd890,8);
+ // Kali River Rapids, facing the pond
+ B.move(...AKV(104,-100,112,-100));
+ B.ribbon([[-14,0.4,-2],[-6,4,-4],[2,9,-6],[6,9.4,-7]],3.2,TK);for(const x of[-8,-2,3])B.box(x,0,-4.6,0.6,x<0?5:9,0.6,TK);
+ B.box(-16,0,6,9,0.6,7,ST);for(const [x,z] of[[-20,3],[-12,3],[-20,9],[-12,9]])B.cyl(x,0.6,z,0.35,0.35,4,WD,6);B.frus(-16,4.6,6,11,2,9,0.55,RF);B.frus(-16,6.6,6,6,1.4,5,0.4,RF);
+ B.frus(-2,0,-15,9,3,9,0.8,ST);B.lathe(-2,3,-15,[[3.8,0],[3.8,5.5],[3.4,5.9],[3.4,8],[2.8,8.6],[2.5,10.6],[1.9,11.6],[1.4,13.4],[0.7,15],[0,16.4]],ST,12);
+ for(let i=0;i<6;i++){const a=i*1.047;B.box(-2+Math.cos(a)*3.9,7,-15+Math.sin(a)*3.9,1,1.6,1,FG,a)}
+ for(let i=0;i<14;i++){const x=rr(-26,8),z=rr(-24,-8);if(Math.hypot(x+2,z+15)<6)continue;for(let k=0;k<4;k++)B.cyl(x+rr(-1,1),0,z+rr(-1,1),0.18,0.25,rr(6,10),BM,4)}
+ // Anandapur: plastered buildings with two-tier tile roofs, timber balconies
+ const AN=[0xd88a5a,0xe0b07a,0xc9785a];
+ [[60,-84,9,7,8],[50,-70,8,9,8],[68,-66,10,6,8]].forEach(([lx,lz,w,h,d],k)=>{B.move(...AKV(lx,lz,80,-58));
+   B.box(0,0,0,w,h,d,AN[k]);B.wins(0,d/2+0.05,0,w,1,h-1,Math.max(1,Math.round(h/3.5)),3,WN,1,1.6);B.box(0,h*0.55,d/2+0.8,w,0.4,1.6,WD);B.box(0,h*0.55+0.4,d/2+1.5,w,1,0.2,WD);
+   B.frus(0,h,0,w+2.4,2,d+2.4,0.55,RF);B.box(0,h+2,0,w*0.5,1.6,d*0.5,AN[k]);B.frus(0,h+3.6,0,w*0.62,1.6,d*0.62,0.3,RF);B.cyl(0,h+5.2,0,0.08,0.3,1.4,GD,6)});
+ B.build({[GD]:'gold',[WN]:'win',[F3]:'uplit'},[K1,K2,K3,SN,FG,FG2])}
+
+// ---- Africa / Harambe: fort gate and wall, hotel with tin roof and balcony, Tusker House, market stalls, round huts, Harambe Theatre
+//      (Festival of the Lion King), safari pavilion, savanna acacias, a baobab, termite mounds and a kopje
+{const B=new LMB(0,0,0),R=LM_RAND(17),rr=(a,b)=>a+(b-a)*R();
+ const P1=0xe6cfa4,P2=0xd9a877,P3=0xc98a68,TH=0xbf9a5c,TH2=0x9c7a45,TIN=0x9b6448,WD=0x5a3b26,WN=0x2e2420,ST=0xb7a58a,AC=0x7a9a3c,AC2=0x63863a,MD=0xb87a4a,KR=0x9d9387;
+ const thatch=(x,y,z,r,h,col)=>B.lathe(x,y,z,[[r*1.25,-0.3],[r*1.18,0.1],[r*0.75,h*0.45],[r*0.3,h*0.85],[0,h]],col||TH,12);
+ const hut=(x,z,r,h)=>{B.cyl(x,0,z,r,r,h,P1,12);B.box(x,0,z+r-0.2,1.2,2,0.6,WN);thatch(x,h,z,r,r*1.5)};
+ // fort gate across the path from Discovery Island
+ B.move(...AKV(-46,-53,0,15));
+ for(const s of[-1,1]){B.box(s*4.2,0,0,2.8,9,3.4,P3);B.box(s*11,0,0,11,6,2.2,P3);B.crenel(s*11,6,0,11,2.2,0.9,1,P3)}
+ B.box(0,7,0,5.6,2,3.4,P3);B.crenel(0,9,0,11,3.4,0.9,1,P3);
+ B.cyl(-17,0,0,3.4,3.8,11,P3,12);for(let i=0;i<8;i++){const a=i*0.785;B.box(-17+Math.cos(a)*3.2,11,Math.sin(a)*3.2,1,1.1,1,P3,a)}
+ B.box(-17,6,3.5,1,1.6,0.4,WN);B.box(12,0,1.2,2,2.4,0.6,WN);
+ // hotel facing the village square
+ B.move(...AKV(-40,-58,-58,-70));
+ B.box(0,0,0,13,8,8,P1);B.wins(0,4.05,0,13,0.6,7.6,2,5,WN,1.1,1.8);B.box(0,4,5,13.6,0.4,2.2,WD);for(const x of[-6.4,-2.1,2.1,6.4])B.box(x,0,5.9,0.4,8,0.4,WD);
+ B.box(0,5,6,13.6,1,0.15,WD);B.frus(0,8,0,14,2.8,9,0.35,TIN);B.frus(0,8,4.6,14,0.9,2.6,0.75,TIN);
+ // Tusker House
+ B.move(...AKV(-52,-92,-58,-70));B.box(0,0,0,17,6,8,P2);B.wins(0,4.05,0,17,0.8,4.8,1,6,WN,1.6,2.6);B.frus(0,6,0,18.4,5,9.6,0.2,TH);B.box(0,0,5,5,4,2,P3);B.frus(0,4,5,6,1.6,3,0.3,TH);
+ // market stalls
+ B.move(...AKV(-32,-84,-58,-70));
+ for(let i=0;i<4;i++){const x=-9+i*6;for(const [dx,dz] of[[-2.2,-1.6],[2.2,-1.6],[-2.2,1.6],[2.2,1.6]])B.cyl(x+dx,0,dz,0.18,0.2,3,WD,5);B.box(x,0,-1.4,4,1.1,1,[P2,P3,P1,P2][i]);B.frus(x,3,0,5.4,1.8,4.4,0.18,i%2?TH:TH2)}
+ // round huts
+ B.move(...AKV(-78,-56));hut(0,0,3.2,3.6);hut(8,-4,2.6,3.2);hut(3,9,2.9,3.4);hut(-6,7,2.4,3);
+ // Harambe Theatre (Festival of the Lion King)
+ B.move(...AKV(-114,-58,-58,-70));B.cyl(0,0,0,15,15.5,7,P2,24);B.box(0,0,15.3,8,6,3,P3);B.box(0,0,16.85,4,4,0.3,WN);
+ B.lathe(0,7,0,[[18,-0.5],[17.4,0],[13,3],[8,6.6],[3.2,10.4],[0.6,12.6],[0,13]],TH2,24);B.cyl(0,19.6,0,0.15,0.4,3,WD,6);B.frus(0,6,16,10,1.6,5,0.4,TH);
+ // safari entrance pavilion
+ B.move(...AKV(-88,-104,-58,-70));for(let i=0;i<4;i++)for(const z of[-3.2,3.2])B.cyl(-6+i*4,0,z,0.3,0.35,4.4,WD,6);B.frus(0,4.4,0,15,3.6,9,0.18,TH);B.box(0,0,0,13,0.4,7,ST);
+ // savanna: acacias, a baobab, termite mounds, kopje
+ B.move(...AKV(-108,-128));
+ const aca=(x,z,s)=>{const top=[x+rr(-1,1),5*s,z+rr(-1,1)];B.tb([x,0,z],top,0.9*s,0.5*s,WD,5);for(let k=0;k<3;k++){const a=k*2.1+rr(0,1),q=[top[0]+Math.cos(a)*2.4*s,6.6*s,top[2]+Math.sin(a)*2.4*s];B.tb(top,q,0.45*s,0.25*s,WD,4)}
+   B.ball(top[0],6.9*s,top[2],4.6*s,AC,1,0.24);B.ball(top[0]+1.8*s,7.3*s,top[2]-1.2*s,3*s,AC2,1,0.25)};
+ [[-22,-8,1.2],[-12,-22,1],[6,-26,1.3],[20,-14,1.1],[-26,12,1],[14,8,1.2],[-4,20,0.9],[26,10,1],[-16,-30,0.9],[0,-8,1.1]].forEach(a=>aca(...a));
+ B.cyl(-6,0,6,1.6,2.4,6.5,0x8e7a66,9);for(let k=0;k<5;k++){const a=k*1.26;B.tb([-6,6,6],[-6+Math.cos(a)*3,8.2,6+Math.sin(a)*3],0.9,0.4,0x8e7a66,4)}B.ball(-6,8.6,6,3.4,AC2,1,0.35);
+ for(const [x,z,h] of[[10,-4,3.4],[-14,2,2.6],[18,22,3],[-20,24,2.2]])B.lathe(x,0,z,[[1.4,0],[1.2,h*0.4],[0.7,h*0.8],[0,h]],MD,7);
+ for(const [x,z,r] of[[22,-2,3.4],[25,2,2.6],[19,3,2.2],[24,-6,1.8]])B.ball(x,r*0.5,z,r,KR,0,0.8,x);
+ B.build({[WN]:'win'},[AC,AC2,KR,MD])}
+
+// ---- Pandora: floating mountains (craggy spires tapering to a point underneath, mossy tops, hanging vines that glow at night,
+//      waterfalls), rock pillars and arches below, bioluminescent plants, Flight of Passage show building, Na'vi River rock and stream
+{const B=new LMB(...AKV(-110,95)),R=LM_RAND(23),rr=(a,b)=>a+(b-a)*R();
+ const PR=0xa1958e,PR2=0x877c79,MS=0x4f8f45,MS2=0x6aa24d,VN=0x3d7a3a,WF=0xc8e8ff,B1=0x3fd8e0,B2=0xc04fd8,B3=0x9bdc4a,SB=0x6b6f66,WT=0x3f86a8;
+ const fr=[[-4,-1,24,30,10,1],[11,-7,32,24,8,2],[-18,-8,36,20,7,3],[6,20,28,22,8,4],[20,10,42,16,6,5],[-22,22,44,14,5,6],[22,-18,26,18,6,7],[-27,4,24,16,6,8]];
+ const gr=[[-3,-2,18,8,11],[9,-5,14,6,12],[-17,-6,12,6,13],[6,17,16,7,14],[21,-16,10,5,15],[-26,7,12,5,16],[18,10,10,5,17],[-12,14,9,4,18]];
+ const tops=[];
+ gr.forEach(([x,z,h,Rr,s])=>{const o={rad:v=>Rr*(1-0.45*v)*(v>0.85?Math.sqrt(Math.max(0,1-((v-0.85)/0.15)**2)):1),h,nz:AKN(s),amp:1.2,lean:[rr(-2,2),rr(-2,2)]};
+   B.crag(x,0,z,o,0,1,PR2,16,7);B.crag(x,0,z,Object.assign({},o,{grow:1.05}),th=>0.8+0.06*Math.sin(4*th+s),1,MS2,16,3);tops.push([x+o.lean[0],h,z+o.lean[1]])});
+ fr.forEach(([x,z,y,h,Rr,s],i)=>{const lean=[rr(-3,3),rr(-3,3)],o={rad:v=>v<0.82?Rr*Math.pow(v/0.82,0.6):Rr*Math.sqrt(Math.max(0,1-((v-0.82)/0.18)**2)),h,nz:AKN(s+30),amp:1.1,lean};
+   B.crag(x,y,z,o,0,1,PR,18,9);B.crag(x,y,z,Object.assign({},o,{grow:1.06}),th=>0.84+0.05*Math.sin(3*th+s),1,MS,18,3);
+   for(let k=0;k<4;k++){const a=rr(0,6.283),v=0.86,rim=[x+lean[0]*v+Math.cos(a)*Rr*0.96,y+h*v,z+lean[1]*v+Math.sin(a)*Rr*0.96],lo=[rim[0]+rr(-1.5,1.5),y-rr(4,12),rim[2]+rr(-1.5,1.5)];
+     B.beam(rim,lo,0.4,VN,3)}
+   const g=tops[i];if(g){const rim=[x+lean[0]*0.82,y+h*0.82,z+lean[1]*0.82],m=[(rim[0]+g[0])/2+1,(rim[1]+g[1])/2-3,(rim[2]+g[2])/2];B.beam(rim,m,0.5,VN,3);B.beam(m,g,0.5,VN,3)}
+   if(i<3){const top=y+h*0.9;B.box(x+lean[0]*0.9+Rr*0.75,0,z+lean[1]*0.9,0.9,top,0.25,WF,0.6)}});
+ // rock arches
+ for(const [x0,z0,x1,z1,H] of[[-34,-14,-20,-24,16],[24,4,30,-10,12]]){let p=null;for(let k=0;k<=10;k++){const t=k/10,q=[x0+(x1-x0)*t,Math.sin(t*Math.PI)*H,z0+(z1-z0)*t];if(p)B.tb(p,q,4.6-Math.sin(t*Math.PI)*1.6,4.6-Math.sin(t*Math.PI)*1.6,PR2,6);p=q}}
+ // bioluminescent plants
+ const BC=[B1,B2,B3];for(let i=0;i<46;i++){const a=rr(0,6.283),d=rr(4,32),x=Math.cos(a)*d,z=Math.sin(a)*d,h=rr(0.8,2.6),c=BC[i%3];
+   if(i%2)B.lathe(x,0,z,[[0.2,0],[0.25,h*0.7],[1.1,h*0.85],[1.3,h],[0,h*1.05]],c,7);else B.ball(x,h*0.5,z,h*0.55,c,0,1.3);if(i%4===0)B.gl(x,h+0.5,z,c,4,0.7)}
+ for(let i=0;i<10;i++)B.gl(rr(-28,26),rr(20,48),rr(-20,22),i%2?B1:B2,5,0.8);
+ // Flight of Passage show building behind the rocks
+ B.box(-22,0,30,30,15,20,SB);B.box(-7,0,24,4,4,1,0x2b2622);
+ // Na'vi River rock and stream
+ {const o={rad:v=>11*(1-0.4*v)*(v>0.8?Math.sqrt(Math.max(0,1-((v-0.8)/0.2)**2)):1),h:11,nz:AKN(40),amp:1.2};B.crag(14,0,-31,o,0,1,PR2,16,6);B.crag(14,0,-31,Object.assign({},o,{grow:1.05}),0.78,1,MS2,16,3)}
+ B.ribbon([[6,0.35,-25],[10,0.35,-19],[14,0.35,-15],[17,0.35,-12]],3.4,WT);
+ B.build({[VN]:'bio',[B1]:'self',[B2]:'self',[B3]:'self',[WF]:'glass',[WT]:'glass'},[PR,PR2,MS,MS2])}
 // Disney Springs + TTC
 {const [X,Z]=XZ.dsp;[[-40,-10,30,10,18,0xd9b48a],[0,-30,22,14,22,0xc97a5b],[30,10,26,9,16,0xe0c9a0],[-20,30,18,12,18,0x9fb7c9],[50,-20,16,16,14,0xb46e57],[-70,20,24,8,14,0xe8d2b0],[75,15,20,11,16,0xc9a27a]].forEach(([dx,dz,w,h,d,c])=>box(X+dx,Z+dz,w,h,d,c));
  const bal=new THREE.Mesh(new THREE.SphereGeometry(10,16,12),M(0xf0c24a));bal.position.set(X+5,70,Z+15);scene.add(bal);nightLit('warm',[bal]);
@@ -1698,14 +1844,13 @@ const WATER=0x4b9bd0;
 {const w=(x,z)=>toWorld('AK',x,z);let p;
  p=w(0,15);ring(p[0],p[1],56,66,0x4c8fa8,0.46);
  p=w(-108,-128);kd(p[0],p[1],34,0xcdb57a,0.47);PARK_AVOID.push([p[0],p[1],36]);
- for(let k=0;k<9;k++){const q=w(-108+Math.cos(k*2.4)*(8+k*2.4),-128+Math.sin(k*2.4)*(8+k*2.4));kc(q[0],q[1],0.6,7,0x6b4f35,0.4);ks(q[0],8.5,q[1],5,0x6f8f3a,0.35)}
  for(let k=0;k<4;k++){const q=w(-120+k*8,-140+k*5);kb(q[0],q[1],1.4,6,2.4,0xd9a54a,0.4);kb(q[0],q[1]+1,0.6,5,0.6,0xd9a54a,6.4)}
- for(let k=0;k<3;k++){const q=w(-95+k*6,-112-k*7);kb(q[0],q[1],4,3.6,6,0x8d8d8d,0.4,k)}
  for(let k=0;k<6;k++){const q=w(-130+k*5,-115+(k%2)*4);kb(q[0],q[1],1,1.6,2.6,0xf2f2f2,0.4,k*0.5)}
- [[-40,-60],[-48,-88],[-74,-50],[-28,-82]].forEach(([lx,lz],k)=>{p=w(lx,lz);kb(p[0],p[1],9,6,8,0xd9c39a,0,k);kn(p[0],p[1],7,5,0xb08a4f,6,U.cone6);PARK_AVOID.push([p[0],p[1],9])});
  p=w(112,-100);kd(p[0],p[1],15,0x4c8f8a,0.46);PARK_AVOID.push([p[0],p[1],17]);
- [[60,-84],[50,-70],[68,-66]].forEach(([lx,lz],k)=>{p=w(lx,lz);kb(p[0],p[1],7,5+k*2,7,0xb88a62,0,k);kn(p[0],p[1],4,6,0xa5764f,5+k*2,U.cone4);PARK_AVOID.push([p[0],p[1],8])});
- for(let k=0;k<6;k++){const q=w(-110+Math.cos(k)*28,95+Math.sin(k)*22),y=26+(k%3)*8;ks(q[0],y,q[1],5+(k%3)*1.5,0x6d7d8f,1.3);ks(q[0],y+6+(k%3)*2,q[1],4,0x4f8f4a,0.5);kb(q[0],q[1],0.6,y-4,0.3,0x9fdcff,1)}
+ // landmark models are LMB (Animal Kingdom landmark models); keep in-park trees off them. Pandora lake.
+ p=w(-92,80);kd(p[0],p[1],12,WATER,0.46);
+ [[0,15,30],[-110,95,36],[-46,-53,14],[-40,-58,10],[-52,-92,12],[-32,-84,12],[-78,-56,12],[-114,-58,21],[-88,-104,10],[104,-100,14],[60,-84,8],[50,-70,8],[68,-66,8]].forEach(([x,z,r])=>{p=w(x,z);PARK_AVOID.push([p[0],p[1],r])});
+ {const e=RIDE_BY.ee;PARK_AVOID.push([e.x+14,e.z,50],[e.x-28,e.z,24])}
  p=w(78,40);kb(p[0],p[1],0.9,34,0.9,0xf2c230);kb(p[0]+10,p[1],22,0.8,0.8,0xf2c230,34);
  for(let k=0;k<14;k++)PALMS.push(w(rnd(-30,30),rnd(80,132)));
 }
@@ -1762,9 +1907,9 @@ function updateExtras(){const t=G.t;
   for(const g of EXTRA.clouds)g.position.x=((g.userData.x0+t*3)%4400)-2300}
 
 // ride buildings + pins
-const CUSTOM=new Set(['tron','btm','space','tot','ee','sse','tea','dumbo','astro','hm','tiana','sdmt','barn','soar','lwtl','seas','fig','tt','msp','gotg','fea','remy','aa','gft','mmrr','sdd','msr','rotr','rnrc','tsm','ass','st','indy','bob']);
+const CUSTOM=new Set(['tron','btm','space','tot','ee','sse','tea','dumbo','astro','hm','tiana','sdmt','barn','soar','lwtl','seas','fig','tt','msp','gotg','fea','remy','aa','gft','mmrr','sdd','msr','rotr','rnrc','tsm','ass','st','indy','bob','fop','navi','flk','kili','krr']);
 const LANDCOL={adv:0x5c8f4a,frl:0x9a6b45,lib:0x6e7b8f,fant:0xc98bb9,tomo:0x8ca7c9,main:0xd8b28a,fwe:0x7f93ad,fww:0x5fa3a0,se:0xa9b6c4,mex:0xd7934e,nor:0x8b5a4a,fra:0x8fa3c4,usa:0xb98a6a,ge:0x8d755e,tsl:0xe0b04a,sun:0xc77a8e,cen:0xc94f4f,echo:0x5aa4b0,pan:0x6c8fbf,afr:0xc49a58,asia:0xb5543e,di:0x6f9d4f};
-const PIN_Y={space:31,ee:90,sse:52,btm:36,tron:18,hm:30,sdmt:16,gotg:24,tt:15,msp:15,soar:22,lwtl:22,seas:16,fig:26,gft:30,aa:34,fea:16,remy:14,tot:70,rotr:24,rnrc:20,mmrr:27,msr:18,tsm:16,ass:15,sdd:14,st:16,indy:16,bob:15};
+const PIN_Y={space:31,ee:46,sse:52,btm:36,tron:18,hm:30,sdmt:16,gotg:24,tt:15,msp:15,soar:22,lwtl:22,seas:16,fig:26,gft:30,aa:34,fea:16,remy:14,tot:70,rotr:24,rnrc:20,mmrr:27,msr:18,tsm:16,ass:15,sdd:14,st:16,indy:16,bob:15,fop:18,navi:16,flk:22,kili:12,krr:12};
 const pinGeo=new THREE.CylinderGeometry(0.5,0.5,16,5);pinGeo.translate(0,8,0);const headGeo=new THREE.SphereGeometry(3.4,12,10);
 for(const r of RIDES){
   const s=r.kind==='show'?11:9+r.base/10;
@@ -2058,7 +2203,7 @@ void main(){vec2 q=gl_PointCoord-0.5;float d=dot(q,q)*4.0;if(d>=1.0)discard;floa
  #include <colorspace_fragment>
 }`});
 if(SSE_POS){for(let i=0;i<90;i++){const u=rnd(-0.2,1),th=rnd(0,Math.PI*2),r=Math.sqrt(1-u*u);GL(SSE_POS[0]+r*Math.cos(th)*23,SSE_POS[1]+u*23,SSE_POS[2]+r*Math.sin(th)*23,i%3?0xffffff:0x9fd0ff,2.8,1)}}
-{const ak=toWorld('AK',0,15);for(let i=0;i<14;i++)GL(ak[0]+rnd(-18,18),rnd(34,58),ak[1]+rnd(-18,18),[0x6effc8,0x8a7bff,0x5fd7ff][i%3],7,0.8)}
+{const ak=toWorld('AK',0,15);for(let i=0;i<14;i++)GL(ak[0]+rnd(-18,18),rnd(42,60),ak[1]+rnd(-18,18),[0x6effc8,0x8a7bff,0x5fd7ff][i%3],7,0.8)}
 const glowPts=(()=>{const n=GLOW.length,P=new Float32Array(n*3),C=new Float32Array(n*3),S=new Float32Array(n),T=new Float32Array(n*2),c=new THREE.Color();
   GLOW.forEach((g,i)=>{P.set([g[0],g[1],g[2]],i*3);c.setHex(g[3]).multiplyScalar(1.1);C.set([c.r,c.g,c.b],i*3);S[i]=g[4];T[i*2]=g[5];T[i*2+1]=Math.random()});
   const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(P,3));geo.setAttribute('color',new THREE.BufferAttribute(C,3));geo.setAttribute('size',new THREE.BufferAttribute(S,1));geo.setAttribute('tw',new THREE.BufferAttribute(T,2));
@@ -2078,11 +2223,12 @@ function updateNight(nf,ts){for(const N of NIGHT)for(const m of N.m){const mat=m
    case 'gate':_e.setHex(0xffb060);k*=0.3;break;
    case 'sse':_e.setHex(0x9fc4ff);k*=0.42;break;
    case 'tot':_e.setHex(0xffa04a);k*=0.75;break;
-   case 'tol':_e.setHex(0x5a46c8);k*=0.3;break;
+   case 'tol':_e.setHex(0x5a46c8);k*=0.18;break;
    case 'uplit':_e.setHex(0xffd6a0);k*=0.1;break;
    case 'self':_e.copy(mat.color);k*=0.85;break;
    case 'glass':_e.setHex(0x8fb4ff);k*=0.32;break;
-   case 'tolc':_e.setHSL(0.38+0.1*Math.sin(ts*0.35+m.position.y),0.7,0.45);k*=0.32;break;
+   case 'tolc':_e.setHSL(0.38+0.1*Math.sin(ts*0.35+mat.color.g*7),0.7,0.45);k*=0.32;break;
+   case 'bio':_e.setHSL(0.5+0.07*Math.sin(ts*0.5+mat.color.r*9),0.9,0.5);k*=0.45;break;
    default:_e.setHex(0xffcf6a);k*=0.8}
   mat.emissive.copy(_e).multiplyScalar(k)}}
 
