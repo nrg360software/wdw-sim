@@ -1966,6 +1966,119 @@ const MK_WIN=0x2e2a30,MK_GOLD=0xd4af37;
    B.gl(0,9.8,1.8,0xffd9a0,2.4);B.gl(12,2,-9,0xbfe6ff,3)}mkAv(120,-38,7);mkAv(108,-12,8);
  B.buildVC({[WIN]:'win',[NB]:'self',[NP]:'self'},null)}
 
+// ================= EPCOT World Celebration (Visuals 3) =================
+// World Celebration hub (ring planters at the World Celebration junction), Dreamers Point (seated bronze figure on a bench),
+// World Celebration Gardens (lawns, planters, pergola, benches), CommuniCore Hall and CommuniCore Plaza (west, beside the walk to Canada),
+// the two kept 1982 CommuniCore buildings (Connections Café & Eatery north-east, Creations Shop / Club Cool south-east) and
+// Journey of Water, Inspired by "Moana" (World Nature, under the monorail). Replaces the old DETAIL fountain.
+// EPCOT park-local coordinates (rot 0, sc 1.25); builder parts are in world units. The monorail beam crosses at local z≈-45.6 (y 10):
+// anything within a few units of it stays under ~7 high.
+const EP_AV=[];
+const epAt=(B,lx,lz,ry)=>{const p=toWorld('EP',lx,lz);return B.move(p[0],p[1],ry||0)};
+const epFace=(lx,lz,tx,tz)=>Math.atan2(tx-lx,tz-lz);
+const epAv=(lx,lz,r)=>{const p=toWorld('EP',lx,lz);EP_AV.push([p[0],p[1],r])};
+{const B=new LMB(0,0,0),rnd=LM_RAND(4242),HUB=PARKS.EP.nodes.fw,rr=(a,b)=>a+(b-a)*rnd(),
+  WIN=0x33414f,CW=0xeef0f2,CG=0xc3c9d2,CT=0x3f9fb5,CO=0xe8833a,PAV=0xe6dfd0,CURB=0xd6cfbf,HED=0x3d7a37,LAWN=0x7ab35a,GRN=0x4f9a45,
+  FL=[0xe2457a,0xf2a33a,0xf5d547,0xb36be0,0xffffff,0xff7a5c],BRZ=0x6f5a3c,WD=0x9a7048,NB=0x39c6ff,NP=0xff5fa8,ST=0x8a8f98,
+  WAT=0x4fa6d4,FOAM=0xd8f0fa,RK=0xa98f74,RK2=0x8c735c;
+ const lp=(pts,seg,p0,pl,col,x,y,z)=>B.at(new THREE.LatheGeometry(pts.map(p=>new THREE.Vector2(p[0],p[1])),seg,p0,pl),col,x,y||0,z,1,1,1,0,0,0,true);
+ const ringP=(r,w,h)=>[[r-w/2,0],[r+w/2,0],[r+w/2,h],[r-w/2,h],[r-w/2,0]];
+ // four arcs of a ring with gaps (half-width gap) where the walkways leave the hub (S, E, N, W: lathe angle 0 = +z)
+ const quads=(r,w,h,col,gap,y)=>{const g=gap/r;for(let k=0;k<4;k++)lp(ringP(r,w,h),12,k*Math.PI/2+g,Math.PI/2-2*g,col,0,y,0)};
+ const flowers=(x,z,w,d,y,n,ry)=>{const f=R2(x,z,ry||0);for(let i=0;i<n;i++){const p=f(rr(-w/2,w/2),rr(-d/2,d/2));B.ball(p[0],y+0.25,p[1],rr(0.35,0.6),FL[i%FL.length],0,0.8)}};
+ const oval=(x,z,rx,rz,ry,col,y)=>B.at(new THREE.CylinderGeometry(1,1,0.14,22),col,x,(y||0)+0.4,z,rx,1,rz,ry||0);
+ const lamp=(x,z,h)=>{B.cyl(x,0,z,0.12,0.16,h||3.4,CD0,5);B.ball(x,(h||3.4)+0.2,z,0.35,CW,1);B.gl(x,(h||3.4)+0.2,z,0xffe2b0,2.2)};
+ const CD0=0x4b5361;
+ const bench=(x,z,ry)=>{const f=R2(x,z,ry);B.box(x,0.45,z,2.2,0.18,0.7,WD,ry);const p=f(0,-0.32);B.box(p[0],0.6,p[1],2.2,0.6,0.12,WD,ry);B.box(x,0,z,1.8,0.45,0.5,CD0,ry)};
+ const chair=(x,z,ry,c)=>{const f=R2(x,z,ry);B.box(x,0.35,z,0.8,0.12,0.9,c,ry);const p=f(0,-0.45);B.at(new THREE.BoxGeometry(0.8,1,0.12),c,p[0],0.8,p[1],1,1,1,ry,-0.35,0)};
+
+ // ---- hub: paving with inlaid rings, hedge ring, flower ring and an outer curb with benches; gaps for the four walkways
+ epAt(B,HUB[0],HUB[1],0);
+ B.cyl(0,0.3,0,17.5,17.5,0.1,PAV,40);
+ for(const [r,c] of [[2.6,CT],[4.2,CO],[13.2,CT],[16.6,CG]])lp(ringP(r,0.5,0.1),40,0,Math.PI*2,c,0,0.36,0);
+ B.cyl(0,0,0,1.6,1.8,0.35,CW,16);B.cyl(0,0.35,0,0.9,1.2,0.25,CT,16);
+ quads(7.6,1.8,0.9,CURB,3.4);quads(7.6,1.3,0.55,HED,3.4,0.9);
+ quads(10.8,2.6,0.6,CURB,3.6);quads(10.8,2.2,0.15,0x5a4634,3.6,0.6);
+ for(let k=0;k<4;k++)for(let i=0;i<12;i++){const a=k*Math.PI/2+0.36+i/11*(Math.PI/2-0.72),r=10.8+rr(-0.7,0.7);B.ball(Math.sin(a)*r,0.95,Math.cos(a)*r,rr(0.4,0.6),FL[(i+k*2)%FL.length],0,0.8)}
+ quads(15,0.9,0.5,CURB,3.8);
+ for(let k=0;k<4;k++)for(const s of[-1,1]){const a=k*Math.PI/2+s*0.5;bench(Math.sin(a)*13.9,Math.cos(a)*13.9,a+Math.PI)}
+ epAv(HUB[0],HUB[1],19);
+
+ // ---- Dreamers Point: terrace south of Spaceship Earth, curved seat wall, granite plinth, bench with a seated bronze figure looking south
+ epAt(B,-6,-85.5,0);
+ B.cyl(0,0.3,0,5.2,5.2,0.12,PAV,24);lp(ringP(4.8,0.7,0.9),14,Math.PI-1.15,2.3,CURB,0,0,0);lp(ringP(4.8,0.9,0.1),14,Math.PI-1.15,2.3,CG,0,0.9,0);
+ {const S=1.7,bx=(x,y,z,w,h,d,c)=>B.box(x*S,y*S+0.5,z*S,w*S,h*S,d*S,c);
+  B.box(0,0,0,4.6,0.5,2.2,ST);bx(0,0,0,2.2,0.42,0.75,BRZ);bx(0,0.42,-0.34,2.2,0.5,0.1,BRZ);bx(-1,0,0,0.12,0.6,0.7,BRZ);bx(1,0,0,0.12,0.6,0.7,BRZ);
+  bx(0.25,0.42,-0.12,0.46,0.62,0.3,BRZ);bx(0.25,0.42,0.18,0.42,0.16,0.5,BRZ);bx(0.25,0,0.4,0.36,0.44,0.14,BRZ);bx(0.25,0,0.5,0.36,0.08,0.3,BRZ);
+  B.ball(0.25*S,1.28*S+0.5,-0.1*S,0.17*S,BRZ,1);bx(-0.05,0.72,0.02,0.1,0.1,0.4,BRZ);bx(0.55,0.62,0.06,0.1,0.1,0.38,BRZ)}
+ for(const x of[-3.6,3.6]){B.cyl(x,0,1.6,1.2,1.1,0.6,CURB,12);flowers(x,1.6,1.6,1.6,0.6,6)}
+ lamp(-4.2,-2.4,3);lamp(4.2,-2.4,3);epAv(-6,-85.5,6);
+
+ // ---- World Celebration Gardens (north-west): lawns, curved planters, a timber pergola with flowering vines, Adirondack chairs, benches
+ epAt(B,-34,-90,0);
+ oval(-2,0,11,7,0.3,LAWN);oval(7,6,6,4.5,-0.4,LAWN);oval(-9,-6,5,3.5,0.6,LAWN);
+ for(const [x,z,a] of [[-12,4,0.3],[4,-6,-0.5],[12,0,1.1]]){lp(ringP(4,1.2,0.7),10,a,1.6,CURB,x,0,z);flowers(x+Math.sin(a+0.8)*4,z+Math.cos(a+0.8)*4,2.6,2.6,0.6,6)}
+ {const px=2,pz=-1,W=9,D=4.6,H=3.6;for(const sx of[-1,1])for(const sz of[-1,1])B.box(px+sx*W/2,0,pz+sz*D/2,0.4,H,0.4,WD);
+  for(const sz of[-1,1])B.box(px,H,pz+sz*D/2,W+1,0.4,0.3,WD);for(let i=0;i<9;i++)B.box(px-W/2+0.5+i*(W-1)/8,H+0.4,pz,0.22,0.22,D+1.2,WD);
+  for(let i=0;i<14;i++)B.ball(px+rr(-W/2,W/2),H+0.6,pz+rr(-D/2,D/2),rr(0.5,0.8),i%3?0xb36be0:GRN,0,0.6);bench(px-2,pz,0);bench(px+2,pz,0)}
+ for(let i=0;i<5;i++){const a=-0.8+i*0.4;chair(-2+Math.sin(a)*8,8+Math.cos(a)*-2.5,a+Math.PI,[0xe2457a,0xf2a33a,0x3f9fb5,0xf5d547,0x79c0a0][i])}
+ lamp(-14,-4);lamp(10,-8);lamp(-4,10);
+ epAv(-34,-90,14);
+
+ // ---- gardens along the central axis between the hub and Showcase Plaza (both sides of the walkway, clear of the monorail pillars)
+ for(const s of[-1,1]){epAt(B,s*9,-52,0);
+  oval(0,4,5.5,8,0,LAWN);lp(ringP(5.4,1,0.6),12,s>0?Math.PI:0,Math.PI,CURB,s*-1.6,0,4);flowers(s*-5.2,4,1.2,8,0.6,9);
+  bench(s*2,-7,s>0?-Math.PI/2:Math.PI/2);lamp(s*-4.6,-4);lamp(s*-4.6,12);
+  epAv(s*9,-49,8)}
+
+ // ---- CommuniCore Hall: glass hall with white fins and end walls under a thin overhanging roof with a coloured fascia, roof lantern,
+ //      corner sign pylon; CommuniCore Plaza at its east end: stage with a curved shell under a tensile sail on masts
+ {const ry=0.395,cx=-40.9,cz=-27.4;epAt(B,cx,cz,ry);const L=40,D=18,H=7.2;
+  B.box(0,0,0,L+3,0.4,D+3,CG);B.box(0,0.4,0,L-2,H-0.9,D-2,WIN);
+  for(const s of[-1,1]){B.box(s*(L/2-2.2),0.4,0,4.4,H-0.4,D,CW);B.box(s*(L/2-2.2),1.2,D/2+0.02,1.2,H-2,0.1,s>0?CO:CT)}
+  for(let i=0;i<=12;i++){const x=-L/2+4.4+i*(L-8.8)/12;for(const s of[-1,1])B.box(x,0.4,s*(D/2-1),0.35,H-0.6,1.3,CW)}
+  B.box(0,H-0.2,0,L+5,0.7,D+5,CW);B.box(0,H-0.45,0,L+5.1,0.25,D+5.1,NB);
+  const FC=[0xe2457a,0xf2a33a,0xf5d547,0x7ac25a,0x3f9fb5,0x6a6fd8,0xb36be0];for(let i=0;i<14;i++)for(const s of[-1,1])B.box(-L/2-2.5+(i+0.5)*(L+5)/14,H+0.5,s*(D/2+2.52),(L+5)/14,0.7,0.12,FC[(s>0?i:13-i)%7]);for(let i=0;i<6;i++)for(const s of[-1,1])B.box(s*(L/2+2.52),H+0.5,-D/2-2.5+(i+0.5)*(D+5)/6,0.12,0.7,(D+5)/6,FC[(i+(s>0?0:3))%7]);
+  for(const z of[-5,5])for(const x of[-14,-9,12,16])B.box(x,H+0.15,z,3.2,0.2,2.2,WIN);
+  B.box(4,H+0.5,0,16,1.4,7,CW);B.box(4,H+0.6,0,15.6,0.9,7.2,WIN);B.box(4,H+1.9,0,17,0.3,8,CG);
+  for(const [x,z] of[[-L/2-1.6,D/2+1.6],[L/2+1.6,D/2+1.6],[-L/2-1.6,-D/2-1.6],[L/2+1.6,-D/2-1.6]])B.cyl(x,0.4,z,0.22,0.22,H-0.6,CG,6);
+  B.box(-L/2+1,0,D/2+3.4,1.6,10,1.6,CW);for(let i=0;i<5;i++)B.box(-L/2+1,4+i*1.1,D/2+4.22,1.3,0.9,0.1,FC[i]);B.gl(-L/2+1,9,D/2+4.3,0xffffff,2.4);
+  B.box(0,0.4,D/2+0.05,6,3.2,0.2,0x8fb0c8);B.gl(-8,3,D/2+1,0xffe0b0,4);B.gl(8,3,D/2+1,0xffe0b0,4);
+  // plaza: paving, stage facing the hall, shell, sail on four masts, light rig
+  B.box(31,0.3,2,26,0.12,22,PAV);
+  B.box(38.5,0,2,7,1.1,13,CG);B.box(38.5,1.1,2,7.2,0.12,13.2,CW);
+  B.surf(10,4,(u,v)=>{const a=-1.25+u*2.5;return[37.5+Math.cos(a)*4.2,1.1+v*5.4,2+Math.sin(a)*6.4]},CW);
+  B.box(38,6.4,2,2,0.3,13,NP);
+  const mast=[[22,-8],[22,12],[41,-8],[41,12]];mast.forEach(([x,z],i)=>{B.cyl(x,0,z,0.2,0.28,i<2?6.8:7.6,CG,6);B.beam([x,0,z],[x+(x<30?-2.5:2.5),0,z+(z<0?-2.5:2.5)],0.12,CG,4)});
+  B.surf(8,8,(u,v)=>{const x=22+u*19,z=-8+v*20,y=6.8+0.8*u-1.4*Math.sin(Math.PI*u)*Math.sin(Math.PI*v);return[x,y,z]},0xf7f7f4);
+  for(let i=0;i<3;i++)for(let j=0;j<4;j++)B.box(26+i*3,0.3,-3+j*3.2,2.2,0.5,0.6,CO);
+  B.gl(38,5.6,2,0xffd0f0,4);B.gl(30,6,2,0xfff0d0,3.4);
+  const P=(x,z)=>{const c=Math.cos(ry),s=Math.sin(ry),k=1/1.25;return[cx+(x*c+z*s)*k,cz+(-x*s+z*c)*k]};
+  for(const x of[-16,-6,6,16]){const p=P(x,0);epAv(p[0],p[1],12)}{const p=P(31,2);epAv(p[0],p[1],15)}}
+
+ // ---- the two kept 1982 CommuniCore buildings: long low arcs round the hub, battered plinth, dark glass band, splayed white fascia
+ //      with a teal stripe, flat roof; space-frame pyramid porticos at the entrances
+ const arc=(R,f0,f1,n,D,ports)=>{const Rw=R*1.25,dF=(f1-f0)/n,W=2*Rw*Math.sin(dF/2)+0.8;
+  for(let i=0;i<n;i++){const f=f0+(i+0.5)*dF,lx=HUB[0]+Math.cos(f)*R,lz=HUB[1]+Math.sin(f)*R;epAt(B,lx,lz,epFace(lx,lz,HUB[0],HUB[1]));
+   B.frus(0,0,0,W+0.4,2,D,0.9,CG);B.box(0,2,0,W,2.5,D*0.86,WIN);B.box(0,4.25,0,W+0.3,0.3,D*0.9+0.1,CT);
+   B.frus(0,4.5,0,W+0.2,1.5,D*0.88,1.1,CW);B.box(0,6,0,W+0.4,0.35,D*0.98,CG);
+   for(const s of[-1,1])B.box(s*W*0.25,2,D*0.43,0.4,2.5,0.3,CW);
+   if(ports.includes(i)){B.frus(0,4,D/2+2.4,7,2.2,5,0.06,CW);for(const sx of[-1,1])for(const sz of[0,1])B.cyl(sx*3.2,0,D/2+0.2+sz*4.2,0.16,0.16,4,CG,5);B.box(0,0.3,D/2+2.4,7,0.1,5,PAV);B.gl(0,3,D/2+2.6,0xffe2b0,3.2)}
+   epAv(lx+Math.cos(f)*1.5,lz+Math.sin(f)*1.5,W*0.75+4)}};
+ arc(34,-1.01,-0.28,7,11,[2,5]);arc(35,0.38,1.06,6,10,[3]);
+
+ // ---- Journey of Water, Inspired by "Moana": pools under rock outcrops with falls, lush planting, a stepping-stone path (under the monorail)
+ epAt(B,-72,-56,0);
+ oval(0,0,12,9,0.4,WAT);oval(5,-4,5,3.5,0.4,FOAM,0.05);
+ [[-6,-3,4.2,6.2,11],[4,-6,3.6,5.2,23],[7,4,3,4.4,37],[-3,6,2.8,3.6,51],[-10,4,2.4,3,65]].forEach(([x,z,r,h,s])=>{const o={rad:v=>r*(1-0.55*v),h,nz:AKN(s),amp:0.9,lean:[rr(-0.8,0.8),rr(-0.8,0.8)]};
+   B.crag(x,0,z,o,0,0.55,RK2,16,5);B.crag(x,0,z,o,0.55,1,RK,16,5);B.crag(x,0,z,Object.assign({},o,{grow:1.05}),th=>0.9+0.05*Math.sin(3*th+s),1,GRN,16,2);
+   const a=Math.atan2(-z,-x),fx=x+Math.cos(a)*r*0.75,fz=z+Math.sin(a)*r*0.75;B.at(new THREE.BoxGeometry(1.3,h*0.85,0.3),FOAM,fx,h*0.42,fz,1,1,1,Math.PI/2-a);B.gl(fx,0.6,fz,0x9fe0ff,1.8)});
+ for(let i=0;i<9;i++){const a=i/9*6.283;B.cyl(Math.cos(a)*9.5,0,Math.sin(a)*7,0.9,1,0.35,PAV,8)}
+ for(let i=0;i<22;i++){const a=rr(0,6.283),r=rr(10,13.5);B.ball(Math.cos(a)*r,rr(0.6,1.2),Math.sin(a)*r*0.8,rr(0.8,1.6),i%3?GRN:HED,0,0.8)}
+ epAv(-72,-56,16);
+
+ B.buildVC({[WIN]:'win',[NB]:'self',[NP]:'self'},[RK,RK2])}
+
 // Disney Springs + TTC
 {const [X,Z]=XZ.dsp;[[-40,-10,30,10,18,0xd9b48a],[0,-30,22,14,22,0xc97a5b],[30,10,26,9,16,0xe0c9a0],[-20,30,18,12,18,0x9fb7c9],[50,-20,16,16,14,0xb46e57],[-70,20,24,8,14,0xe8d2b0],[75,15,20,11,16,0xc9a27a]].forEach(([dx,dz,w,h,d,c])=>box(X+dx,Z+dz,w,h,d,c));
  const bal=new THREE.Mesh(new THREE.SphereGeometry(10,16,12),M(0xf0c24a));bal.position.set(X+5,70,Z+15);scene.add(bal);nightLit('warm',[bal]);
@@ -2022,7 +2135,7 @@ const WATER=0x4b9bd0;
  // Future World buildings are LMB models (EPCOT landmark models); keep in-park trees off them
  [[-120,-58,34],[-94,-112,28],[-86,-34,20],[0,-112,30],[90,-112,20]].forEach(([x,z,r])=>{p=w(x,z);PARK_AVOID.push([p[0],p[1],r])});
  [RIDE_BY.gotg,RIDE_BY.tt].forEach(r=>PARK_AVOID.push([r.x,r.z,34]));
- p=w(0,-45);kd(p[0],p[1],10,0x5aa9d6,0.56);kc(p[0],p[1],1.6,9,0xcfeaf8,0.5);ks(p[0],9,p[1],3,0xdff3fb,0.6);
+ PARK_AVOID.push(...EP_AV); // World Celebration buildings and gardens (EPCOT World Celebration, Visuals 3)
  p=w(22,72);kd(p[0],p[1],6,0x6c9e4b,0.5);kn(p[0],p[1],2,6,0x2f6e2c,0.5);p=w(-24,46);kd(p[0],p[1],4,0x6c9e4b,0.5);
  // World Showcase pavilions are LMB models; here only their tree-free zones and warm evening glows
  const pav=(k,d)=>{const n=PARKS.EP.nodes[k],dx=n[0],dz=n[1]-62,L=Math.hypot(dx,dz),ux=dx/L,uz=dz/L;const c=toWorld('EP',n[0]+ux*d,n[1]+uz*d);PARK_AVOID.push([c[0],c[1],27]);GL(c[0],8,c[1],0xffdca0,13)};
