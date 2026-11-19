@@ -282,7 +282,7 @@ const PARKS={
  AK:{name:'Animal Kingdom',short:'DAK',c:[-752,886],rot:0,r:145,sc:0.85,open:8,close:19,
   nodes:{ent:[10,140],oasis:[0,95],di:[0,15],afr:[-58,-70],asia:[80,-55],pan:[-70,70],dino:[72,45]},
   links:[['ent','oasis'],['oasis','di'],['di','afr'],['di','asia'],['di','pan'],['di','dino'],['afr','asia']],
-  landNames:{ent:'Main Entrance',oasis:'The Oasis',di:'Discovery Island',afr:'Africa',asia:'Asia',pan:'Pandora',dino:'DinoLand (construction)'}}
+  landNames:{ent:'Main Entrance',oasis:'The Oasis',di:'Discovery Island',afr:'Africa',asia:'Asia',pan:'Pandora',dino:'Tropical Americas (construction)'}}
 };
 const R=(id,pk,land,lx,lz,name,short,base,thrill,dur,ll,sell,kind)=>({id,pk,land,lx,lz,name,short,base,thrill,dur,ll:!!ll,sell,kind:kind||'ride',downUntil:0,seed:Math.random()*10});
 const RIDES=[
@@ -2289,6 +2289,221 @@ HSB.buildVC({[HS_WIN]:'win',[HS_NB]:'self',[HS_NP]:'self',[HS_NG]:'self'},[0xc8b
  B.buildVC({[NY]:'self',[NB2]:'self',[NP2]:'self'},null)}
 
 
+// ================= Animal Kingdom themed lands (Visuals 3) =================
+// Entrance and the Oasis (turnstile pavilions, rock arch, pools, waterfalls, planting), Discovery Island (folk-art painted shops with
+// carved bands and totem posts, Flame Tree terraces, bridges where the walkways cross Discovery River), the Tree of Life Theater entrance
+// for Zootopia: Better Zoogether! (root grotto, district sign with a city skyline, queue), Tropical Americas under construction where
+// DinoLand was (hoarding, casita facade on the Encanto show building, Indiana Jones temple on the old DINOSAUR building, carousel frame,
+// entrance arch, two tower cranes, site kit) and the savanna animals (giraffes, elephants, zebras, rhinos, lions on the kopje, hippos,
+// antelope, ostriches, flamingos) with safari trucks on a dirt track.
+// AK park-local coordinates (rot 0, sc 0.85): park-local × 0.85 = world units; builder parts are in world units. One shared builder.
+// Replaces the old DETAIL yellow giraffe posts, white boxes and the yellow DinoLand crane.
+const AK_AV=[],AK_K=PARKS.AK.sc;
+const akAt=(B,lx,lz,ry)=>{const p=toWorld('AK',lx,lz);return B.move(p[0],p[1],-PARKS.AK.rot+(ry||0))};
+const akFace=(lx,lz,tx,tz)=>Math.atan2(tx-lx,tz-lz);
+const akAv=(lx,lz,r)=>{const p=toWorld('AK',lx,lz);AK_AV.push([p[0],p[1],r])}; // r in world units
+const AKB=new LMB(0,0,0),AK_WIN=0x2e2622,AK_NB=0x39c6ff,AK_RK=0xb59a7a,AK_RK2=0x9c8468,AK_BK=0x8c6c50,AK_MS=0x5f8f45,AK_DIRT=0xa98257;
+
+// ---- Entrance and the Oasis
+{const B=AKB,R=LM_RAND(1998),rr=(a,b)=>a+(b-a)*R();
+ const TH=0xbf9a5c,TH2=0xa8834a,WD=0x5a3b26,WT=0x3f86a8,ST=0xc9b79a,G1=0x3f7f3a,G2=0x5a9a44,G3=0x2f6a34,FL=[0xe8578a,0xf2a03d,0xf4d03f,0xb35ad1];
+ const thatch=(x,y,z,w,d,h,col)=>{B.frus(x,y,z,w,0.5,d,0.9,col||TH);B.frus(x,y+0.5,z,w*0.92,h,d*0.92,0.12,col||TH)};
+ // turnstile pavilions across the entry path, rockwork walls with carved sign boards, thatched ticket booths
+ akAt(B,9,134,akFace(9,134,11,160));
+ for(let i=-1;i<=1;i++){const x=i*8.4;for(const s of[-1,1])for(const z of[-2.2,2.2])B.cyl(x+s*3.4,0,z,0.25,0.3,3.6,WD,6);thatch(x,3.6,0,8.6,6,3.4,i?TH:TH2);
+   for(let k=0;k<3;k++){B.box(x-2+k*2,0,0,0.5,1.1,1.6,0x6b6f76);B.box(x-2+k*2,1.1,0,0.6,0.15,1.7,0x9aa0a8)}}
+ for(const s of[-1,1]){const o={rad:v=>5.2*(1-0.35*v),h:6.5,nz:AKN(140+s),amp:1.1,lean:[s*-0.5,0]};B.crag(s*17.5,0,-1,o,0,1,AK_RK,16,6);B.crag(s*17.5,0,-1,Object.assign({},o,{grow:1.05}),th=>0.82+0.06*Math.sin(3*th),1,AK_MS,16,2);
+   B.box(s*14.6,1.6,2.6,5.4,2.8,0.4,WD,s*0.25);for(let k=0;k<4;k++)B.ball(s*14.6+(k-1.5)*1.1*Math.cos(s*0.25),3,2.95-(k-1.5)*1.1*Math.sin(s*0.25)*s,0.42,FL[k],0,1.2);
+   B.cyl(s*25,0,6,2.4,2.4,2.6,0xe6cfa4,10);B.box(s*25-s*1.6,0.9,6,0.2,1.2,1.6,AK_WIN,Math.PI/2);thatch(s*25,2.6,6,6,6,3.2,TH2)}
+ akAv(9,134,20);
+ // rock arch over the path into the Oasis, mossy top and vines
+ akAt(B,0,0,0);{const K=AK_K,A=[-9*K,101*K],Z=[11*K,99*K];let p=null;for(let k=0;k<=12;k++){const t=k/12,s=Math.sin(t*Math.PI),q=[A[0]+(Z[0]-A[0])*t,s*9.5,A[1]+(Z[1]-A[1])*t];
+   if(p){B.tb(p,q,4.2-s*1.5,4.2-s*1.5,k%2?AK_RK:AK_RK2,6);if(k>2&&k<11){B.ball(q[0],q[1]+1.3,q[2],1.5,AK_MS,0,0.5);B.beam([q[0],q[1]-0.6,q[2]+1.6],[q[0]+rr(-0.5,0.5),q[1]-rr(2.5,5),q[2]+1.8],0.18,G3,3)}}p=q}
+  for(const [x,z] of[[-9,101],[11,99]])B.ball(x*K,1.8,z*K,3.2,AK_RK2,1,0.9,x)}
+ akAv(-9,101,5);akAv(11,99,5);
+ // two pools with a rock waterfall behind each, stepping stones, lush planting and flowers
+ for(const [lx,lz,r,s] of[[-22,116,8,1],[20,112,7,-1]]){akAt(B,lx,lz,0);
+   B.cyl(0,0.3,0,r+1.2,r+1.4,0.28,ST,20);B.cyl(0,0.52,0,r,r,0.1,WT,20);
+   const o={rad:v=>4.4*(1-0.5*v),h:7,nz:AKN(150+r),amp:1.2,lean:[0,-1]};B.crag(-s*r*0.55,0,-r*0.75,o,0,1,AK_RK2,14,6);B.crag(-s*r*0.55,0,-r*0.75,Object.assign({},o,{grow:1.06}),th=>0.78+0.08*Math.sin(4*th),1,AK_MS,14,2);
+   B.box(-s*r*0.45,0.6,-r*0.45,1.6,5.6,0.25,0xc8e8ff,s*0.5);
+   for(let k=0;k<4;k++)B.cyl(s*(r*0.2+k*1.5),0.5,r*0.25-k*1.1,0.7,0.8,0.25,ST,7);
+   for(let k=0;k<16;k++){const a=rr(0,6.283),d=r+rr(1.5,6),x=Math.cos(a)*d,z=Math.sin(a)*d;if(k%3)B.ball(x,rr(0.8,1.6),z,rr(1,2),[G1,G2,G3][k%3],1,0.8);else B.ball(x,0.8,z,0.8,FL[k%4],0,0.9)}
+   akAv(lx,lz,r+4)}
+ // big-leaf planting along the Oasis path edges
+ akAt(B,0,0,0);for(let k=0;k<26;k++){const z=rr(98,132),side=k%2?1:-1,x=(z-95)*0.22+side*rr(8,22);B.ball(x*AK_K,rr(0.8,2),z*AK_K,rr(1.2,2.4),[G1,G2,G3][k%3],1,rr(0.6,1))}
+}
+
+// ---- Discovery Island: folk-art painted shops, Flame Tree terraces, bridges over Discovery River, Tree of Life Theater (Zootopia)
+{const B=AKB,R=LM_RAND(4422),rr=(a,b)=>a+(b-a)*R(),WIN=AK_WIN;
+ const WALL=[0x3fb5a8,0xf2a03d,0x9b59b6,0xf4d03f,0xe8746a,0x5dade2,0x7fc77a,0xf28fb1],TR=[0xffffff,0xf7e8c8,0x2f5d8a,0xc0392b,0x1f7a6a],
+   RF=[0x8e5b3a,0x3d7f6e,0xa04b2f,0x6a4a8a],TOT=[0xe74c3c,0xf1c40f,0x2e86c1,0x27ae60,0x8e44ad,0xe67e22],ST=0x9c8f7c,PO=0x6b4a33;
+ // one shop in its frame: origin at the middle of its front on the ground, +z toward the plaza. Painted walls, carved band with
+ // coloured diamonds, glowing shop windows, a verandah, a steep flared hip roof with a finial and carved totem posts at the corners
+ const isle=(W,D,H,i,o)=>{o=o||{};const wall=WALL[i%WALL.length],tr=TR[i%TR.length],rf=RF[i%RF.length],rf2=RF[(i+1)%RF.length];
+   B.box(0,0,-D/2,W+0.4,0.6,D+0.4,ST);B.box(0,0.6,-D/2,W,H-0.6,D,wall);B.box(0,H-1,0.02,W+0.2,1,0.35,tr);
+   for(let k=0;k<Math.floor(W/1.5);k++){const x=-W/2+0.75+k*1.5;B.at(new THREE.BoxGeometry(0.6,0.6,0.15),TOT[(k+i)%TOT.length],x,H-0.5,0.25,1,1,1,0,0,Math.PI/4)}
+   const n=Math.max(2,Math.round(W/3));for(let k=0;k<n;k++){const x=-W/2+W*(k+0.5)/n,door=k===Math.floor(n/2);B.box(x,0.6,0.03,W/n*0.5,door?2.8:1.8,0.2,WIN);if(!door)B.box(x,2.4,0.1,W/n*0.6,0.2,0.3,tr)}
+   for(let k=0;k<=n;k++)B.box(-W/2+0.3+(W-0.6)*k/n,0.6,2.4,0.35,H*0.55,0.35,PO);B.frus(0,0.6+H*0.55,1.2,W+0.8,0.7,3,0.7,rf2);
+   B.frus(0,H,-D/2,W+1.6,0.45,D+1.6,0.93,rf);B.frus(0,H+0.45,-D/2,W+1.2,H*0.62,D+1.2,0.2,rf);B.cyl(0,H+0.45+H*0.62,-D/2,0.06,0.22,1.3,tr,6);
+   if(o.cup){B.box(0,H+H*0.35,-D/2,3,2.2,3,wall);B.frus(0,H+H*0.35+2.2,-D/2,3.8,2.4,3.8,0.1,rf2)}
+   for(const s of[-1,1]){const x=s*(W/2+0.7);let y=0;[[0.45,0.9],[0.38,0.8],[0.44,0.9],[0.36,0.7]].forEach(([r,h],k)=>{B.cyl(x,y,1.6,r,r*1.12,h,TOT[(k+i+(s>0?2:0))%TOT.length],8);y+=h});
+     B.lathe(x,y,1.6,[[0.55,0],[0.2,0.8],[0,1.2]],TOT[(i+4)%TOT.length],6);B.box(x,y-0.6,1.6,1.6,0.25,0.3,TOT[(i+1)%TOT.length])}};
+ const C0=[0,15],pol=(th,r)=>[C0[0]+Math.cos(th*Math.PI/180)*r,C0[1]+Math.sin(th*Math.PI/180)*r];
+ // shop clusters between the walkway spokes (dino 23°, oasis 90°, pandora 142°, africa 236°, asia 319°), fronts facing the Tree of Life
+ [[106,49,12,8,7.5],[127,50,10,7,6.5],[160,50,10,8,7,1],[178,51,11,9,8,0,1],[196,50,10,8,7],[214,50,9,7,6.5],[250,50,10,8,7],[266,51,8,7,6]].forEach(([th,r,W,D,H,i2,cup],i)=>{
+   const p=pol(th,r);akAt(B,p[0],p[1],akFace(p[0],p[1],C0[0],C0[1]));isle(W,D,H,i+(i2||0),{cup});akAv(p[0]+(p[0]-C0[0])*0.08,p[1]+(p[1]-C0[1])*0.08,Math.max(W,D)*0.7+1)});
+ // Flame Tree terraces: thatched dining pavilions on stone terraces, flame trees with red-orange canopies
+ [[44,48],[60,50],[74,52]].forEach(([th,r],i)=>{const p=pol(th,r);akAt(B,p[0],p[1],akFace(p[0],p[1],C0[0],C0[1]));
+   B.box(0,0,-2,10,0.7+i*0.3,8,ST);for(const x of[-3.6,3.6])for(const z of[-5,1])B.cyl(x,0.7,z,0.22,0.26,3.4,PO,6);
+   B.frus(0,4.1,-2,9.4,0.5,8.4,0.9,0xbf9a5c);B.frus(0,4.6,-2,8.6,2.8,7.6,0.12,0xbf9a5c);
+   for(let k=0;k<3;k++){B.cyl(-2.6+k*2.6,0.7,-2,0.7,0.7,0.8,0x7a5a3a,8)}
+   if(i!==1){B.tb([6.5,0,-3],[6.8,4.5,-3.4],0.6,0.35,0x5a3b26,5);B.ball(6.8,5.4,-3.4,2.8,i?0xe8552c:0xf07a2a,1,0.45);B.ball(7.6,5.9,-2.6,1.8,0xd8402a,1,0.5)}
+   akAv(p[0],p[1],8)});
+ // bridges where each walkway crosses Discovery River (ring r 66-78 park-local round the island centre)
+ for(const k of['oasis','pan','afr','asia','dino']){const N=PARKS.AK.nodes[k],a=Math.atan2(N[1]-C0[1],N[0]-C0[0]),p=[C0[0]+Math.cos(a)*72,C0[1]+Math.sin(a)*72];
+   akAt(B,p[0],p[1],akFace(C0[0],C0[1],N[0],N[1]));B.box(0,0.44,0,6.2,0.16,15,0x8a6a4a);
+   for(const s of[-1,1]){B.box(s*3.1,0.6,0,0.25,0.18,15,0x6b4f36);B.box(s*3.1,1.5,0,0.3,0.18,15,0x6b4f36);for(let z=-7;z<=7;z+=2.33)B.box(s*3.1,0.6,z,0.3,1.1,0.3,0x6b4f36);
+     for(const z of[-7.6,7.6])B.cyl(s*3.1,0.4,z,0.35,0.4,2,0x5a3b26,6)}}
+ // Tree of Life Theater entrance (Zootopia: Better Zoogether!): a root grotto at the trunk's north side, carved root arch over the door,
+ // a district sign (desert sun, tundra peaks, rainforest leaves) under a pastel city skyline with a neon strip, and a railed queue
+ {const lx=8,lz=-14;akAt(B,lx,lz,akFace(0,15,lx,lz));
+  const o={rad:v=>8*(1-0.45*v),h:8.5,nz:AKN(91),amp:0.9,lean:[0,-2.5]};B.crag(0,0,-3,o,0,1,AK_BK,18,7);B.crag(0,0,-3,Object.assign({},o,{grow:1.05}),th=>0.86+0.05*Math.sin(5*th),1,0x6c5340,18,2);
+  for(const s of[-1,1]){B.tb([s*8,-0.3,2],[s*3,8,-2],2.4,1.2,0xb39272,5);B.tb([s*5.5,-0.3,4.5],[s*2.4,4.6,4.2],1.6,1,0x6c5340,5)}
+  {let p=null;for(let k=0;k<=8;k++){const t=k/8,q=[-3+6*t,Math.sin(t*Math.PI)*5.6,4.3];if(p)B.tb(p,q,1.1,1.1,0xb39272,5);p=q}}
+  B.box(0,0,4.1,3.6,4.2,0.4,0x2a211c);
+  B.box(0,5.4,4.9,10,3.4,0.4,0x5a3b26);
+  const tile=(x,col)=>B.box(x,5.7,5.1,3,2.8,0.2,col);tile(-3.2,0xf0a04b);tile(0,0xbfe6f5);tile(3.2,0x3f9a4a);
+  B.at(new THREE.CylinderGeometry(0.75,0.75,0.15,14),0xffd34d,-3.2,7.2,5.25,1,1,1,0,Math.PI/2);B.box(-3.2,5.9,5.22,2.6,0.6,0.1,0xd98a3a);
+  for(const [x,h] of[[-0.8,1.6],[0.4,2.1],[1.1,1.3]])B.frus(x,5.9,5.2,1.4,h,0.15,0.05,0xffffff);
+  for(const [x,y,r] of[[2.4,7.3,0.55],[3.5,6.6,0.6],[4,7.6,0.45],[2.8,6.2,0.5]])B.ball(x,y,5.25,r,0x2f7a3a,0,0.8);B.box(3.2,5.8,5.22,0.35,2.4,0.1,0x8fd3f0);
+  [[-4.4,1.6,0xa9c6e8],[-3.4,2.6,0xf2b5c8],[-2.3,1.9,0xf6e1a0],[-1.2,3.3,0xb8e0c8],[0,2.4,0xa9c6e8],[1.1,3.8,0xf2b5c8],[2.2,2.2,0xf6e1a0],[3.3,2.9,0xb8e0c8],[4.3,1.7,0xa9c6e8]].forEach(([x,h,c])=>{B.box(x,8.8,4.95,1,h,0.5,c);B.box(x,8.8+h,4.95,1.1,0.15,0.55,0xffffff)});
+  B.box(0,5.25,5.15,10.2,0.18,0.12,AK_NB);
+  const Q=[[0,4.6],[0.6,9],[3.4,12],[8,13],[12,15.5]];for(let k=1;k<Q.length;k++){const a=Q[k-1],b=Q[k];B.ribbon([[a[0],0.5,a[1]],[b[0],0.5,b[1]]],2.6,0xd8c3a0);
+    const dx=b[0]-a[0],dz=b[1]-a[1],L=Math.hypot(dx,dz),nx=-dz/L,nz=dx/L;for(let t=0;t<L;t+=1.8)for(const s of[-1.3,1.3])B.cyl(a[0]+dx*t/L+nx*s,0.4,a[1]+dz*t/L+nz*s,0.12,0.14,1.1,0x5a3b26,5)}
+  akAv(lx,lz,10);akAv(12,-26,4)}
+}
+
+// ---- Tropical Americas (under construction where DinoLand was): hoarding, the Encanto casita facade on its show building, the
+//      Indiana Jones temple rising on the old DINOSAUR building, the carousel frame, Pueblo Esperanza entrance arch, two tower cranes and site kit
+{const B=AKB,R=LM_RAND(2027),rr=(a,b)=>a+(b-a)*R(),K=AK_K,WIN=AK_WIN;
+ const Y=0xf2c230,CO=0xbdb8ae,ST=0xf3ece0,TC=0xc8643c,TL=0x3f9a8f,PL=0xc9a878,SC=0x9aa3ad,SC2=0xd9a04a,TS=0xaeb29c,TS2=0x9ca28c,RU=0x9c5a3c;
+ akAt(B,0,0,0);const w=(lx,lz)=>[lx*K,lz*K];
+ // dirt ground
+ [[100,60,22,AK_DIRT,0.47],[132,56,16,0xb89468,0.49],[92,78,12,0xb89468,0.5]].forEach(([x,z,r,c,y])=>{const p=w(x,z);B.cyl(p[0],y-0.12,p[1],r,r,0.12,c,24)});
+ // hoarding round the site (gap facing the DinoLand walkway node), panels in Pueblo Esperanza colours with a yellow top band
+ {const P=[[82,58],[80,72],[86,88],[108,86],[130,73],[150,60],[150,40],[110,33],[82,38],[82,46]].map(q=>w(...q)),PC=[0x3f6b4a,0xc8643c,0x2f8f9d,0x3f6b4a,0xe0b04a];let n=0;
+  for(let k=1;k<P.length;k++){const a=P[k-1],b=P[k],dx=b[0]-a[0],dz=b[1]-a[1],L=Math.hypot(dx,dz),ry=Math.atan2(dx,dz),m=Math.max(1,Math.round(L/4));
+    for(let i=0;i<m;i++){const t=(i+0.5)/m,x=a[0]+dx*t,z=a[1]+dz*t;B.box(x,0,z,0.3,2.6,L/m,PC[n++%PC.length],ry);B.box(x,2.6,z,0.34,0.35,L/m,Y,ry)}}}
+ // Encanto: show building with steel still showing on the roof, and the casita facade (white stucco, arcade, teal shutters, balcony,
+ // terracotta roof half tiled, half bare timber and plywood) with scaffolding over its right side
+ {const lx=104,lz=68;akAt(B,lx,lz,akFace(lx,lz,72,45));
+  B.box(0,0,-15,28,13,18,CO);for(let x=-13;x<=13;x+=3.25)B.box(x,13,-15,0.4,1.6,18,RU);for(let z=-23;z<=-7;z+=4)B.box(0,14.4,z,28,0.35,0.35,RU);B.box(-7,13,-15,14,0.25,18,0x8a8f96);
+  B.box(0,0,-3,22,8.5,6,ST);B.box(0,0,-2.5,7.5,11.5,5,ST);
+  for(let k=0;k<5;k++){const x=-9+k*4.5;if(Math.abs(x)<3)continue;B.box(x,0,0.05,2.4,3.2,0.2,0x5a4a3c);B.cyl(x,3.2,0.05,1.2,1.2,0.2,0x5a4a3c,10)}
+  B.box(0,0,0.1,3.2,4.6,0.2,0x5a4a3c);
+  for(const x of[-8,-4.5,4.5,8]){B.box(x,5,0.05,1.3,2,0.2,WIN);B.box(x-1.05,5,0.1,0.7,2,0.15,TL);B.box(x+1.05,5,0.1,0.7,2,0.15,TL)}
+  B.box(0,6.2,0.05,2,2.6,0.2,WIN);B.box(0,5.6,0.9,6.5,0.25,1.8,0x6b4a33);B.box(0,6.4,1.75,6.5,0.7,0.12,0x6b4a33);B.box(0,9.2,0.05,1.6,1.4,0.2,WIN);
+  B.frus(-5.5,8.5,-3,11.6,3,7,0.15,TC);B.gable(0,11.5,-2.5,8.2,3.4,5.6,TC,Math.PI/2);
+  for(let k=0;k<6;k++)B.beam([3+k*1.6,8.6,0.4],[3+k*1.6,11.2,-3],0.18,0x8a6a4a,4);B.box(6,8.6,-1.6,4,0.12,2.8,PL,0);B.beam([3,11.3,-3],[11,11.3,-3],0.25,0x8a6a4a,4);
+  for(let x=2;x<=11.5;x+=2.3)B.box(x,0,1.3,0.12,10.5,0.12,SC);for(let y=2.2;y<=10.5;y+=2.2){B.box(6.8,y,1.3,9.6,0.12,0.12,SC);B.box(6.8,y,1.9,9.6,0.1,1.1,SC2)}
+  for(let k=0;k<4;k++)B.beam([2+k*2.3,0,1.3],[4.3+k*2.3,8.8,1.3],0.1,SC,4);
+  akAv(lx,lz,20)}
+ // Indiana Jones: the old DINOSAUR show building behind a stepped temple rising in front, the right-hand tiers still steel and scaffold
+ {const lx=132,lz=48;akAt(B,lx,lz,akFace(lx,lz,72,45));
+  B.box(0,0,-17,30,11,22,0x8f8a80);B.box(0,11,-17,30.4,0.6,22.4,0x6f6a62);
+  const T=[[22,16],[19,13.5],[15.5,11],[12,8.5],[8.5,6]];T.forEach(([W,D],k)=>{const y=k*2.3,c=k%2?TS2:TS;
+    if(k<3)B.box(0,y,-3,W,2.3,D,c);else{B.box(-W/4,y,-3,W/2,2.3,D,c);for(const x of[0.6,W/2-0.4])for(const z of[-3-D/2+0.3,-3+D/2-0.3])B.box(x,y,z,0.35,2.3,0.35,RU);B.box(W/4,y+2.1,-3,W/2,0.25,D,RU)}});
+  B.at(new THREE.BoxGeometry(3.4,0.5,13),0xb3b6a2,0,5.75,3,1,1,1,0,1.09);
+  B.box(-1.5,11.5,-3,5,3.2,4.4,TS);B.box(-1.5,11.5,-0.75,1.6,2.2,0.12,0x2a2420);B.box(-1.5,14.7,-3,6,0.6,5.4,TS2);
+  for(let x=2;x<=11;x+=2.2)B.box(x,0,5.6,0.12,14,0.12,SC);for(let y=2.3;y<=13.8;y+=2.3){B.box(6.5,y,5.6,9.4,0.12,0.12,SC);B.box(6.5,y,6.2,9.4,0.1,1.1,SC2)}
+  for(let k=0;k<12;k++){const a=rr(0,6.283),d=rr(13,16);B.ball(Math.cos(a)*d,rr(1,2),Math.sin(a)*d*0.6,rr(1.2,2.2),[0x3f7f3a,0x2f6a34,0x5a9a44][k%3],1,0.9)}
+  akAv(lx,lz,22)}
+ // carousel frame: platform, centre column, radial roof beams, outer columns, two canopy panels on
+ {const lx=96,lz=47;akAt(B,lx,lz,0);B.cyl(0,0.3,0,5.6,5.8,0.6,CO,20);B.cyl(0,0.9,0,0.6,0.7,5.4,0xe0b04a,10);
+  for(let k=0;k<12;k++){const a=k*0.5236,c=Math.cos(a),s=Math.sin(a);B.beam([0,6.3,0],[c*5.8,4.6,s*5.8],0.2,SC,4);B.cyl(c*5.4,0.9,s*5.4,0.14,0.14,3.7,SC,5)}
+  for(const k of[0,1]){const a=k*0.5236+0.26;B.at(new THREE.CylinderGeometry(0.3,6,1.7,12,1,true,a,0.5236),k?0xc8643c:0x2f8f9d,0,5.5,0,1,1,1,0,0,0,true)}
+  akAv(lx,lz,8)}
+ // Pueblo Esperanza entrance arch across the gap: stucco pillars, steel truss across, terracotta cap on half of it
+ {const lx=84,lz=52;akAt(B,lx,lz,akFace(lx,lz,60,50));for(const s of[-1,1]){B.box(s*5.5,0,0,2.2,7.5,2.2,0xe9d6b8);B.box(s*5.5,7.5,0,2.6,0.4,2.6,TC)}
+  for(const y of[7.6,9.4])B.box(0,y,0,11,0.3,0.3,RU);for(let k=0;k<8;k++)B.beam([-5.5+k*1.375,7.6,0],[-5.5+(k+1)*1.375,9.4,0],0.12,RU,4);B.box(-2.75,9.6,0,5.5,0.5,1.4,TC);akAv(lx,lz,6)}
+ // tower cranes: lattice mast, slewing deck and cab, A-frame top, jib and counter-jib trusses with counterweights, hook cable and a load
+ const crane=(lx,lz,H,ry,J,CJ)=>{akAt(B,lx,lz,ry);const m=0.75,seg=2.4;B.box(0,0,0,3.2,0.8,3.2,CO);
+  for(const [x,z] of[[-m,-m],[m,-m],[m,m],[-m,m]])B.box(x,0.8,z,0.16,H-0.8,0.16,Y);
+  for(let y=0.8;y<H-seg;y+=seg){const C=[[-m,-m],[m,-m],[m,m],[-m,m]];for(let f=0;f<4;f++){const a=C[f],b=C[(f+1)%4];B.beam([a[0],y,a[1]],[b[0],y+seg,b[1]],0.08,Y,3);B.box((a[0]+b[0])/2,y,(a[1]+b[1])/2,Math.abs(b[0]-a[0])+0.12,0.08,Math.abs(b[1]-a[1])+0.12,Y)}}
+  B.box(0,H,0,2.2,0.7,2.2,Y);B.box(1.3,H-1.2,1.1,1.2,1.4,1.4,0xe8e8e0);B.box(1.9,H-0.9,1.1,0.1,0.7,1.1,WIN);
+  B.beam([-m,H+0.7,0],[0,H+5,0],0.14,Y,3);B.beam([m,H+0.7,0],[0,H+5,0],0.14,Y,3);
+  for(const s of[-0.55,0.55])B.box(s,H+0.7,J/2,0.12,0.12,J,Y);
+  B.box(0,H+2,J/2,0.1,0.1,J,Y);for(let z=0;z<J;z+=1.6)B.beam([0,H+2,z],[0.55,H+0.75,z+0.8],0.06,Y,3).beam([0,H+2,z],[-0.55,H+0.75,z+0.8],0.06,Y,3);
+  B.beam([0,H+5,0],[0,H+2,J*0.7],0.06,0x333333,3);B.beam([0,H+5,0],[0,H+1.4,-CJ],0.06,0x333333,3);
+  B.box(0,H+0.7,-CJ/2,1.3,0.25,CJ,Y);B.box(0,H+0.95,-CJ+1.4,1.8,1.6,2.2,0x8a8f96);
+  const hz=J*0.62;B.box(0,H+0.45,hz,0.9,0.3,0.9,0x555555);B.box(0,H*0.45,hz,0.05,H*0.55,0.05,0x333333);B.box(0,H*0.45-1,hz,0.7,1,0.7,0xe0b04a);B.box(0,H*0.45-1.8,hz,3.2,0.6,0.8,RU);
+  B.gl(0,H+5.3,0,0xff3a2a,1.6,0.6);B.gl(0,H+1.2,J,0xff3a2a,1.4,0.6);akAv(lx,lz,3)};
+ crane(116,60,38,akFace(116,60,100,72),24,8);crane(146,52,32,akFace(146,52,128,46),20,7);
+ // site kit: offices, toilets, excavator, dump truck, spoil heaps, rebar, lumber, pipe
+ {akAt(B,0,0,0);const p=(x,z)=>w(x,z);let q;
+  q=p(140,70);B.box(q[0],0,q[1],3.2,3,10,0xf0f0ea,0.6);B.wins(q[0],q[1],0.6+Math.PI/2,10,1.2,2.6,1,4,WIN,1,1);q=p(144,64);B.box(q[0],0,q[1],3.2,3,10,0xf0f0ea,0.6);
+  for(let k=0;k<3;k++){q=p(124+k*1.6,40);B.box(q[0],0,q[1],1.2,2.3,1.2,0x2e7dd1)}
+  q=p(112,46);B.box(q[0],0.6,q[1],3,1.8,4,Y,0.8);B.box(q[0],0,q[1],3.4,0.7,4.6,0x333333,0.8);B.box(q[0]+0.8,2.4,q[1]-0.6,1.4,1.6,1.6,Y,0.8);
+  B.beam([q[0]-0.6,2.6,q[1]+0.9],[q[0]-3.2,5.4,q[1]+3.6],0.5,Y,4);B.beam([q[0]-3.2,5.4,q[1]+3.6],[q[0]-4.6,1.4,q[1]+5],0.4,Y,4);B.box(q[0]-4.8,0.6,q[1]+5.2,1.4,1,1.2,0x555555,0.8);
+  q=p(122,80);B.box(q[0],0.7,q[1],2.4,1.6,2.6,0xe0b04a,2.4);B.box(q[0]+1.8,0.7,q[1]-3.4,2.8,2.2,4.6,0xd06a3a,2.4);B.box(q[0]+0.9,0,q[1]-1.8,2.6,0.8,7.6,0x333333,2.4);
+  for(const [x,z,r,h,c] of[[104,42,4.4,2.6,0xa98257],[150,48,3.4,2,0x8f7a62],[90,84,3,1.8,0xc2a27a]]){q=p(x,z);B.lathe(q[0],0.4,q[1],[[r,0],[r*0.7,h*0.5],[r*0.3,h*0.9],[0,h]],c,9)}
+  q=p(118,38);for(let k=0;k<8;k++)B.beam([q[0]-3,0.6+(k%2)*0.2,q[1]+k*0.18],[q[0]+3,0.6+(k%2)*0.2,q[1]+k*0.18],0.1,RU,3);
+  q=p(136,38);for(let k=0;k<3;k++)B.box(q[0],k*0.45,q[1],1.8,0.42,5,PL,0.3);q=p(98,82);for(let i=0;i<3;i++)for(let j=0;j<3-i;j++)B.at(new THREE.CylinderGeometry(0.45,0.45,6,8),0x6f7f8f,q[0]+(j-1+i*0.5)*0.95,0.45+i*0.8,q[1],1,1,1,0.4,0,Math.PI/2)}
+}
+
+// ---- Savanna animals (Kilimanjaro Safaris): giraffes, elephants with a calf at the waterhole, a zebra herd, rhinos, lions on the
+//      kopje, hippos in their pool, antelope, ostriches, flamingos; open safari trucks on a dirt track. Frame = the savanna's centre.
+{const B=AKB,R=LM_RAND(1898),rr=(a,b)=>a+(b-a)*R();B.move(...AKV(-108,-128));
+ const SPH=()=>new THREE.IcosahedronGeometry(1,1),WT=0x4f8a9a,MUD=0x8a6a48,TRK=0xc9a46a;
+ // animal frame: a = sideways, f = forward (heading h, as an LMB ry), y up
+ const T=(x,z,h,s)=>(a,y,f)=>[x+(a*Math.cos(h)+f*Math.sin(h))*s,y*s,z+(-a*Math.sin(h)+f*Math.cos(h))*s];
+ const el=(F,h,s,a,y,f,sa,sy,sf,col,pitch)=>{const p=F(a,y,f);B.at(SPH(),col,p[0],p[1],p[2],sa*s,sy*s,sf*s,h,pitch||0)};
+ const leg=(F,s,a,f,y0,y1,w0,w1,col)=>B.tb(F(a,y0,f),F(a,y1,f),w0*s,w1*s,col,5);
+ const giraffe=(x,z,h,s)=>{const F=T(x,z,h,s),C=0xd9a45a,D=0x8a5a2e;
+   el(F,h,s,0,3.85,0,0.6,0.72,1.3,C,-0.12);for(const a of[-0.32,0.32]){leg(F,s,a,0.85,0,4,0.22,0.3,C);leg(F,s,a,-0.85,0,3.6,0.22,0.3,C)}
+   B.tb(F(0,4.1,0.9),F(0,7.3,2),0.62*s,0.28*s,C,6);el(F,h,s,0,7.45,2.3,0.22,0.24,0.46,C,0.3);
+   for(const a of[-0.08,0.08])B.tb(F(a,7.6,2.15),F(a,7.95,2.1),0.07*s,0.07*s,D,4);B.tb(F(0,3.9,-1.25),F(0,2.6,-1.5),0.08*s,0.05*s,D,4);
+   for(let k=0;k<7;k++){const f=-0.9+k*0.3,sd=k%2?1:-1;el(F,h,s,sd*0.56,3.7+(k%3)*0.2,f,0.08,0.18,0.2,D)}for(let k=0;k<3;k++)el(F,h,s,0.2*(k%2?1:-1),4.8+k*0.8,1.2+k*0.25,0.12,0.18,0.14,D)};
+ const elephant=(x,z,h,s)=>{const F=T(x,z,h,s),C=0x8d8a87,C2=0x7a7775;
+   el(F,h,s,0,2.75,0,1.15,1.2,1.75,C);for(const a of[-0.6,0.6])for(const f of[-1.05,1.05])leg(F,s,a,f,0,2.3,0.8,0.75,C2);
+   el(F,h,s,0,3.15,2,0.78,0.82,0.72,C);for(const a of[-0.9,0.9])el(F,h,s,a,3.1,1.7,0.12,0.85,0.6,C2,0);
+   B.tb(F(0,2.85,2.6),F(0,1.8,3.05),0.42*s,0.32*s,C,6);B.tb(F(0,1.8,3.05),F(0,0.6,3.1),0.32*s,0.22*s,C,6);B.tb(F(0,0.6,3.1),F(0,0.4,3.4),0.22*s,0.16*s,C,5);
+   for(const a of[-0.34,0.34])B.tb(F(a,2.35,2.5),F(a*1.15,2.05,3.2),0.16*s,0.08*s,0xf2ecdc,5);B.tb(F(0,2.9,-1.7),F(0,1.8,-1.9),0.1*s,0.06*s,C2,4)};
+ const zebra=(x,z,h,s,o)=>{o=o||{};const F=T(x,z,h,s),C=o.col||0xf4f2ec,S=0x1e1e1e,Lc=o.leg||C;
+   el(F,h,s,0,1.5,0,0.38,0.46,0.9,C);for(const a of[-0.2,0.2])for(const f of[-0.6,0.6])leg(F,s,a,f,0,1.3,0.12,0.15,Lc);
+   const up=o.graze?-0.2:1;B.tb(F(0,1.65,0.7),F(0,1.7+0.6*up,1.15),0.34*s,0.22*s,C,5);el(F,h,s,0,1.65+0.6*up,1.4,0.16,0.19,0.4,C,o.graze?0.9:0.55);
+   if(!o.col){for(let k=0;k<6;k++){const f=-0.7+k*0.28,r=Math.sqrt(Math.max(0.05,1-(f/0.9)**2));el(F,h,s,0,1.5,f,0.4*r,0.48*r,0.035,S)}B.tb(F(0,1.8,0.7),F(0,1.75+0.6*up,1.12),0.08*s,0.08*s,S,4)}
+   if(o.horn)for(const a of[-0.1,0.1])B.tb(F(a,1.85+0.6*up,1.3),F(a*3,2.2+0.6*up,1.15),0.06*s,0.03*s,0x3a3028,4);
+   B.tb(F(0,1.6,-0.88),F(0,0.9,-1),0.06*s,0.04*s,o.col?0x3a3028:S,4)};
+ const rhino=(x,z,h,s)=>{const F=T(x,z,h,s),C=0x8b8178;el(F,h,s,0,1.45,0,0.8,0.78,1.45,C);for(const a of[-0.45,0.45])for(const f of[-0.85,0.85])leg(F,s,a,f,0,1,0.45,0.42,C);
+   el(F,h,s,0,1.2,1.65,0.42,0.42,0.7,C,0.35);B.lathe(...F(0,1.25,2.2),[[0.18*s,0],[0.08*s,0.45*s],[0,0.65*s]],0xd8cfbf,6);B.lathe(...F(0,1.4,1.9),[[0.1*s,0],[0,0.3*s]],0xd8cfbf,5);
+   for(const a of[-0.25,0.25])el(F,h,s,a,1.65,1.3,0.06,0.14,0.08,C)};
+ const lion=(x,y0,z,h,s,mane)=>{const F=T(x,z,h,s),C=0xc8954f,y=y0/s;el(F,h,s,0,y+0.38,0,0.46,0.36,1,C);el(F,h,s,0,y+0.75,1,0.3,0.32,0.34,C);
+   if(mane)el(F,h,s,0,y+0.8,0.9,0.5,0.52,0.38,0x9a5a2a);for(const a of[-0.22,0.22])B.tb(F(a,y+0.15,0.8),F(a,y+0.12,1.5),0.16*s,0.14*s,C,4);B.tb(F(0,y+0.3,-0.95),F(0.5,y+0.1,-1.6),0.06*s,0.05*s,C,4)};
+ const hippo=(x,z,h,s)=>{const F=T(x,z,h,s),C=0x7d6f78;el(F,h,s,0,0.45,0,0.9,0.5,1.4,C);el(F,h,s,0,0.55,1.35,0.6,0.38,0.55,C);for(const a of[-0.3,0.3])el(F,h,s,a,0.95,1.1,0.07,0.1,0.07,C)};
+ const ostrich=(x,z,h,s)=>{const F=T(x,z,h,s);el(F,h,s,0,2,0,0.45,0.42,0.62,0x222222);el(F,h,s,0,2.1,-0.55,0.32,0.28,0.2,0xf2f2ee);
+   for(const a of[-0.15,0.15])leg(F,s,a,0,0,1.75,0.08,0.12,0xc9a0a0);B.tb(F(0,2.2,0.45),F(0,3.3,0.6),0.14*s,0.09*s,0xc9a0a0,5);el(F,h,s,0,3.35,0.7,0.1,0.1,0.18,0xc9a0a0)};
+ const flamingo=(x,z,h,s)=>{const F=T(x,z,h,s),C=0xf08aa0;el(F,h,s,0,1.4,0,0.2,0.18,0.32,C);leg(F,s,0,0,0,1.3,0.04,0.04,C);B.tb(F(0,1.5,0.25),F(0,2.1,0.2),0.06*s,0.05*s,C,4);el(F,h,s,0,2.15,0.3,0.06,0.06,0.12,C)};
+ // ground: waterhole, hippo pool, dirt track (the trucks' route from the pavilion and back)
+ for(const [x,z,r] of[[-12,-4,4],[4,26,3.6]]){B.cyl(x,0.36,z,r+1.1,r+1.3,0.14,MUD,18);B.cyl(x,0.5,z,r,r,0.06,WT,18)}
+ const TP=[[16,18],[8,12],[-2,12],[-14,10],[-22,0],[-20,-14],[-8,-16],[4,-16],[14,-8],[12,2],[10,14],[16,18]];for(let k=1;k<TP.length;k++)B.ribbon([[TP[k-1][0],0.52,TP[k-1][1]],[TP[k][0],0.52,TP[k][1]]],2.6,TRK);
+ // safari trucks: khaki body, canvas roof on posts, dark wheels and bench rows
+ const truck=(x,z,h)=>{const F=T(x,z,h,1);const at=(a,y,f,W,H,D,c)=>{const p=F(a,y,f);B.box(p[0],p[1],p[2],W,H,D,c,h)};
+   at(0,0.55,0,2.2,0.9,5,0xb9a77a);at(0,0.2,1.5,2.3,0.6,0.7,0x333333);at(0,0.2,-1.5,2.3,0.6,0.7,0x333333);at(0,1.45,2.1,2.1,0.7,0.8,0x6f7a4a);
+   for(const a of[-1,1])for(const f of[-2.3,-0.3,1.7])at(a,1.45,f,0.12,1.4,0.12,0x5a4a3a);at(0,2.85,-0.3,2.4,0.15,4.6,0xd8cba0);for(let k=0;k<4;k++)at(0,1.45,-1.8+k*1,2,0.35,0.35,0x6b4a33)};
+ truck(-17,8,akFace(-14,10,-22,0)+Math.PI*0);truck(-14,-15,akFace(-20,-14,-8,-16));truck(13,-3,akFace(14,-8,12,2));
+ // animals
+ [[-24,4,0.6,1.2],[-9,-23,2.4,1.2],[4,-21,-0.6,1.12],[22,-19,1.8,1.25]].forEach(([x,z,h,s])=>giraffe(x,z,h,s));
+ elephant(-19,-10,akFace(-19,-10,-12,-4),1.4);elephant(-5.5,-9.5,akFace(-5.5,-9.5,-12,-4),1.3);elephant(-13,-12.5,akFace(-13,-12.5,-12,-4),0.8);
+ [[2,-2,0.4],[6,-1,0.2],[3.2,2.2,-0.3],[-1.6,0.8,0.6],[0.5,-5.5,0.1],[7.4,3,0.5]].forEach(([x,z,h],i)=>zebra(x,z,h,1.55,{graze:i%2===0}));
+ rhino(-25,17,1.2,1.4);rhino(-18,15,2.6,1.3);
+ lion(22,4.1,-2,-1.9,1.5,true);lion(25,3.2,2,-2.6,1.4,false);lion(19.4,2.6,3,-1.2,1.3,false);
+ hippo(2.5,24.5,0.8,1.3);hippo(6,27.2,-2.2,1.2);hippo(1.5,28.4,2.4,0.9);
+ [[12,-21],[15.6,-19.6],[9,-18.6],[14,-24.6],[18,-23],[7.4,-23],[11,-27.4]].forEach(([x,z],i)=>zebra(x,z,rr(-0.4,0.4),1.35,{col:i%3?0xb07b48:0x6e6253,leg:i%3?0xd9c0a0:0x5a4f43,horn:true,graze:i%2===1}));
+ ostrich(-23,-22,0.9,1.35);ostrich(-20,-24.5,1.6,1.3);
+ for(let k=0;k<7;k++)flamingo(7.5+Math.cos(k*0.7)*2.6,21.6+Math.sin(k*0.7)*1.5,rr(0,6.28),1.35);
+ akAv(-108,-128,2)}
+AKB.buildVC({[AK_WIN]:'win',[AK_NB]:'self'},[AK_RK,AK_RK2,AK_BK,0x6c5340,AK_MS,0xb59a7a]);
 
 // Disney Springs + TTC
 {const [X,Z]=XZ.dsp;[[-40,-10,30,10,18,0xd9b48a],[0,-30,22,14,22,0xc97a5b],[30,10,26,9,16,0xe0c9a0],[-20,30,18,12,18,0x9fb7c9],[50,-20,16,16,14,0xb46e57],[-70,20,24,8,14,0xe8d2b0],[75,15,20,11,16,0xc9a27a]].forEach(([dx,dz,w,h,d,c])=>box(X+dx,Z+dz,w,h,d,c));
@@ -2367,14 +2582,13 @@ const WATER=0x4b9bd0;
 {const w=(x,z)=>toWorld('AK',x,z);let p;
  p=w(0,15);ring(p[0],p[1],56,66,0x4c8fa8,0.46);
  p=w(-108,-128);kd(p[0],p[1],34,0xcdb57a,0.47);PARK_AVOID.push([p[0],p[1],36]);
- for(let k=0;k<4;k++){const q=w(-120+k*8,-140+k*5);kb(q[0],q[1],1.4,6,2.4,0xd9a54a,0.4);kb(q[0],q[1]+1,0.6,5,0.6,0xd9a54a,6.4)}
- for(let k=0;k<6;k++){const q=w(-130+k*5,-115+(k%2)*4);kb(q[0],q[1],1,1.6,2.6,0xf2f2f2,0.4,k*0.5)}
+ // savanna animals and safari trucks are LMB (Animal Kingdom themed lands, Visuals 3)
  p=w(112,-100);kd(p[0],p[1],15,0x4c8f8a,0.46);PARK_AVOID.push([p[0],p[1],17]);
  // landmark models are LMB (Animal Kingdom landmark models); keep in-park trees off them. Pandora lake.
  p=w(-92,80);kd(p[0],p[1],12,WATER,0.46);
  [[0,15,30],[-110,95,36],[-46,-53,14],[-40,-58,10],[-52,-92,12],[-32,-84,12],[-78,-56,12],[-114,-58,21],[-88,-104,10],[104,-100,14],[60,-84,8],[50,-70,8],[68,-66,8]].forEach(([x,z,r])=>{p=w(x,z);PARK_AVOID.push([p[0],p[1],r])});
  {const e=RIDE_BY.ee;PARK_AVOID.push([e.x+14,e.z,50],[e.x-28,e.z,24])}
- p=w(78,40);kb(p[0],p[1],0.9,34,0.9,0xf2c230);kb(p[0]+10,p[1],22,0.8,0.8,0xf2c230,34);
+ PARK_AVOID.push(...AK_AV); // Oasis, Discovery Island shops, Zootopia theatre, Tropical Americas site (Animal Kingdom themed lands, Visuals 3)
  for(let k=0;k<14;k++)PALMS.push(w(rnd(-30,30),rnd(80,132)));
 }
 // ---- outside the parks
@@ -2430,9 +2644,9 @@ function updateExtras(){const t=G.t;
   for(const g of EXTRA.clouds)g.position.x=((g.userData.x0+t*3)%4400)-2300}
 
 // ride buildings + pins
-const CUSTOM=new Set(['pp','jc','potc','buzz','isw','pooh','ariel','spdwy','pm','phil','mil','carp','tron','btm','space','tot','ee','sse','tea','dumbo','astro','hm','tiana','sdmt','barn','soar','lwtl','seas','fig','tt','msp','gotg','fea','remy','aa','gft','mmrr','sdd','msr','rotr','rnrc','tsm','ass','st','indy','bob','fop','navi','flk','kili','krr']);
+const CUSTOM=new Set(['pp','jc','potc','buzz','isw','pooh','ariel','spdwy','pm','phil','mil','carp','tron','btm','space','tot','ee','sse','tea','dumbo','astro','hm','tiana','sdmt','barn','soar','lwtl','seas','fig','tt','msp','gotg','fea','remy','aa','gft','mmrr','sdd','msr','rotr','rnrc','tsm','ass','st','indy','bob','fop','navi','flk','kili','krr','zoo']);
 const LANDCOL={adv:0x5c8f4a,frl:0x9a6b45,lib:0x6e7b8f,fant:0xc98bb9,tomo:0x8ca7c9,main:0xd8b28a,fwe:0x7f93ad,fww:0x5fa3a0,se:0xa9b6c4,mex:0xd7934e,nor:0x8b5a4a,fra:0x8fa3c4,usa:0xb98a6a,ge:0x8d755e,tsl:0xe0b04a,sun:0xc77a8e,cen:0xc94f4f,echo:0x5aa4b0,pan:0x6c8fbf,afr:0xc49a58,asia:0xb5543e,di:0x6f9d4f};
-const PIN_Y={pp:22,isw:22,phil:16,pooh:15,ariel:20,jc:12,potc:24,carp:13,buzz:15,mil:15,spdwy:13,pm:12,space:31,ee:46,sse:52,btm:36,tron:18,hm:30,sdmt:16,gotg:24,tt:15,msp:15,soar:22,lwtl:22,seas:16,fig:26,gft:30,aa:34,fea:16,remy:14,tot:70,rotr:24,rnrc:20,mmrr:27,msr:18,tsm:16,ass:15,sdd:22,st:16,indy:16,bob:15,fop:18,navi:16,flk:22,kili:12,krr:12};
+const PIN_Y={pp:22,isw:22,phil:16,pooh:15,ariel:20,jc:12,potc:24,carp:13,buzz:15,mil:15,spdwy:13,pm:12,space:31,ee:46,sse:52,btm:36,tron:18,hm:30,sdmt:16,gotg:24,tt:15,msp:15,soar:22,lwtl:22,seas:16,fig:26,gft:30,aa:34,fea:16,remy:14,tot:70,rotr:24,rnrc:20,mmrr:27,msr:18,tsm:16,ass:15,sdd:22,st:16,indy:16,bob:15,fop:18,navi:16,flk:22,kili:12,krr:12,zoo:14};
 const pinGeo=new THREE.CylinderGeometry(0.5,0.5,16,5);pinGeo.translate(0,8,0);const headGeo=new THREE.SphereGeometry(3.4,12,10);
 for(const r of RIDES){
   const s=r.kind==='show'?11:9+r.base/10;
