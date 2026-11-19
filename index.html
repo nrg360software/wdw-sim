@@ -116,7 +116,7 @@ button:focus-visible,select:focus-visible{outline:2px solid var(--gold);outline-
 .callout{background:rgba(182,156,255,.12);border:1px solid rgba(182,156,255,.35);border-radius:14px;padding:11px 12px;margin:4px 0 10px;font-size:13.5px;line-height:1.4}
 .callout b{color:var(--ll)}
 .callout.warnc{background:rgba(246,163,71,.12);border-color:rgba(246,163,71,.45)}
-#llsetup,#daysetup{z-index:11;background:rgba(8,12,22,.9)}
+#llsetup,#daysetup,#rfview{z-index:11;background:rgba(8,12,22,.9)}
 textarea{box-sizing:border-box;width:100%;background:var(--chip);color:var(--text);border:1px solid var(--line);border-radius:12px;padding:9px 11px;font:500 14px var(--body);-webkit-user-select:text;user-select:text;resize:vertical}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
 .chip{border:1px solid var(--line);background:transparent;border-radius:999px;padding:6px 10px;font-size:12.5px;font-weight:700;color:var(--muted);display:flex;gap:5px;align-items:baseline}
@@ -146,7 +146,8 @@ textarea{box-sizing:border-box;width:100%;background:var(--chip);color:var(--tex
 .llrow select{padding:9px 8px;font-size:13.5px;min-width:0}
 .lld{margin-top:14px}.lld summary{font-family:var(--display);font-size:16px;font-weight:600;cursor:pointer}
 
-#start,#end,#llsetup,#daysetup{position:fixed;inset:0;z-index:10;display:grid;place-items:center;padding:calc(env(safe-area-inset-top,0px) + 16px) max(16px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 16px) max(16px,env(safe-area-inset-left,0px));background:linear-gradient(180deg,rgba(12,20,36,.25),rgba(12,20,36,.82) 55%);overflow:auto}
+#start,#end,#llsetup,#daysetup,#rfview{position:fixed;inset:0;z-index:10;display:grid;place-items:center;padding:calc(env(safe-area-inset-top,0px) + 16px) max(16px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 16px) max(16px,env(safe-area-inset-left,0px));background:linear-gradient(180deg,rgba(12,20,36,.25),rgba(12,20,36,.82) 55%);overflow:auto}
+#rfview{z-index:13}
 .modal{width:min(100%,430px);background:var(--glass2);border:1px solid var(--line);border-radius:22px;padding:22px 20px;box-shadow:0 20px 60px rgba(0,0,0,.55)}
 .modal h1{font-family:var(--display);font-weight:700;font-size:36px;margin:0;line-height:1;letter-spacing:.01em}
 .modal h1 span{color:var(--gold)}
@@ -212,7 +213,7 @@ select{background:var(--chip);color:var(--text);border:1px solid var(--line);bor
     <h1>WDW <span>Sim</span></h1>
     <p class="sub">Steer one guest through a crowded Walt Disney World day. Every minute in a line, on a bus or shoving through a packed land costs you mood. Great rides and smart Lightning Lane picks win it back.</p>
     <div class="fld"><label for="selHotel">Your hotel</label><select id="selHotel"></select></div>
-    <div class="fld"><label for="inDate">Park day</label><input type="date" id="inDate"><div class="fc" id="crowdFc"></div><div class="hrs" id="hoursFc"></div></div>
+    <div class="fld"><label for="inDate">Park day</label><input type="date" id="inDate"><div class="fc" id="crowdFc"></div><div class="fc" id="rfFc"></div><div class="hrs" id="hoursFc"></div></div>
     <div class="fld"><label>Crowds</label><div class="seg" id="segCrowd"><button data-v="0.8">Lighter</button><button data-v="1" aria-pressed="true">As forecast</button><button data-v="1.2">Busier</button></div></div>
     <div class="fld"><label>Start time</label><div class="seg" id="segTime"><button data-v="480" aria-pressed="true">Rope drop · 8:00</button><button data-v="660">Sleep in · 11:00</button></div></div>
     <div class="fld"><label>Lightning Lane</label><button class="btn ll" id="bLLPlan" type="button">⚡ Plan Lightning Lanes</button><div class="fc" id="llSum"></div></div>
@@ -231,6 +232,7 @@ select{background:var(--chip);color:var(--text);border:1px solid var(--line);bor
 
 <div id="llsetup" hidden><div class="modal" id="llsetIn"></div></div>
 <div id="daysetup" hidden><div class="modal" id="daysetIn"></div></div>
+<div id="rfview" hidden><div class="modal" id="rfIn"></div></div>
 
 <div id="end" hidden>
   <div class="modal">
@@ -553,7 +555,7 @@ const G={t:11*60,speed:1,crowd:1,pf:{MK:1,EP:1,HS:1,AK:1},date:null,hours:null,d
 const HM=[[6,0.1],[8,0.3],[9,0.55],[10,0.85],[11,1.05],[12,1.15],[14,1.2],[16,1.05],[18,0.95],[20,0.8],[21,0.65],[22,0.45],[24,0.1]];
 function hourMult(h){if(h<=HM[0][0])return HM[0][1];for(let i=1;i<HM.length;i++)if(h<=HM[i][0]){const a=HM[i-1],b=HM[i];return lerp(a[1],b[1],(h-a[0])/(b[0]-a[0]))}return 0.1}
 function busy(h){return clamp(hourMult(h)*G.crowd,0,1.6)}
-function curveAt(r,t){const P0=PARKS[r.pk];if(eeOn(r.pk,t))return Math.max(5,Math.round(curveAt(r,P0.open*60)*0.45/5)*5);if(P0.eeh&&t>=P0.close*60&&t<P0.eeh.to*60)return Math.max(5,Math.round(curveAt(r,P0.close*60-1)*0.4/5)*5);const h=t/60,P=PARKS[r.pk],u=clamp((h-P.open)/(P.close-P.open),0,1);const n=1+0.08*Math.sin(h*2.1+r.seed)+0.05*Math.sin(h*5.3+r.seed*1.7);let w=r.avg*profRaw(PROFILES[r.prof],u)*(G.pf[r.pk]||1)*n;if(r.kind==='show')w=Math.min(w,25);return Math.max(5,Math.round(w/5)*5)}
+function curveAt(r,t){const P0=PARKS[r.pk];if(eeOn(r.pk,t))return Math.max(5,Math.round(curveAt(r,P0.open*60)*0.45/5)*5);if(P0.eeh&&t>=P0.close*60&&t<P0.eeh.to*60)return Math.max(5,Math.round(curveAt(r,P0.close*60-1)*0.4/5)*5);const h=t/60,P=PARKS[r.pk],u=clamp((h-P.open)/(P.close-P.open),0,1);const n=1+0.08*Math.sin(h*2.1+r.seed)+0.05*Math.sin(h*5.3+r.seed*1.7);let w=r.avg*profRaw(PROFILES[r.prof],u)*(G.pf[r.pk]||1)*n*rfMul(r,t);if(r.kind==='show')w=Math.min(w,25);return Math.max(5,Math.round(w/5)*5)}
 // ================= LIVE WAITS =================
 // Live posted waits from our Cloudflare Worker relay (one shared 5-minute copy of
 // Queue-Times.com data). Powered by Queue-Times.com — the credit link must stay visible.
@@ -562,13 +564,15 @@ function curveAt(r,t){const P0=PARKS[r.pk];if(eeOn(r.pk,t))return Math.max(5,Mat
 // the live/curve ratio, fading to the plain curve 3.5 hours away.
 const LIVE_URL='https://wdw-waits.nrg360software.workers.dev/waits'; // set to the Worker's /waits address to switch live waits on
 const LIVE={data:null,got:0,next:0,fails:0,map:{},busy:false};
-const LIVE_KEYS={tron:'tron',sdmt:'dwarfs',pp:'peter pan',tiana:'tiana',space:'space mountain',btm:'big thunder',jc:'(jungle|jingle) cruise',hm:'haunted mansion',potc:'pirates',buzz:'buzz lightyear',isw:'small world',pooh:'winnie',ariel:'little mermaid',dumbo:'dumbo',barn:'barnstormer',tea:'tea party',spdwy:'speedway',pm:'peoplemover',astro:'astro orbiter',phil:'philharmagic',mil:'laugh floor',carp:'magic carpets',
+const LIVE_KEYS={tron:'tron',sdmt:'dwarfs',pp:'peter pan',tiana:'tianas bayou',space:'space mountain',btm:'big thunder',jc:'(jungle|jingle) cruise',hm:'haunted mansion',potc:'pirates of the caribbean',buzz:'buzz lightyear',isw:'small world',pooh:'winnie',ariel:'little mermaid',dumbo:'dumbo',barn:'barnstormer',tea:'tea party',spdwy:'speedway',pm:'peoplemover',astro:'astro orbiter',phil:'philharmagic',mil:'laugh floor',carp:'magic carpets',
  gotg:'guardians',tt:'test track',msp:'mission space',fea:'frozen ever after',remy:'ratatouille',soar:'soarin',sse:'spaceship earth',lwtl:'living with the land',seas:'nemo',fig:'figment|journey into imagination',gft:'gran fiesta',aa:'american adventure',
  rotr:'rise of the resistance',sdd:'slinky',rnrc:'roller coaster',tot:'tower of terror',mmrr:'runaway railway',msr:'smugglers',tsm:'toy story mania',ass:'alien swirling',st:'star tours',indy:'indiana jones',bob:'beauty and the beast',
  fop:'flight of passage',navi:'river journey',ee:'everest',kili:'kilimanjaro',krr:'kali river',zoo:'zootopia',flk:'lion king'};
+const LIVE_SKIP=/^(meet|character|a pirates adventure)\b|\b(character greetings|meet and greet)\b/; // never match meet-and-greets or walkthroughs to a ride
 function liveNorm(n){return String(n).normalize('NFKD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/['’`]/g,'').replace(/[^a-z0-9]+/g,' ').trim()}
 function orlandoNow(){const f=new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date());const g=k=>f.find(x=>x.type===k).value;return{date:g('year')+'-'+g('month')+'-'+g('day'),min:(+g('hour'))*60+(+g('minute'))}}
-function liveIngest(d){const map={};const used={};for(const pk in d.parks||{}){const rows=d.parks[pk]||[];for(const r of RIDES){if(r.pk!==pk||!LIVE_KEYS[r.id])continue;const re=new RegExp('\\b('+LIVE_KEYS[r.id]+')');const row=rows.find(x=>re.test(liveNorm(x[0])));if(row){map[r.id]={name:row[0],open:!!row[1],wait:Math.max(0,+row[2]||0),at:row[3]?Date.parse(row[3]):null}}}}LIVE.map=map;LIVE.data=d;LIVE.got=Date.now()}
+const LIVE_RE={};function liveMatch(pk,rows){const N=rows.map(x=>liveNorm(x[0])),M={};for(const r of RIDES){if(r.pk!==pk||!LIVE_KEYS[r.id])continue;const re=LIVE_RE[r.id]||(LIVE_RE[r.id]=new RegExp('\\b('+LIVE_KEYS[r.id]+')'));const i=N.findIndex(n=>re.test(n)&&!LIVE_SKIP.test(n));if(i>=0)M[r.id]=rows[i]}return M}
+function liveIngest(d){const map={};for(const pk in d.parks||{}){const M=liveMatch(pk,d.parks[pk]||[]);for(const rid in M){const row=M[rid];map[rid]={name:row[0],open:!!row[1],wait:Math.max(0,+row[2]||0),at:row[3]?Date.parse(row[3]):null}}}LIVE.map=map;LIVE.data=d;LIVE.got=Date.now()}
 function liveActive(){return !!(LIVE_URL&&LIVE.data&&Date.now()-LIVE.got<20*60000&&G.date&&G.date===orlandoNow().date)}
 function liveFor(r){if(!liveActive())return null;const e=LIVE.map[r.id];if(!e)return null;if(e.at&&Date.now()-e.at>45*60000)return null;return e}
 function liveUse(r){const e=liveFor(r);return e&&parkOpen(r.pk,orlandoNow().min)?e:null}
@@ -582,6 +586,127 @@ function liveBannerHTML(){if(!LIVE_URL)return '';if(liveActive())return `<p clas
 function liveNoteUpdate(){const el=document.getElementById('liveNote');if(!el)return;if(!LIVE_URL){el.innerHTML='';return}const today=orlandoNow().date;const want=G.started?G.date:(inDate&&inDate.value);if(want!==today){el.innerHTML=`Live waits switch on when the Park day is today · ${LIVE_CREDIT}`;return}if(LIVE.data&&Date.now()-LIVE.got<20*60000){el.innerHTML=`Live waits on · updated ${liveAgo(LIVE.got)} · ${LIVE_CREDIT}`;return}el.innerHTML=LIVE.fails?`Live waits unavailable, using typical waits · ${LIVE_CREDIT}`:`Getting live waits… · ${LIVE_CREDIT}`}
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')livePoll(false)});
 setInterval(()=>livePoll(false),60000);
+// ===== CROWD RE-FORECAST (read the day early) =====
+// Compares today's recorded waits (Worker /history, every 5 min since open) with what the forecast crowd level predicts,
+// and re-estimates the day. Expected = curveAt at the forecast level, corrected by a calibration fitted on past recorded days:
+// x = ln(observed/curve) = G (calendar bias) + s[k] (hour-from-open shape) + b[ride] + day effect + noise.
+// The day effect gets a Bayesian update (prior sd tau, noise se per ride-hour), so the read firms up as hours come in.
+const HIST_URL=LIVE_URL?LIVE_URL.replace(/\/waits$/,'/history'):'';
+const RF_FIRST='2026-11-17',RF_DAYS=21,RF_VER=1,RF_GAP=2500;
+const RF={off:false,est:{},act:{},cal:{},res:{},q:[],qBusy:false,nextToday:0,todayFails:0,told:{},bt:null};
+const RF_TZ=new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
+function rfMin(ts){const p=RF_TZ.formatToParts(new Date(ts*1000));let h=0,m=0;for(const x of p){if(x.type==='hour')h=+x.value%24;if(x.type==='minute')m=+x.value}return h*60+m}
+function rfKey(pk,date){return 'wdwsim.hist.v'+RF_VER+'.'+pk+'.'+date}
+function rfAddDays(date,n){const d=parseDay(date);d.setDate(d.getDate()+n);return ymd(d)}
+// Recorded day → {pk,date,rides:{rid:[min,wait,...]}} with one value per 15 min (median of open readings)
+function rfCompact(d){const pk=d.park,B={};for(const [ts,rows] of d.snaps||[]){const m=rfMin(ts),k=Math.floor(m/15)*15,M=liveMatch(pk,rows);
+    for(const rid in M){const row=M[rid];if(!row[1])continue;const w=+row[2]||0;if(w<=0)continue;((B[rid]=B[rid]||{})[k]=B[rid][k]||[]).push(w)}}
+  const rides={};for(const rid in B){const a=[];for(const k of Object.keys(B[rid]).map(Number).sort((x,y)=>x-y)){const v=B[rid][k].sort((x,y)=>x-y);a.push(k,v[v.length>>1])}rides[rid]=a}
+  return{pk,date:d.date,rides,n:(d.snaps||[]).length}}
+function rfLoad(pk,date){try{const s=localStorage.getItem(rfKey(pk,date));return s?JSON.parse(s):null}catch(e){return null}}
+function rfStore(c){try{localStorage.setItem(rfKey(c.pk,c.date),JSON.stringify(c))}catch(e){}}
+function rfPrune(){try{const cut=rfAddDays(orlandoNow().date,-70);for(let i=localStorage.length-1;i>=0;i--){const k=localStorage.key(i);const m=k&&k.match(/^wdwsim\.hist\.v\d+\.\w+\.(\d{4}-\d\d-\d\d)$/);if(m&&(m[1]<cut||!k.startsWith('wdwsim.hist.v'+RF_VER+'.')))localStorage.removeItem(k)}}catch(e){}}
+// Run fn with the game set up for another date (forecast level, no re-forecast), then put everything back
+function rfSandbox(date,fn){const K={date:G.date,deluxe:G.deluxe,pf:{...G.pf},pfFc:G.pfFc&&{...G.pfFc},crowd:G.crowd,hours:G.hours,mult:G.pfMult,seeds:RIDES.map(r=>r.seed),dpw:DPW,P:{}};
+  for(const k in PARKS){const P=PARKS[k];K.P[k]={open:P.open,close:P.close,ee:P.ee,eeh:P.eeh,party:P.party,events:P.events}}
+  const off=RF.off;RF.off=true;try{prepDay(date,1,null);return fn()}finally{RF.off=off;G.date=K.date;G.deluxe=K.deluxe;Object.assign(G.pf,K.pf);G.crowd=K.crowd;G.hours=K.hours;G.pfMult=K.mult;G.pfFc=K.pfFc;
+    RIDES.forEach((r,i)=>r.seed=K.seeds[i]);for(const k in K.P)Object.assign(PARKS[k],K.P[k]);DPW=K.dpw}}
+function rfW(r){return clamp(r.avg/45,0.3,1.5)}
+// Residuals of one recorded day against the plain forecast: rows [rid, min, hourFromOpen, x, weight, curve, observed]
+function rfResid(c){const id=c.pk+'|'+c.date;if(RF.res[id]&&RF.res[id].src===c)return RF.res[id];
+  const out=rfSandbox(c.date,()=>{const P=PARKS[c.pk],o=P.open*60,cl=P.close*60,rows=[];
+    for(const rid in c.rides){const r=RIDE_BY[rid];if(!r||r.pk!==c.pk||r.kind==='show'||r.avg<10)continue;const a=c.rides[rid],w=rfW(r);
+      for(let i=0;i<a.length;i+=2){const m=a[i],ob=a[i+1];if(m<o||m>=cl)continue;const cv=curveAt(r,m+7);rows.push([rid,m,Math.floor((m-o)/60),Math.log(Math.max(ob,5)/Math.max(cv,5)),w,cv,ob])}}
+    return{rows,open:o,close:cl,pf0:G.pf[c.pk]}});
+  out.src=c;out.date=c.date;RF.res[id]=out;return out}
+function rfWMean(rows,f){let s=0,w=0;for(const x of rows){s+=f(x)*x[4];w+=x[4]}return w?s/w:0}
+// Fit G, s[k], b[ride], tau, se from past recorded days (residual sets), with shrinkage toward 0 while days are few
+function rfCalibrate(sets){sets=sets.filter(S=>S.rows.length>=40);const n=sets.length,cal={n,G:0,tau:0.25,se:0.35,s:{},b:{},dates:sets.map(S=>S.date)};if(!n)return cal;
+  const g=sets.map(S=>rfWMean(S.rows,x=>x[3]));const gm=g.reduce((a,b)=>a+b,0)/n;cal.G=gm*n/(n+2);
+  if(n>=4){const v=g.reduce((a,b)=>a+(b-gm)**2,0)/(n-1);cal.tau=clamp(Math.sqrt(v),0.12,0.4)}
+  const sk={};sets.forEach((S,i)=>{const by={};for(const x of S.rows)(by[x[2]]=by[x[2]]||[]).push(x);for(const k in by)(sk[k]=sk[k]||[]).push(rfWMean(by[k],x=>x[3])-g[i])});
+  for(const k in sk){const a=sk[k];cal.s[k]=a.reduce((p,q)=>p+q,0)/a.length*a.length/(a.length+1)}
+  const br={};sets.forEach((S,i)=>{const by={};for(const x of S.rows)(by[x[0]]=by[x[0]]||[]).push(x);for(const rid in by)(br[rid]=br[rid]||[]).push(rfWMean(by[rid],x=>x[3]-g[i]-(cal.s[x[2]]||0)))});
+  for(const rid in br){const a=br[rid];cal.b[rid]=a.reduce((p,q)=>p+q,0)/a.length*a.length/(a.length+1)}
+  // noise per ride-hour unit after removing day, shape and ride terms
+  let ss=0,nu=0;sets.forEach((S,i)=>{const U=rfUnits(S.rows,cal,g[i],Infinity);for(const u of U){ss+=u.y*u.y;nu++}});if(nu>=30)cal.se=clamp(Math.sqrt(ss/nu),0.15,0.6);
+  return cal}
+// Average residuals per ride and clock hour (the unit treated as independent)
+function rfUnits(rows,cal,off,cut){const U={};for(const x of rows){if(x[1]>=cut)continue;const y=x[3]-cal.G-(cal.s[x[2]]||0)-(cal.b[x[0]]||0)-off;const k=x[0]+'|'+Math.floor(x[1]/60);const u=U[k]||(U[k]={rid:x[0],w:x[4],s:0,n:0});u.s+=y;u.n++}
+  return Object.values(U).map(u=>({rid:u.rid,w:u.w,y:u.s/u.n}))}
+// Day effect from readings before cut → {L (log factor vs forecast), sd, delta, units, from, to}
+function rfEstimate(S,cal,cut){const U=rfUnits(S.rows,cal,0,cut);let sw=0,sw2=0,sy=0;for(const u of U){sw+=u.w;sw2+=u.w*u.w;sy+=u.w*u.y}
+  const ne=sw2?sw*sw/sw2:0,yb=sw?sy/sw:0,prec=1/cal.tau**2+ne/cal.se**2,delta=ne/cal.se**2*yb/prec,sd=1/Math.sqrt(prec);
+  let from=1e9,to=-1;for(const x of S.rows)if(x[1]<cut){from=Math.min(from,x[1]);to=Math.max(to,x[1])}
+  return{L:cal.G+delta,delta,sd,units:U.length,ne,from,to:to+15,yb}}
+function rfMulRaw(cal,rid,k){return Math.exp((cal.s[k]||0)+(cal.b[rid]||0))}
+// Which past days are cached for a park, and the calibration from them (leaving one date out if asked)
+function rfPast(pk,today){const out=[];for(let i=1;i<=RF_DAYS;i++){const d=rfAddDays(today,-i);if(d<RF_FIRST)break;const c=rfLoad(pk,d);if(c)out.push(c)}return out}
+function rfCal(pk,today,leaveOut){const id=pk+'|'+today+'|'+(leaveOut||'');const past=rfPast(pk,today).filter(c=>c.date!==leaveOut);const sig=past.map(c=>c.date).join(',');
+  if(RF.cal[id]&&RF.cal[id].sig===sig)return RF.cal[id];const cal=rfCalibrate(past.map(rfResid));cal.sig=sig;RF.cal[id]=cal;return cal}
+// Today's read for one park from its compact recorded day
+function rfUpdateToday(pk,c){const today=orlandoNow().date;if(c.date!==today)return;const S=rfResid(c),cal=rfCal(pk,today);
+  const e=rfEstimate(S,cal,Infinity);e.date=today;e.cal=cal;e.pf0=S.pf0;e.lvl0=crowdLevel(S.pf0);const f=S.pf0*Math.exp(e.L);
+  e.lvl=crowdLevel(f);e.lo=crowdLevel(f*Math.exp(-1.28*e.sd));e.hi=crowdLevel(f*Math.exp(1.28*e.sd));e.ratio=Math.exp(e.L);
+  const dev={};for(const x of S.rows){const y=x[3]-cal.G-(cal.s[x[2]]||0)-(cal.b[x[0]]||0);(dev[x[0]]=dev[x[0]]||[]).push(y)}
+  e.rides=Object.entries(dev).map(([rid,a])=>[rid,Math.exp(a.reduce((p,q)=>p+q,0)/a.length)]).sort((a,b)=>b[1]-a[1]);e.at=Date.now();RF.est[pk]=e}
+// Apply today's reads to the game: park factor = forecast × read; curveAt adds the calibrated hour shape and ride bias
+function rfApplyDay(){if(RF.off)return;const today=orlandoNow().date;let ch=false;
+  for(const pk in PARKS){const e=RF.est[pk],on=!!(e&&G.date===today&&e.date===today),fc=G.pfFc&&G.pfFc[pk];if(!fc)continue;
+    if(on){G.pf[pk]=clamp(fc/(G.pfMult||1)*Math.exp(e.L)*(e.units>=4?1:(G.pfMult||1)),0.5,2.2);RF.act[pk]=e.cal;ch=true}else{if(RF.act[pk])ch=true;G.pf[pk]=fc;RF.act[pk]=null}}
+  if(ch){G.crowd=Object.values(G.pf).reduce((a,b)=>a+b,0)/4;DPW={}}}
+function rfMul(r,t){const cal=RF.act[r.pk];if(!cal||RF.off)return 1;const k=Math.floor((t-PARKS[r.pk].open*60)/60);return rfMulRaw(cal,r.id,k)}
+async function rfFetch(pk,date){const res=await fetch(HIST_URL+'?park='+pk+'&date='+date,{cache:date===orlandoNow().date?'no-cache':'default'});if(!res.ok)throw new Error('HTTP '+res.status);const d=await res.json();if(!d||!Array.isArray(d.snaps))throw new Error('bad data');return rfCompact(d)}
+// One request at a time, RF_GAP apart (the Worker allows 30/min per phone)
+function rfQueue(job){if(!RF.q.some(j=>j.pk===job.pk&&j.date===job.date))RF.q.push(job);rfPump()}
+async function rfPump(){if(RF.qBusy||!RF.q.length||!HIST_URL)return;RF.qBusy=true;const j=RF.q.shift();
+  try{const c=await rfFetch(j.pk,j.date);if(j.date<orlandoNow().date)rfStore(c);j.ok&&j.ok(c)}catch(e){j.fail&&j.fail(e)}
+  setTimeout(()=>{RF.qBusy=false;rfPump()},RF_GAP)}
+function rfWantPast(pk,cb){const today=orlandoNow().date;let left=0;for(let i=1;i<=RF_DAYS;i++){const d=rfAddDays(today,-i);if(d<RF_FIRST)break;if(rfLoad(pk,d))continue;left++;rfQueue({pk,date:d,ok:()=>{if(--left===0&&cb)cb()},fail:()=>{if(--left===0&&cb)cb()}})}if(!left&&cb)cb();return left}
+function rfTodayNeeded(){const now=orlandoNow();return Object.keys(PARKS).some(pk=>{const H=hoursFor(parseDay(now.date)).parks[pk];return now.min>=((H.ee!=null?H.ee:H.open)*60+20)&&now.min<H.close*60+60})}
+function rfTick(force){if(!HIST_URL||document.visibilityState==='hidden')return;const today=orlandoNow().date;const want=G.started?G.date:(typeof inDate!=='undefined'&&inDate&&inDate.value);
+  if(want!==today)return;if(!force&&Date.now()<RF.nextToday)return;if(!rfTodayNeeded()){RF.nextToday=Date.now()+15*60000;return}
+  RF.nextToday=Date.now()+10*60000*Math.min(4,1+RF.todayFails);rfPrune();
+  for(const pk of Object.keys(PARKS)){rfQueue({pk,date:today,ok:c=>{RF.todayFails=0;rfUpdateToday(pk,c);rfAfterUpdate(pk)},fail:()=>{RF.todayFails++;rfNoteUpdate()}});rfWantPast(pk,()=>{const c=RF.est[pk]&&RF.est[pk].src;if(c){rfUpdateToday(pk,c);rfAfterUpdate(pk)}})}}
+function rfAfterUpdate(pk){const e=RF.est[pk];if(e)e.src=RF.res[pk+'|'+e.date]&&RF.res[pk+'|'+e.date].src;rfApplyDay();rfNoteUpdate();
+  if(G.started&&e&&e.date===G.date){typeof rebuildQueues==='function'&&rebuildQueues();typeof refreshPins==='function'&&refreshPins();
+    const k=pk+e.lvl;if(e.units>=6&&e.lvl!==e.lvl0&&!RF.told[k]&&pk===currentPark()){RF.told[k]=1;toast(`Crowd read: ${PARKS[pk].short} looks ${e.lvl>e.lvl0?'busier':'lighter'} than forecast (${e.lvl} vs ${e.lvl0}). Waits ahead updated.`)}}}
+setInterval(()=>rfTick(false),60000);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')rfTick(false)});
+function rfWord(e){return e.lvl>e.lvl0?'busier than forecast':e.lvl<e.lvl0?'lighter than forecast':'as forecast'}
+function rfLine(pk){const e=RF.est[pk];if(!e||e.date!==orlandoNow().date)return '';if(!e.units)return `${PARKS[pk].short} <b>${e.lvl}</b> <small>(no readings yet)</small>`;
+  return `${PARKS[pk].short} <b>${e.lvl}</b>${e.lo!==e.hi?` <small>(${e.lo}–${e.hi})</small>`:''}`}
+function rfNoteUpdate(){const el=document.getElementById('rfFc');if(!el)return;if(!HIST_URL){el.innerHTML='';return}const today=orlandoNow().date,want=G.started?G.date:(inDate&&inDate.value);
+  if(want===today&&Object.values(RF.est).some(e=>e&&e.date===today&&e.units)){el.innerHTML=`Today's crowd read: `+Object.keys(PARKS).map(rfLine).filter(Boolean).join(' · ')+` <button class="lnk" id="rfOpen" type="button">details ›</button>`}
+  else el.innerHTML=want===today?`Crowd read: re-forecasts each park from its first waits once it opens. <button class="lnk" id="rfOpen" type="button">details ›</button>`:`<button class="lnk" id="rfOpen" type="button">Crowd read · test it on recorded days ›</button>`;
+  const b=document.getElementById('rfOpen');if(b)b.onclick=()=>openRF()}
+function rfBannerHTML(pk){const e=RF.est[pk];if(!e||!e.units||e.date!==G.date)return '';return `<p class="note" style="margin:4px 0">Crowd read ${fmtClock(e.from)}–${fmtClock(e.to)}: <b>${rfWord(e)}</b> · ${e.lvl} of 10 (forecast ${e.lvl0}${e.lo!==e.hi?`, likely ${e.lo}–${e.hi}`:''}) · waits ahead adjusted <button class="lnk" data-rf="1" type="button">details ›</button></p>`}
+// Backtest: for each recorded day, calibrate on the other days, read the day at open+1/2/3 h, score the rest of the day
+function rfBacktest(pk){const today=orlandoNow().date,past=rfPast(pk,today),out=[];
+  for(const c of past){const S=rfResid(c);if(S.rows.length<40)continue;const cal=rfCal(pk,today,c.date),row={date:c.date,cuts:[]};
+    for(const h of [1,2,3]){const cut=S.open+h*60,e=rfEstimate(S,cal,cut);let w=0,a=0,b=0,d=0,n=0;
+      for(const x of S.rows){if(x[1]<cut+30)continue;const m=rfMulRaw(cal,x[0],x[2]),ob=x[6],cv=x[5];w+=x[4];n++;a+=x[4]*Math.abs(cv-ob);b+=x[4]*Math.abs(cv*Math.exp(cal.G)*m-ob);d+=x[4]*Math.abs(cv*Math.exp(e.L)*m-ob)}
+      if(n)row.cuts.push({cut,plain:a/w,calib:b/w,read:d/w,lvl:crowdLevel(S.pf0*Math.exp(e.L)),units:e.units})}
+    row.lvl0=crowdLevel(S.pf0);row.actual=crowdLevel(S.pf0*Math.exp(rfWMean(S.rows,x=>x[3])-0));row.n=cal.n;out.push(row)}
+  return out}
+function rfBTHTML(pk){const B=RF.bt&&RF.bt[pk];if(!B)return '';if(!B.length)return `<p class="note">No recorded ${PARKS[pk].short} days on this phone yet.</p>`;
+  const avg=i=>{const c=B.map(r=>r.cuts[i]).filter(Boolean);if(!c.length)return null;const s=k=>c.reduce((p,q)=>p+q[k],0)/c.length;return{plain:s('plain'),calib:s('calib'),read:s('read')}};
+  const cell=c=>c?`${Math.round(c.read)}<small> vs ${Math.round(c.plain)}</small>`:'—';
+  let h=`<table class="rft"><tr><th>Day</th><th>Fc</th><th>Real</th><th>+1h</th><th>+2h</th><th>+3h</th></tr>`;
+  for(const r of B)h+=`<tr><td>${r.date.slice(5)}</td><td>${r.lvl0}</td><td>${r.actual}</td>${[0,1,2].map(i=>`<td>${cell(r.cuts[i])}${r.cuts[i]?`<br><small>read ${r.cuts[i].lvl}</small>`:''}</td>`).join('')}</tr>`;
+  const A=[0,1,2].map(avg);h+=`<tr><td colspan="3"><b>Average</b></td>${A.map(a=>`<td><b>${a?Math.round(a.read):'—'}</b>${a?`<small> vs ${Math.round(a.plain)}</small>`:''}</td>`).join('')}</tr></table>`;
+  return h+`<p class="note">Minutes off, per ride reading, for the rest of the day after reading the first 1, 2 or 3 hours: <b>crowd read</b> vs <small>plain forecast</small>. Each day is calibrated on the other recorded days only (${B[0].n} so far), so the test is fair; it gets better as days pile up. Fc = forecast level, Real = level the whole day turned out at.</p>`}
+function openRF(){const today=orlandoNow().date,want=G.started?G.date:(inDate&&inDate.value),isToday=want===today;let h=`<h2>Crowd read</h2><p class="note">Plans assume the forecast crowd level. On the day, the game compares each park's recorded waits since opening with what that level predicts (after correcting for how our curves differ from past recorded days) and re-estimates the level. Waits for the rest of the day, Lightning Lane sell-outs and plans follow the read. Data: recorded every 5 min from Queue-Times.com.</p>`;
+  for(const pk of Object.keys(PARKS)){const e=RF.est[pk];h+=`<h3>${PARKS[pk].name||PARKS[pk].short}</h3>`;
+    if(isToday&&e&&e.date===today&&e.units){h+=`<p><b>${e.lvl} of 10</b> — ${rfWord(e)} (forecast ${e.lvl0}; likely ${e.lo}–${e.hi}). From ${fmtClock(e.from)}–${fmtClock(e.to)} waits, ${e.units} ride-hours. Waits running ×${e.ratio.toFixed(2)} the forecast.</p>`;
+      const top=e.rides.filter(x=>RIDE_BY[x[0]]);if(top.length>3)h+=`<p class="note">Busiest vs expected: ${top.slice(0,3).map(x=>`${RIDE_BY[x[0]].short} ×${x[1].toFixed(1)}`).join(', ')} · lightest: ${top.slice(-3).reverse().map(x=>`${RIDE_BY[x[0]].short} ×${x[1].toFixed(1)}`).join(', ')}</p>`}
+    else if(isToday)h+=`<p class="note">${e&&e.date===today?'No readings since opening yet.':'Reads once the park has been open about 20 minutes.'}</p>`;
+    h+=`<div id="rfbt-${pk}">${rfBTHTML(pk)}</div>`}
+  h+=`<div class="row" style="gap:8px;margin-top:10px"><button class="btn" id="rfBT" type="button">Test on recorded days</button><button class="btn pri" id="rfClose" type="button">Done</button></div><p class="note" id="rfMsg"></p>`;
+  $('#rfIn').innerHTML=h;$('#rfview').hidden=false;$('#rfview').scrollTop=0;$('#rfClose').onclick=()=>{$('#rfview').hidden=true};
+  $('#rfBT').onclick=()=>{const msg=$('#rfMsg');let left=0;for(const pk of Object.keys(PARKS))left+=rfWantPast(pk,null);
+    const run=()=>{RF.bt={};for(const pk of Object.keys(PARKS)){RF.bt[pk]=rfBacktest(pk);const el=document.getElementById('rfbt-'+pk);if(el)el.innerHTML=rfBTHTML(pk)}msg.textContent=''};
+    if(!left){run();return}msg.textContent=`Downloading ${left} recorded park-days (once; about ${Math.ceil(left*RF_GAP/60000)} min)…`;
+    const iv=setInterval(()=>{if(!RF.q.length&&!RF.qBusy){clearInterval(iv);run()}else msg.textContent=`Downloading recorded days… ${RF.q.length} left`},1500)}}
 
 function rawWait(r,t){return waitAt(r,t)}
 function parkOpen(pk,t){const P=PARKS[pk];return (t>=accessOpen(pk)&&t<P.close*60)||eehOn(pk,t)}
@@ -732,7 +857,7 @@ function dpDefaults(pk){return{pk:pk||'MK',must:[],ll:'mine',lunch:true,extras:t
 // Same-day setup shared by the start screen, the planners and startDay
 function prepDay(dstr,mult,hid){const day=parseDay(dstr)||new Date();G.date=ymd(day);G.deluxe=DELUXE.has(hid);const HR=applyHours(day);
   for(const k in G.pf)G.pf[k]=clamp(dayFactor(k,day)*mult*(PARKS[k].party?0.85:1),0.6,1.7);G.crowd=Object.values(G.pf).reduce((a,b)=>a+b,0)/4;
-  RIDES.forEach(r=>r.seed=hash(G.date+r.id)*10);DPW={};return HR}
+  RIDES.forEach(r=>r.seed=hash(G.date+r.id)*10);DPW={};G.pfMult=mult;G.pfFc={...G.pf};rfApplyDay();return HR}
 // walking minutes between every pair of rides in a park (no crowd factor)
 const DP_TM={};
 function dpMatrix(pk){if(DP_TM[pk])return DP_TM[pk];
@@ -3124,7 +3249,7 @@ function updateHUD(){
 
 // ================= SHEETS =================
 const sheet=$('#sheet'),sheetIn=$('#sheetIn');let sheetTab=null,wasSpeed=1;
-function openSheet(html){sheetIn.innerHTML=html;sheet.hidden=false;if(!G.sheetPaused){G.sheetPaused=true}sheetIn.querySelectorAll('.x').forEach(x=>x.onclick=closeSheet)}
+function openSheet(html){sheetIn.innerHTML=html;sheet.hidden=false;if(!G.sheetPaused){G.sheetPaused=true}sheetIn.querySelectorAll('.x').forEach(x=>x.onclick=closeSheet);sheetIn.querySelectorAll('[data-rf]').forEach(x=>x.onclick=()=>openRF())}
 function closeSheet(){sheet.hidden=true;G.sheetPaused=false}
 function currentPark(){const st=effectiveStart();const n=NODES[st.node];if(n.park)return n.park;if(n.outside)return n.outside;
   let best='MK',bd=Infinity;for(const pk in PARKS){const P=PARKS[pk],d=Math.hypot(n.x-P.c[0],n.z-P.c[1]);if(d<bd){bd=d;best=pk}}return best}
@@ -3135,7 +3260,7 @@ function parkHoursHTML(pk){const P=PARKS[pk];if(!P.events)return '';const parts=
 function openRides(pk){sheetTab=pk||sheetTab||currentPark();const st=effectiveStart(),D=dijkstra(st.node,G.t/60);
   const list=RIDES.filter(r=>r.pk===sheetTab).map(r=>{const m=rideRowMeta(r,D,st);const ws=rideState(r,G.t);const w=ws==='open'?rawWait(r,G.t):0;return{r,...m,w,ws}}).sort((a,b)=>a.eta-b.eta);
   const tabs=Object.keys(PARKS).map(k=>`<button data-pk="${k}" aria-pressed="${k===sheetTab}">${PARKS[k].short}</button>`).join('');
-  openSheet(`<div class="sh"><h2>Rides & waits</h2><span class="paused">Clock paused</span><button class="x" aria-label="Close">×</button></div><div class="tabs">${tabs}</div><div class="sb">${parkHoursHTML(sheetTab)}${liveBannerHTML()}<div class="list">${list.map(x=>`<button class="ri" data-id="${x.r.id}"><span class="n">${x.r.name}</span><span class="m">${x.meta}</span><span class="w ${x.ws==='open'?waitClass(x.w):'x'}">${x.ws==='open'?x.w+'m':x.ws==='down'?'Down':x.ws==='early'?'Opens '+fmtClock(accessOpen(x.r.pk)).replace(':00',''):'Closed'}</span></button>`).join('')}</div><p class="note">Standby waits are posted times right now. Sorted by how long it takes to get there from ${NODES[st.node].ride?NODES[st.node].ride.short:NODES[st.node].label}.</p></div>`);
+  openSheet(`<div class="sh"><h2>Rides & waits</h2><span class="paused">Clock paused</span><button class="x" aria-label="Close">×</button></div><div class="tabs">${tabs}</div><div class="sb">${parkHoursHTML(sheetTab)}${liveBannerHTML()}${rfBannerHTML(sheetTab)}<div class="list">${list.map(x=>`<button class="ri" data-id="${x.r.id}"><span class="n">${x.r.name}</span><span class="m">${x.meta}</span><span class="w ${x.ws==='open'?waitClass(x.w):'x'}">${x.ws==='open'?x.w+'m':x.ws==='down'?'Down':x.ws==='early'?'Opens '+fmtClock(accessOpen(x.r.pk)).replace(':00',''):'Closed'}</span></button>`).join('')}</div><p class="note">Standby waits are posted times right now. Sorted by how long it takes to get there from ${NODES[st.node].ride?NODES[st.node].ride.short:NODES[st.node].label}.</p></div>`);
   sheetIn.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>openRides(b.dataset.pk));
   sheetIn.querySelectorAll('.ri').forEach(b=>b.onclick=()=>openRide(RIDE_BY[b.dataset.id]))}
 function stepsHTML(plan,r,useLL){const out=[];let walk=0;const flush=()=>{if(walk>0.4)out.push(['walk','W',`Walk${G.density>0.5?' (crowded)':''}`,walk]);walk=0};
@@ -3497,7 +3622,7 @@ function openPlan(){
 const selH=$('#selHotel');RESORTS.forEach(h=>{const o=document.createElement('option');o.value=h.id;o.textContent=h.name;selH.appendChild(o)});selH.value='pop';
 function segPick(id,cb){const el=$(id);el.querySelectorAll('button').forEach(b=>b.onclick=()=>{el.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed','false'));b.setAttribute('aria-pressed','true');cb&&cb(b)})}
 const inDate=$('#inDate');inDate.value=ymd(new Date());
-function showForecast(){liveNoteUpdate();livePoll(false);const d=parseDay(inDate.value);if(!d){$('#crowdFc').textContent='';$('#hoursFc').textContent='';return}showHours(d);const hol=holiday(d)[1];const mult=+$('#segCrowd [aria-pressed="true"]').dataset.v;$('#crowdFc').innerHTML=`Crowd forecast (1–10): `+['MK','EP','HS','AK'].map(k=>`${PARKS[k].short} <b>${crowdLevel(dayFactor(k,d)*mult*(hoursFor(d).parks[k].party?0.85:1))}</b>`).join(' · ')+(hol?` · ${hol}`:'')}
+function showForecast(){liveNoteUpdate();livePoll(false);rfNoteUpdate();rfTick(false);const d=parseDay(inDate.value);if(!d){$('#crowdFc').textContent='';$('#hoursFc').textContent='';return}showHours(d);const hol=holiday(d)[1];const mult=+$('#segCrowd [aria-pressed="true"]').dataset.v;$('#crowdFc').innerHTML=`Crowd forecast (1–10): `+['MK','EP','HS','AK'].map(k=>`${PARKS[k].short} <b>${crowdLevel(dayFactor(k,d)*mult*(hoursFor(d).parks[k].party?0.85:1))}</b>`).join(' · ')+(hol?` · ${hol}`:'')}
 function showHours(d){const HR=hoursFor(d),deluxe=DELUXE.has(selH.value);const ks=['MK','EP','HS','AK'];let html=ks.map(k=>{const P=HR.parks[k];return `${PARKS[k].short} <b>${hh(P.open)}–${hh(P.close)}</b>`}).join(' · ');html+=`<br>Early Entry 30 min before opening at every park for Disney hotel guests.`;ks.forEach(k=>{const P=HR.parks[k];if(P.party)html+=`<br><span class="ev">${P.party}: ${PARKS[k].short} closes ${hh(P.close)} to day guests.</span>`;if(P.eeh)html+=`<br><span class="eeh">Extended Evening Hours: ${PARKS[k].short} ${hh(P.eeh.from)}–${hh(P.eeh.to)} ${deluxe?'(your hotel qualifies)':'(deluxe hotels only)'}</span>`});if(HR.estimated)html+=`<br><i>Hours estimated from the usual pattern.</i>`;$('#hoursFc').innerHTML=html;const first=Math.min(...['MK','EP','HS'].map(k=>HR.parks[k].ee));const rd=Math.round(clamp(first-0.75,7,9)*4)*15;const b=$('#segTime button');b.dataset.v=rd;b.textContent='Rope drop · '+fmtClock(rd).replace(' AM','')}
 selH.addEventListener('change',showForecast);
 inDate.addEventListener('change',()=>{showForecast();llSumUpdate();daySumUpdate()});inDate.addEventListener('input',()=>{showForecast();llSumUpdate();daySumUpdate()});
@@ -3541,7 +3666,7 @@ function tick(now){checkSize();const dtR=Math.min(0.1,Math.max(0,(now-last)/1000
   camStep(now);controls.update();skyDome.position.copy(camera.position);if(!G.segs&&tripLine)showTrip(null);renderFrame();updateLabels();
   if(G.started)updateHUD();
 }
-window.WDW={camera,controls,stRun,stHTML,stCalib,stModelDay,dpParseTP,dpApplyImport,scene,setGfx,LIGHT,sunDir,fwShows,fwSim:(n,dt)=>{for(let i=0;i<n;i++)updateFireworks(dt)},holdTime:t=>{G.holdT=t==null?null:t*60;if(t!=null)G.t=t*60},dpRun,dpMakeGame,dpProgress,dpLoad,dpSave,openPlan,openDaySetup,prepDay,llFromPlan,llFresh,llBook,llNext,llRecs,llUse,llHeld,llTick,llPlanErrors,llSuggest,llLoadPlan,openLL,openRides,openPicks,LIVE,liveIngest,liveFor,curveAt,orlandoNow,livePoll,G,go,flyTo,setFollow,RIDE_BY,PARKS,camera,controls,openRide,closeSheet,rawWait,waitAt,dayFactor,holiday,hoursFor,applyHours,accessOpen,lastClose,renderer,dijkstra,NI,NODES,RESORTS,RIDES,LINES};
+window.WDW={camera,controls,RF,rfCompact,rfStore,rfLoad,rfResid,rfCalibrate,rfEstimate,rfBacktest,rfUpdateToday,rfApplyDay,rfMul,rfCal,openRF,rfAfterUpdate,rfNoteUpdate,rfTick,rfBannerHTML,liveMatch,stRun,stHTML,stCalib,stModelDay,dpParseTP,dpApplyImport,scene,setGfx,LIGHT,sunDir,fwShows,fwSim:(n,dt)=>{for(let i=0;i<n;i++)updateFireworks(dt)},holdTime:t=>{G.holdT=t==null?null:t*60;if(t!=null)G.t=t*60},dpRun,dpMakeGame,dpProgress,dpLoad,dpSave,openPlan,openDaySetup,prepDay,llFromPlan,llFresh,llBook,llNext,llRecs,llUse,llHeld,llTick,llPlanErrors,llSuggest,llLoadPlan,openLL,openRides,openPicks,LIVE,liveIngest,liveFor,curveAt,orlandoNow,livePoll,G,go,flyTo,setFollow,RIDE_BY,PARKS,camera,controls,openRide,closeSheet,rawWait,waitAt,dayFactor,holiday,hoursFor,applyHours,accessOpen,lastClose,renderer,dijkstra,NI,NODES,RESORTS,RIDES,LINES};
 requestAnimationFrame(frame);
 })();
 </script>
