@@ -308,7 +308,7 @@ R('astro','MK','tomo',66,-4,'Astro Orbiter','Astro',25,5,2,0,0),
 R('phil','MK','fant',-15,-38,"Mickey's PhilharMagic",'PhilharMagic',15,4,12,1,21,'show'),
 R('mil','MK','tomo',56,44,'Monsters, Inc. Laugh Floor','Laugh Floor',15,3,15,1,21,'show'),
 R('carp','MK','adv',-62,52,'The Magic Carpets of Aladdin','Carpets',20,3,2,1,20),
-R('gotg','EP','fwe',118,-25,'Guardians of the Galaxy: Cosmic Rewind','Guardians',80,10,4,1,10),
+R('gotg','EP','fwe',114,-156,'Guardians of the Galaxy: Cosmic Rewind','Guardians',80,10,4,1,10),
 R('tt','EP','fwe',112,-80,'Test Track','Test Track',65,8,5,1,11),
 R('msp','EP','fwe',90,-112,'Mission: SPACE','Mission SPACE',25,7,5,1,18),
 R('fea','EP','nor',112,32,'Frozen Ever After','Frozen',60,5,5,1,12),
@@ -1279,8 +1279,8 @@ const EPV=(k,d)=>{const n=PARKS.EP.nodes[k],L=PARKS.EP.lagoon,dx=n[0]-L[0],dz=n[
 // ---- Future World east: Guardians of the Galaxy (Wonders of Xandar entrance, giant show building, Starblaster on a pylon),
 //      Test Track (round World of Motion drum with the outdoor speed loop), Mission: SPACE (crescent building, planets, gravity wheel)
 {const B=new LMB(0,0,0),NV=0x34466e,NV2=0x45598a,XW=0xeef2f6,XT=0x46d6e8,OR=0xf08a3c,MG=0xc6509c,TS=0xc9ced6,TB=0x2f6fd0,TR=0xd8392f,TG=0x6d7686,MO=0xc9784a,MR=0xb04a2c,MP=0x9aa3ad,WN=0x2a2f3c;
- // Guardians: front (+z) faces west into the park
- {const r=RIDE_BY.gotg;B.move(r.x,r.z,-Math.PI/2);
+ // Guardians: outside the monorail loop north-east of Mission: SPACE (between it and the parking lot); front (+z) faces the park (World Discovery)
+ {const r=RIDE_BY.gotg,n=PARKS.EP.nodes.fwe;B.move(r.x,r.z,Math.atan2(n[0]-r.lx,n[1]-r.lz));
   B.box(0,0,-12,44,19,30,NV);B.box(0,19,-12,44.6,0.8,30.6,NV2);
   for(const [y,col] of[[4,OR],[7,MG],[10,XT]])B.box(0,y,-12,44.3,0.9,30.3,col);
   for(const [x,z,w,d] of[[-10,-18,6,5],[8,-6,5,7],[14,-20,4,4]])B.box(x,19.8,z,w,1.6,d,0x5a6a8a);
