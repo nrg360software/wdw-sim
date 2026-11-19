@@ -2079,6 +2079,174 @@ const epAv=(lx,lz,r)=>{const p=toWorld('EP',lx,lz);EP_AV.push([p[0],p[1],r])};
 
  B.buildVC({[WIN]:'win',[NB]:'self',[NP]:'self'},[RK,RK2])}
 
+// ================= Hollywood Studios themed lands (Visuals 3) =================
+// Every DHS ride already has its own model (Visuals 2), so this section dresses the lands between them: the Pan-Pacific style entrance,
+// Crossroads of the World, Art Deco / Streamline Moderne storefronts along Hollywood Boulevard and Sunset Boulevard, the Brown Derby,
+// Echo Lake (Gertie the dinosaur, Dockside Diner steamer, lake curb, 50's Prime Time diner, Hyperion Theater), Commissary Lane
+// (Sci-Fi Dine-In), Grand Avenue brick buildings and the construction site behind them, Animation Courtyard (gateway arch, Little
+// Mermaid and Disney Jr. soundstages, Walt Disney Presents) and the Hollywood Hills Amphitheater (Fantasmic!).
+// DHS park-local coordinates (rot -0.75π, sc 0.75): park-local lengths × 0.75 = world units; builder parts are in world units.
+// Replaces the old DETAIL Hollywood Boulevard boxes and the Fantasmic ring.
+const HS_AV=[],HSK=PARKS.HS.sc;
+// hsAt: builder at park-local (lx,lz) turned ry in the park frame (ry 0 = front facing park-local +z, toward the entrance)
+const hsAt=(B,lx,lz,ry)=>{const p=toWorld('HS',lx,lz);return B.move(p[0],p[1],-PARKS.HS.rot+(ry||0))};
+const hsFace=(lx,lz,tx,tz)=>Math.atan2(tx-lx,tz-lz);
+const hsAv=(lx,lz,r)=>{const p=toWorld('HS',lx,lz);HS_AV.push([p[0],p[1],r])}; // r in world units
+// row of buildings along walkway A→P (park-local) from fraction t0 to t1 on one side (+1 = left of A→P seen from above, z south),
+// fronts `off` park-local units from the centre line, facing it. mk={w:()=>width in world units, f:(W,i)=>draw, d:depth (world)}
+const hsRow=(B,A,P,t0,t1,side,off,mk)=>{const dx=P[0]-A[0],dz=P[1]-A[1],L=Math.hypot(dx,dz),ux=dx/L,uz=dz/L,nx=-uz*side,nz=ux*side,ry=Math.atan2(-nx,-nz);
+  let s=t0*L,i=0;while(s<t1*L-3){let W=mk.w(i);const rest=(t1*L-s)*HSK;if(rest-W<3.5)W=rest;const Wl=W/HSK,c=s+Wl/2,x=A[0]+ux*c+nx*off,z=A[1]+uz*c+nz*off;
+    hsAt(B,x,z,ry);mk.f(W,i++);const dl=(mk.d||9)/HSK/2;hsAv(x+nx*dl,z+nz*dl,Math.max(W,mk.d||9)*0.62);s+=Wl}};
+const HSB=new LMB(0,0,0),HS_N=PARKS.HS.nodes,HS_WIN=0x2b2f3a,HS_NB=0x39c6ff,HS_NP=0xff5fa8,HS_NG=0x6dff9a;
+
+// ---- Entrance, Crossroads of the World, Hollywood Boulevard and Sunset Boulevard storefronts, the Brown Derby
+{const B=HSB,rnd=LM_RAND(1939),WIN=HS_WIN,NB=HS_NB,NP=HS_NP,NG=HS_NG,rr=(a,b)=>a+(b-a)*rnd(),
+  WALL=[0xf3e1c8,0xf0c9d6,0xcfe2ec,0xf4dca6,0xd5ead0,0xf3c3ae,0xffffff,0xe9e0f2,0xf6eedf],
+  TRIM=[0x2f7f7a,0x9b4a6a,0x3f5f9a,0xc39a5a,0x5f8f4a,0xb8503f,0x4a4a6a],AWN=[0xc8453c,0x2f6fa8,0x2f8f7f,0xd9a03a,0x8a4fa0,0x3a3a3a],NEON=[NB,NP,NG];
+ const pick=a=>a[Math.floor(rnd()*a.length)];
+ // one Art Deco / Streamline Moderne storefront: origin at the middle of its front on the ground, +z toward the street, W along it.
+ // style 0 = ziggurat pylon with fins, 1 = streamline (rounded end, speed lines, thin roof slab), 2 = parapet with a sign band
+ const deco=(W,H,D,o)=>{const wall=o.wall,tr=o.trim;
+   B.box(0,0,-D/2,W,H,D,wall);B.box(0,0,0.05,W+0.1,0.5,0.3,tr);B.box(0,0.5,0.1,W*0.84,2.6,0.3,WIN);
+   if(o.style===0){const pw=Math.min(W*0.36,4.2);B.box(0,H,-0.8,pw,2.6,1.6,wall);B.box(0,H+2.6,-0.8,pw*0.62,1.8,1.3,wall);B.box(0,H+4.4,-0.8,pw*0.3,1.2,1,tr);
+     for(const x of[-pw*0.32,0,pw*0.32])B.box(x,H-3.4,0.05,0.34,3.4+2.6+(x?0:1.8),0.5,tr);B.box(0,H-0.5,0.1,W,0.5,0.6,tr)}
+   else if(o.style===1){const r=Math.min(D/2,2.6),ex=o.end*(W/2-r);B.cyl(ex,0,-r,r,r,H,wall,16);
+     for(let i=0;i<3;i++){B.box(0,H-1.3-i*0.75,0.05,W-r,0.22,0.3,tr);B.cyl(ex,H-1.3-i*0.75,-r,r+0.12,r+0.12,0.22,tr,16)}
+     B.box(0,H,-D/2,W+0.8,0.35,D+0.9,tr);B.cyl(ex,H,-r,r+0.45,r+0.45,0.35,tr,16)}
+   else{B.box(0,H,-0.3,W,1.5,0.6,wall);B.box(0,H+1.5,-0.3,W+0.2,0.3,0.8,tr);B.box(0,H-2.4,0.12,W*0.66,1.3,0.25,tr);B.box(0,H-2.55,0.2,W*0.7,0.12,0.2,o.neon)}
+   if(H>7.5)B.wins(0,0.06,0,W*0.8,4.4,H-(o.style===2?2.8:1.6),H>10?2:1,Math.max(2,Math.round(W/2.2)),WIN,0.8,1.3);
+   if(o.mq){B.box(0,3.3,1.15,W*0.72,0.9,2.3,tr);B.box(0,3.2,1.15,W*0.72,0.12,2.3,o.neon);B.box(0,4.2,2.27,W*0.72,0.1,0.08,o.neon)}
+   else B.at(new THREE.BoxGeometry(W*0.86,0.14,1.9),o.awn,0,3.6,0.92,1,1,1,0,0.34,0);
+   if(o.blade){const x=o.blade*W*0.38,h=Math.max(3.5,H-3.2);B.box(x,4.4,1.0,0.45,h,1.7,tr);B.box(x,4.4,1.88,0.5,h,0.07,o.neon);B.box(x,4.4+h,1.0,0.5,0.08,1.8,o.neon)}
+   B.gl(0,3,1.9,0xffd9a0,3.4);if(o.blade)B.gl(o.blade*W*0.38,H-1,1.9,o.neon,2.4,0.4)};
+ const shop=(W,i,o)=>{const H=o.H||rr(6.5,11.5),st=o.st!=null?o.st:Math.floor(rnd()*3);
+   deco(W,H,o.D||9,{wall:pick(WALL),trim:pick(TRIM),awn:pick(AWN),neon:pick(NEON),style:st,end:o.end||(rnd()<0.5?-1:1),mq:o.mq!=null?o.mq:rnd()<0.35,blade:rnd()<0.45?(rnd()<0.5?-1:1):0})};
+ const ent=HS_N.ent,hb=HS_N.hb,cen=HS_N.cen,sun=HS_N.sun;
+ // Hollywood Boulevard: entrance plaza → Sunset corner (east side), → Chinese Theatre approach (both sides); corner buildings streamline
+ hsRow(B,ent,hb,0.22,1.0,-1,7,{w:()=>rr(6.5,9.5),f:(W,i)=>shop(W,i,i===0?{st:1,end:1,H:9}:{})});
+ hsRow(B,ent,hb,0.22,0.84,1,7,{w:()=>rr(6.5,9.5),f:(W,i)=>shop(W,i,i===0?{st:1,end:-1,H:9}:{})});
+ hsRow(B,hb,cen,0.05,0.42,-1,7,{w:()=>rr(6.5,9),f:(W,i)=>shop(W,i,{})});
+ hsRow(B,hb,cen,0.18,0.62,1,7,{w:()=>rr(7,9.5),f:(W,i)=>shop(W,i,i===0?{st:1,end:1,H:10}:{})});
+ // Sunset Boulevard: theatre fronts with marquees and blade signs, north side to the Sunset node, south side short
+ hsRow(B,hb,sun,0.46,0.8,-1,7,{w:()=>rr(7,10),f:(W,i)=>shop(W,i,{H:rr(8,12.5),mq:i%2===0})});
+ hsRow(B,hb,sun,0.5,0.76,1,7,{d:7,w:()=>rr(6.5,8.5),f:(W,i)=>shop(W,i,{D:7,H:rr(6.5,9)})});
+ // Sunset continues past the Sunset node toward the Tower of Terror: shallow fronts on the Rock 'n' Roller Coaster side
+ hsRow(B,sun,[98,96],0.12,0.5,-1,7,{d:6,w:()=>rr(6.5,8),f:(W,i)=>shop(W,i,{D:6,H:rr(7,10),mq:i===0})});
+
+ // Pan-Pacific style entrance: fin towers (taller outside), linking walls with speed stripes, canopy over the turnstiles
+ hsAt(B,ent[0],ent[1]+5,0);{const PC=0xf2ead6,PG=0x3f8f7a,PB=0x3f6fa8,SV=0xc9ccd2;
+   const tower=(x,h)=>{B.box(x,0,0,3.4,h,4,PC);for(const [fx,fh] of[[-1.1,0.78],[0,1],[1.1,0.78]]){B.box(x+fx,0,2.3,0.55,h*fh,0.9,PC);B.box(x+fx,h*fh,2.3,0.6,0.25,0.95,PG)}
+     for(let k=0;k<3;k++)B.box(x,h*0.32+k*0.9,0,3.5,0.3,4.1,k===1?PB:PG);B.cyl(x,h,0,0.1,0.1,4,SV,4);B.box(x+0.9,h+2.6,0,1.6,1,0.06,PB);B.gl(x,h-1,2.6,0xfff0d0,2.2)};
+   tower(-10.5,13);tower(10.5,13);tower(-18,16);tower(18,16);
+   for(const s of[-1,1]){B.box(s*14.25,0,-0.6,4.1,7,2.6,PC);for(let k=0;k<3;k++)B.box(s*14.25,4.4+k*0.7,-0.6,4.2,0.22,2.7,k===1?PB:PG);B.box(s*14.25,0.6,0.75,3,2.4,0.2,WIN)}
+   B.box(0,5,0,17.6,0.6,6,PC);B.box(0,5.6,0,17.6,0.25,6.2,PG);B.box(0,4.85,3.05,17.6,0.16,0.1,NB);
+   for(const x of[-8.6,8.6])B.cyl(x,0,2.6,0.3,0.3,5,SV,8);for(const x of[-6,-2,2,6])B.box(x,0,0.5,1.4,2.3,1.6,PC);
+   B.gl(0,4.6,2.5,0xffe8c0,4)}
+ hsAv(ent[0],ent[1]+5,15);
+ // Crossroads of the World: kiosk with a stepped tower, a globe and a spire, in the entrance plaza
+ hsAt(B,0,113,0);{const CC=0xf6efe2,CT=0x2f7f7a;B.cyl(0,0,0,2,2.2,3,CC,8);B.cyl(0,3,0,2.5,2.4,0.4,CT,8);B.box(0,3.4,0,1.5,4,1.5,CC);B.box(0,7.4,0,1.1,2.4,1.1,CC);B.box(0,9.8,0,0.7,1,0.7,CT);
+   B.ball(0,11.8,0,1.15,0x5a8fd0,1);B.at(new THREE.TorusGeometry(1.45,0.08,6,24),0xd4af37,0,11.8,0,1,1,1,0,Math.PI/2.6,0);B.cyl(0,12.9,0,0.05,0.12,2.2,0xd4af37,5);
+   B.box(0,1,2.1,2.6,1.4,0.2,WIN);B.cyl(0,6.2,0,0.85,0.85,0.14,NB,8);B.gl(0,11.8,0,0xbfe4ff,2.6,0.3)}
+ hsAv(0,113,4);
+ // The Brown Derby: a giant brown derby hat on a low base, entry canopy and a pole sign
+ hsAt(B,-15,46,hsFace(-15,46,-2,46));{const BR=0x6b4a32,BD=0x3a2a20;B.cyl(0,0,0,5.6,5.8,1.2,0xe8dcc6,20);B.lathe(0,1.2,0,[[0,0],[6.2,0],[6.4,0.35],[5.9,0.6],[4.4,0.7],[4.4,1.6],[4.6,4],[4.2,5.6],[3,6.5],[0,6.8]],BR,22);
+   B.cyl(0,1.9,0,4.48,4.48,0.9,BD,22);B.box(0,0,5.4,3,2.6,2,0xe8dcc6);B.box(0,2.6,5.8,3.6,0.3,3,BD);B.box(-3.5,0,5,0.3,6,0.3,BD);B.box(-3.5,4,5,0.4,2,2,0xe8dcc6);B.box(-3.5,4,6.02,0.45,2,0.06,NP);
+   B.gl(0,2,6.6,0xffd9a0,3)}
+ hsAv(-15,46,7);
+ }
+
+// ---- Echo Lake (lake curb, Gertie, Dockside Diner, 50's Prime Time diner, Hyperion Theater), Commissary Lane (Sci-Fi Dine-In),
+//      Grand Avenue brick row and the construction site behind it
+{const B=HSB,rnd=LM_RAND(1955),WIN=HS_WIN,NB=HS_NB,NP=HS_NP,rr=(a,b)=>a+(b-a)*rnd(),
+  CR=0xd9d2c2,GR=0x6fae5a,GR2=0x5a9448,CHR=0xd8dde3,RD=0xc8453c,BRK=[0xa8533f,0x8f4636,0xb9654a,0x9a5a48,0xc77a55],ST=0x3a3a40,YL=0xe0b030,RS=0x9a5a36;
+ const pick=a=>a[Math.floor(rnd()*a.length)];
+ // lake curb ring and Gertie (a 1914 cartoon sauropod, public domain) standing at the east shore, serving window in her side
+ hsAt(B,-42,62,0);B.lathe(0,0.3,0,[[12.9,0],[13.9,0],[13.9,0.55],[12.9,0.55],[12.9,0]],CR,40);
+ {const gx=10.5,gz=-2.5,ry=-0.5,f=R2(gx,gz,ry),P=(x,y,z)=>{const q=f(x,z);return[q[0],y,q[1]]};
+   B.at(new THREE.SphereGeometry(1,14,10),GR,gx,3.6,gz,3.6,2.2,2.1,ry);
+   for(const [x,z] of[[-2,-1.2],[-2,1.2],[2,-1.2],[2,1.2]]){const p=P(x,0,z);B.cyl(p[0],0,p[2],0.55,0.65,3,GR2,8)}
+   B.tb(P(2.6,4.6,0),P(5.6,9.6,0),0.75,0.5,GR,8);B.at(new THREE.SphereGeometry(1,10,8),GR,...P(6.1,10,0),1.2,0.75,0.7,ry);
+   B.tb(P(-3,3.8,0),P(-7.5,1.6,0.8),0.8,0.12,GR,8);B.ball(...P(6.9,10.2,0.45),0.13,0x111111);B.ball(...P(6.9,10.2,-0.45),0.13,0x111111);
+   const w=P(0,2.4,2.15);B.box(w[0],2.2,w[2],2.2,1.2,0.3,WIN,ry);B.box(w[0],3.4,w[2],2.8,0.25,0.9,0xf3e1c8,ry);B.gl(w[0],2.8,w[2],0xffd9a0,2.2)}
+ // Dockside Diner: a little tramp steamer moored at the north-west shore
+ {const f=R2(-9.5,-6.5,0.9),P=(x,z)=>f(x,z);let p=P(0,0);B.box(p[0],0.2,p[1],8,1.8,3.4,0xf2ead8,0.9);p=P(4.9,0);B.at(new THREE.CylinderGeometry(1.7,1.7,1.8,3),0xf2ead8,p[0],1.1,p[1],1,1,1,0.9-Math.PI/2);
+   p=P(0,0);B.box(p[0],0.2,p[1],8.2,0.5,3.6,RD,0.9);p=P(-1,0);B.box(p[0],2,p[1],4,2,2.6,0xffffff,0.9);B.box(p[0],4,p[1],4.4,0.25,3,0x2f6fa8,0.9);
+   p=P(0.6,0);B.cyl(p[0],4.2,p[1],0.55,0.6,2.4,RD,10);B.cyl(p[0],6.1,p[1],0.57,0.57,0.4,0x222222,10);p=P(-3.4,0);B.cyl(p[0],2,p[1],0.08,0.1,5,0x6b4a32,5);
+   p=P(-1,1.31);B.box(p[0],2.6,p[1],3.2,0.9,0.1,WIN,0.9);B.gl(p[0],3,p[1],0xffd9a0,2.6)}
+ // 50's Prime Time Café / Hollywood & Vine: a long streamline diner south of the lake, facing it, neon pylon on the roof
+ hsAt(B,-45,90,hsFace(-45,90,-42,62));{const W=16,D=8,H=5.5;B.box(0,0,-D/2,W-D*0.5,H,D,0xf3e9d6);for(const s of[-1,1])B.cyl(s*(W/2-D*0.25),0,-D/2,D/2,D/2,H,0xf3e9d6,18);
+   B.box(0,1.2,0.05,W-D*0.6,2.4,0.3,WIN);B.box(0,3.9,0.12,W-D*0.5,0.35,0.3,CHR);B.box(0,4.5,0.12,W-D*0.5,0.22,0.3,RD);
+   B.box(0,H,-D/2,W+1,0.4,D+1,CHR);B.box(0,H+0.4,-D/2,2.6,6,1,0xf3e9d6);B.box(0,H+0.4,-D/2+0.53,2.7,6,0.06,NP);B.box(0,H+6.4,-D/2,3.2,0.5,1.4,RD);
+   B.box(0,0,1.8,4,3.4,3.6,0xf3e9d6);B.box(0,3.4,2,4.6,0.3,4.2,RD);B.box(0,3.25,4.05,4.6,0.1,0.08,NB);B.gl(0,2,3.8,0xffd9a0,3.4);B.gl(0,H+3.4,-D/2+0.8,NP,3,0.4)}
+ hsAv(-45,90,12);
+ // Hyperion Theater: big Art Deco theatre (For the First Time in Forever), marquee, tall blade sign, stepped crown
+ hsAt(B,-80,95,hsFace(-80,95,-55,40));{const W=19,D=15,H=11,TC=0xe8d6b4,TT=0x7a3f5a,TG=0xd4af37;B.box(0,0,-D/2,W,H,D,TC);B.box(0,0,-D/2-1,W-2,H+3,D-4,TC);
+   B.box(0,0,0,9,H+3,1.4,TC);B.box(0,H+3,0,6.4,2,1.2,TC);B.box(0,H+5,0,3.4,1.6,1,TT);for(const x of[-3.6,-1.2,1.2,3.6])B.box(x,4,0.75,0.5,H-1,0.4,TT);
+   B.box(0,3.4,1.6,10,1.3,3.2,TT);B.box(0,3.3,1.6,10,0.12,3.2,NB);B.box(0,4.7,3.22,10,0.12,0.06,NP);B.box(0,0.4,0.72,7,2.8,0.2,WIN);
+   B.box(5.6,5.2,1.8,0.5,9,1.8,TT);B.box(5.6,5.2,2.73,0.55,9,0.07,NP);B.box(5.6,14.2,1.8,0.6,0.5,2,TG);B.box(0,H+0.1,-D/2,W+0.3,0.5,D+0.3,TT);
+   B.gl(0,3.2,3.4,0xffe0b0,4.2);B.gl(5.6,10,2.9,NP,3,0.4)}
+ hsAv(-80,95,15);
+ // Sci-Fi Dine-In: windowless soundstage in the Commissary Lane triangle with a drive-in screen billboard on the roof
+ hsAt(B,-33,21,hsFace(-33,21,0,30));{const W=10,D=7.5,H=6;B.box(0,0,-D/2,W,H,D,0x9aa3ad);B.box(0,H,-D/2,W+0.3,0.4,D+0.3,0x5a6270);B.box(-2.6,0,0.1,2.6,3.2,0.3,0x3a3f4a);
+   B.box(-2.6,3.2,0.4,3.4,0.25,1,0x5a6270);B.gl(-2.6,2.6,0.8,0xffd9a0,2.2);for(const x of[-3.4,3.4])B.box(x,H+0.4,-D/2+1,0.35,3,0.35,ST);
+   B.box(0,H+3.4,-D/2+1,8,3.6,0.4,0x14204a);B.box(0,H+3.3,-D/2+1.25,8.4,0.14,0.1,NB);B.box(0,H+7.1,-D/2+1.25,8.4,0.14,0.1,NB);
+   for(const [x,y] of[[-2.6,1],[1.2,2.4],[3,0.9],[-0.6,2.8]])B.box(x,H+3.4+y,-D/2+1.22,0.2,0.2,0.06,0xffffff);
+   B.at(new THREE.SphereGeometry(1,12,6),0xc9ccd2,0.6,H+5.2,-D/2+1.3,1.2,0.3,0.4)}
+ hsAv(-33,21,8);
+ // Grand Avenue: brick downtown-LA buildings on both sides of the walk to Galaxy's Edge, rooftop water tanks, neon blade signs
+ const brick=(W,i)=>{const H=rr(7,12),D=9,c=pick(BRK);B.box(0,0,-D/2,W,H,D,c);B.box(0,H-0.6,0.1,W+0.3,0.6,0.8,0xe8dcc6);B.box(0,0,0.05,W+0.1,0.6,0.3,0x4a3a34);
+   B.box(0,0.6,0.1,W*0.8,2.6,0.3,WIN);B.wins(0,0.06,0,W*0.84,4.2,H-0.9,H>9.5?3:2,Math.max(2,Math.round(W/1.9)),WIN,0.8,1.5);
+   if(rnd()<0.5)B.at(new THREE.BoxGeometry(W*0.8,0.14,1.7),pick([0x2f6f4f,0x7a2f2f,0x2f4f7a]),0,3.6,0.85,1,1,1,0,0.34,0);
+   if(i%2===0){const x=rr(-W/4,W/4),y=H+1.6;for(const [a,b] of[[-0.9,-0.9],[-0.9,0.9],[0.9,-0.9],[0.9,0.9]])B.box(x+a,H,-D/2+b,0.18,1.6,0.18,ST);B.cyl(x,y,-D/2,1.4,1.4,2.4,0x8a6a4a,10);B.lathe(x,y+2.4,-D/2,[[1.5,0],[0,0.9]],0x5a4a3a,10)}
+   if(rnd()<0.5){const x=(rnd()<0.5?-1:1)*W*0.36;B.box(x,4.6,0.9,0.4,H-5,1.5,0x2a2a2a);B.box(x,4.6,1.67,0.45,H-5,0.06,rnd()<0.5?NB:NP)}
+   if(rnd()<0.6)for(let k=0;k<(H>9.5?3:2);k++){B.box(W*0.18,4.4+k*2.6,0.55,2.6,0.12,1.1,ST);B.box(W*0.18+1.2,4.4+k*2.6,0.55,0.08,2.6,1.1,ST)}
+   B.gl(0,2.5,1.4,0xffd9a0,3)};
+ hsRow(B,HS_N.com,HS_N.ge,0.06,0.46,-1,7,{w:()=>rr(7,10),f:brick});
+ hsRow(B,HS_N.com,HS_N.ge,0.1,0.5,1,7,{w:()=>rr(7,10),f:brick});
+ // construction site behind Grand Avenue: hoarding, a half-built steel frame and a tower crane
+ hsAt(B,-86,-24,hsFace(-86,-24,-40,0));{const FW=22,FD=15,HO=0x4f7f6a;
+   for(const s of[-1,1]){B.box(0,0,s*FD/2,FW,2,0.3,HO);B.box(s*FW/2,0,0,0.3,2,FD,HO)}B.box(0,2,FD/2,FW,0.25,0.35,0xe8dcc6);
+   for(let x=-6;x<=6;x+=4)for(let z=-4;z<=2;z+=3)B.box(x,0,z,0.45,9,0.45,RS);for(const y of[3,6,9])for(const z of[-4,-1,2])B.box(0,y,z,12.4,0.4,0.4,RS);
+   for(const y of[3,6])B.box(0,y-0.1,-1,12.4,0.2,6.4,0x9aa3ad);B.box(-3,0,4.5,4,2.6,2.4,0xe8e0d0);B.box(3,0,4.6,3,2.6,2.2,0xd8a040);
+   const cx=7.5,cz=-4.5;B.box(cx,0,cz,3,0.8,3,0x9aa3ad);B.box(cx,0.8,cz,1.3,26,1.3,YL);B.box(cx,26.8,cz,1.8,1.6,1.8,0x2a2a2a);B.box(cx-7,27.8,cz,24,0.9,0.9,YL);B.box(cx-21,27.2,cz,4,2,2,0x8a8f98);
+   B.cyl(cx,28.7,cz,0.1,0.5,3,YL,4);B.beam([cx,31.5,cz],[cx-18,28.3,cz],0.08,0x333333,3);B.beam([cx,31.5,cz],[cx+3,28.3,cz],0.08,0x333333,3);B.beam([cx-12,27.8,cz],[cx-12,14,cz],0.06,0x333333,3);
+   B.gl(cx,31.6,cz,0xff3a30,1.6,1)}
+ hsAv(-86,-24,14);
+ }
+
+// ---- Animation Courtyard (gateway arch, courtyard, Little Mermaid and Disney Jr. soundstages, Walt Disney Presents) and the
+//      Hollywood Hills Amphitheater (Fantasmic!: seating bowl, lagoon, island mountain, stage towers)
+{const B=HSB,WIN=HS_WIN,NB=HS_NB,NP=HS_NP,AB=0x3a5fb8,AP=0x7a4fb0,AG=0xd4af37,PAV=0xe6dfd0,SS=0xe9e4da,SS2=0xd6d0c4;
+ const an=HS_N.anim;
+ // gateway arch facing the Animation Courtyard node
+ hsAt(B,an[0]+12,an[1],hsFace(an[0]+12,an[1],an[0],an[1]));{B.box(-7,0,0,2.4,7,2.4,AB);B.box(7,0,0,2.4,7,2.4,AB);B.at(new THREE.TorusGeometry(7,1.15,8,24,Math.PI),AB,0,7,0,1,1,1.05);
+   B.at(new THREE.TorusGeometry(7,0.3,6,24,Math.PI),AP,0,7,1.2,1,1,1);B.box(0,13.2,0,6,1.6,1.6,AP);B.box(0,13,0.85,6.4,0.12,0.1,NB);B.ball(0,15.2,0,0.8,AG,1);
+   for(const x of[-7,7]){B.box(x,7,0,2.8,0.4,2.8,AG);B.box(x,0,0,2.8,0.6,2.8,AP)}B.gl(0,8,1.5,0xbfe4ff,3.2,0.3)}
+ hsAv(an[0]+12,an[1],8);
+ // courtyard paving and the soundstages around it
+ hsAt(B,an[0]+30,an[1],0);B.cyl(0,0.3,0,11.5,11.5,0.08,PAV,28);B.cyl(0,0.38,0,1.6,1.6,0.6,SS2,12);B.ball(0,1.6,0,0.9,AG,1);
+ const stage=(lx,lz,W,D,H,col,trim)=>{hsAt(B,lx,lz,hsFace(lx,lz,an[0]+30,an[1]));B.box(0,0,-D/2,W,H,D,col);B.at(new THREE.CylinderGeometry(D/2,D/2,W,16,1,false,0,Math.PI),col,0,H,-D/2,1,0.35,1,0,0,Math.PI/2);
+   B.box(0,H-0.6,0.1,W+0.2,0.6,0.5,trim);B.box(0,0,0.6,W*0.4,4,1.2,trim);B.box(0,4,0.7,W*0.5,0.4,1.6,trim);B.box(0,0.4,1.25,W*0.3,3,0.1,WIN);hsAv(lx,lz,Math.max(W,D)*0.6)};
+ stage(an[0]+30,an[1]-17,18,12,9,0x5fa8b8,0x2f6f8f);hsAt(B,an[0]+30,an[1]-17,hsFace(an[0]+30,an[1]-17,an[0]+30,an[1]));
+ for(let i=0;i<7;i++)B.at(new THREE.CylinderGeometry(1,1,0.3,12,1,false,0,Math.PI),0xffffff,-7+i*2.33,7.4,0.02,1.1,1,1,0,Math.PI/2,0);B.box(0,5,0.4,6,1,0.1,NB);B.gl(0,4,1.6,0x8fe0ff,3)
+ stage(an[0]+30,an[1]+17,15,11,8,0xf2d06a,0x3f6fa8);hsAt(B,an[0]+30,an[1]+17,hsFace(an[0]+30,an[1]+17,an[0]+30,an[1]));
+ [0xe2457a,0xf2a33a,0x4fae5a,0x3f8fd0,0x8a4fd0].forEach((c,i)=>B.box(-5+i*2.5,6.8,0.15,2.4,1.2,0.3,c));B.box(0,4.9,0.4,6,0.12,0.1,NP);B.gl(0,4,1.6,0xffc0e0,3);
+ hsAt(B,an[0]+52,an[1],hsFace(an[0]+52,an[1],an[0]+30,an[1]));{const W=14,D=9,H=7;B.box(0,0,-D/2,W-D*0.4,H,D,SS);for(const s of[-1,1])B.cyl(s*(W/2-D*0.2),0,-D/2,D*0.4,D*0.4,H,SS,16);
+   for(let i=0;i<3;i++)B.box(0,H-1.4-i*0.7,0.05,W-D*0.4,0.22,0.3,AB);B.box(0,H,-D/2,W+0.6,0.35,D+0.6,AB);B.box(0,0.4,0.12,4,2.8,0.2,WIN);B.box(0,3.4,1,5,0.3,2,AB);B.gl(0,2.6,1.6,0xffe0b0,3)}
+ hsAv(an[0]+52,an[1],9);
+ // Hollywood Hills Amphitheater (Fantasmic!), east of the Rock 'n' Roller Coaster and the Tower: seats rise west of the lagoon and face east; island with a rock mountain and stage towers
+ hsAt(B,150,72,0);{const SE=0xa9b1ba,SE2=0x8e98a3,RK=0xc8b69c,RK2=0xb5a48e,TW=0x55606b;
+   for(let k=0;k<7;k++){const r0=9+k*1.9;B.at(new THREE.CylinderGeometry(r0+1.9,r0+1.9,0.6+k*0.55,24,1,false,Math.PI*1.12,Math.PI*0.76),k%2?SE:SE2,-4,0.3+(0.6+k*0.55)/2,0,1,1,1,0)}
+   B.at(new THREE.CylinderGeometry(9,9,0.5,24,1,false,Math.PI*1.12,Math.PI*0.76),0x3f4650,-4,0.55,0,1,1,1,0);
+   B.at(new THREE.CylinderGeometry(23.4,23.4,5,24,1,true,Math.PI*1.12,Math.PI*0.76),SE2,-4,2.5,0,1,1,1,0,0,0,true);
+   for(const s of[-1,1]){B.box(-16,0,s*12,1.2,9,1.2,TW);B.box(-16,9,s*12,2.2,1.6,2.2,0x2a2f36);B.gl(-15,9.5,s*12,0xfff0d0,2.4)}
+   B.crag(10,0.3,0,{rad:v=>6-4.6*v*v,h:11,nz:AKN(77),lean:[-1,0.5]},0,1,RK,18,7);B.ball(12.5,2.5,-4,3.2,RK2,1,1.2);B.ball(12,2.2,4.5,3,RK2,1,1.1);B.ball(9,8.6,0.6,2.4,RK,1,1.3);
+   B.box(5,0.3,0,4,1.2,9,0x6b5a48);B.box(13,0,-7,1,10,1,TW);B.box(13,0,7,1,10,1,TW);B.box(13,10,0,1.2,1,15,TW);B.gl(13,10,0,0x9fd0ff,3,0.6)}
+ hsAv(138,72,22);
+ }
+HSB.buildVC({[HS_WIN]:'win',[HS_NB]:'self',[HS_NP]:'self',[HS_NG]:'self'},[0xc8b69c,0xb5a48e]);
+
+
 // Disney Springs + TTC
 {const [X,Z]=XZ.dsp;[[-40,-10,30,10,18,0xd9b48a],[0,-30,22,14,22,0xc97a5b],[30,10,26,9,16,0xe0c9a0],[-20,30,18,12,18,0x9fb7c9],[50,-20,16,16,14,0xb46e57],[-70,20,24,8,14,0xe8d2b0],[75,15,20,11,16,0xc9a27a]].forEach(([dx,dz,w,h,d,c])=>box(X+dx,Z+dz,w,h,d,c));
  const bal=new THREE.Mesh(new THREE.SphereGeometry(10,16,12),M(0xf0c24a));bal.position.set(X+5,70,Z+15);scene.add(bal);nightLit('warm',[bal]);
@@ -2144,14 +2312,13 @@ const WATER=0x4b9bd0;
 // ---- Hollywood Studios
 {const w=(x,z)=>toWorld('HS',x,z);let p;
  p=w(-42,62);kd(p[0],p[1],13,WATER,0.46);PARK_AVOID.push([p[0],p[1],15]);
- const deco=[0xf3e1c8,0xe7c9d6,0xcfe0e8,0xf1d9a8,0xd9e6c9,0xf0c4b0];
- let j=0;for(let z=78;z<=108;z+=8,j++)for(const s of[-1,1]){p=w(8+s*13,z);const h=8+(j%3)*2;kb(p[0],p[1],9,h,8,deco[(j*2+(s>0?1:0))%6],0,-PARKS.HS.rot);kb(p[0],p[1],9.4,1,8.4,0xc9a96e,h,-PARKS.HS.rot)}
+ PARK_AVOID.push(...HS_AV); // themed-land buildings (Hollywood Studios themed lands, Visuals 3)
  // landmark buildings are LMB models (Hollywood Studios landmark models); keep in-park trees off them
  [[0,0,22],[98,92,22],[96,46,20],[58,98,14],[-94,14,20],[-90,52,14],[-98,-102,26],[-45,-118,24],[58,-42,16],[34,-90,13],[76,-82,20],[28,-28,8],[16,-42,6],[22,-62,6],[48,-20,5],[88,-50,5],
   [-100,-72,5],[-80,-112,5],[-110,-94,6],[-74,-40,4],[-20,-90,4],[-60,-104,4],[-100,-55,4],[-40,-55,3],[-10,-72,4],[-20,-110,4],[-118,-62,5],[-92,-122,4],
   [-46,-76,7],[-80,-70,8],[-70,-50,6],[-30,-76,7],[-62,-90,6],[-86,-48,7]].forEach(([x,z,r])=>{p=w(x,z);PARK_AVOID.push([p[0],p[1],r])});
  p=w(-45,-108);kc(p[0],p[1],11,2.4,0xb9bcc2,1.2);kb(p[0]+8,p[1]+4,3,2,5,0xa5a8ae,1.2);PARK_AVOID.push([p[0],p[1],13]);
- p=w(120,72);ring(p[0],p[1],12,24,0x9aa3ad,0.6,Math.PI);kd(p[0],p[1],10,WATER,0.5);kn(p[0],p[1],5,12,0x7d8a6a,0.5,U.cone6);PARK_AVOID.push([p[0],p[1],25]);
+ p=w(162,72);kd(p[0],p[1],9.5,WATER,0.5);PARK_AVOID.push([p[0],p[1],12]); // Fantasmic lagoon (amphitheater is in the Visuals 3 section)
 }
 // ---- Animal Kingdom
 {const w=(x,z)=>toWorld('AK',x,z);let p;
