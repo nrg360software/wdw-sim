@@ -1583,15 +1583,11 @@ LMB.prototype.wins=function(cx,cz,ry,w,y0,y1,rows,cols,col,ww,wh){const f=R2(cx,
   B.box(0,0,-17.9,10,7,0.4,DK);B.gl(0,5,-17,0xffb070,12).gl(3,13,0,0xffc040,4)}
  B.build({[DK]:'win',[ST]:'uplit'},[...SPC,RK,RK2])}
 
-// ---- Toy Story Land: backyard-scale toys — coaster on a toy-set frame (track, coloured supports, train), Toy Story Mania behind a giant
+// ---- Toy Story Land: backyard-scale toys — Toy Story Mania behind a giant
 //      game-box front with crayon columns, saucer ride under a big umbrella, Tinkertoy tower, block stacks, spinning top, stacking rings
 {const B=new LMB(0,0,0),[TX,TZ]=PARKS.HS.nodes.tsl,tp=(lx,lz)=>[(lx-TX)*0.75,(lz-TZ)*0.75],RD=0xd8392f,YL=0xf4c430,BL=0x2f6fd0,GN=0x43a047,OR=0xf08a3c,PU=0x8e44ad,WD=0xd8a35a,CRM=0xefe4c8,TK=0x7cc242;
  B.move(...HSV(TX,TZ));
- // coaster: oval with hills and a dip, track ribbon, coloured supports, a short train
- {const [cx,cz]=tp(76,-82),N=72,P=[];for(let i=0;i<=N;i++){const a=i/N*Math.PI*2;P.push([cx+Math.cos(a)*13.5*(1+0.12*Math.sin(2*a)),Math.max(1.4,3.6+2.6*Math.sin(2*a+0.5)+1.5*Math.sin(3*a)),cz+Math.sin(a)*9])}
-  B.ribbon(P,1.5,TK);B.ribbon(P.map(p=>[p[0],p[1]-0.35,p[2]]),0.6,0x3d7a2a);
-  for(let i=0;i<N;i+=3){const p=P[i];B.beam([p[0],0,p[2]],[p[0],p[1]-0.3,p[2]],0.5,[BL,RD,YL][(i/3)%3],4)}
-  [RD,YL,BL,OR,GN].forEach((c,k)=>{const p=P[8+k*2],q=P[9+k*2];B.box(p[0],p[1]+0.1,p[2],1.5,0.9,1.3,c,Math.atan2(q[0]-p[0],q[2]-p[2]))})}
+ // Slinky Dog Dash is its own builder in the Visuals 3 section (Hollywood Studios themed lands)
  // Toy Story Mania: building with a giant game-box front and crayon columns
  B.move(...HSV(58,-38,TX,TZ));
  B.box(0,0,-5,18,9,12,CRM);B.box(0,9,-5,18.6,0.6,12.6,0xd9cba8);B.box(0,8.2,-5,18.3,0.6,12.3,RD);B.box(0,0,1.6,14,12,1.2,BL);
@@ -2245,6 +2241,53 @@ const HSB=new LMB(0,0,0),HS_N=PARKS.HS.nodes,HS_WIN=0x2b2f3a,HS_NB=0x39c6ff,HS_N
  hsAv(138,72,22);
  }
 HSB.buildVC({[HS_WIN]:'win',[HS_NB]:'self',[HS_NP]:'self',[HS_NG]:'self'},[0xc8b69c,0xb5a48e]);
+// ---- Slinky Dog Dash (Visuals 3 upgrade): Andy's backyard "mega coaster kit" sprawling across the east of Toy Story Land.
+//      Catmull-Rom track through park-local control points [lx,lz,height]: station leg on the west side heading north, launch 1
+//      eastbound through glowing rings, north lobe with an airtime hill, launch 2 westbound through more rings, the big camelback
+//      that crosses over launch 1, south-east hill and a low run back into the station. Banked red rails on a yellow spine, blue
+//      ties, kit-coloured support columns (red/orange/yellow/blue runs) with wooden Tinkertoy hubs, braces on tall ones, a toy-box
+//      station, Andy's notebook plan board and a generic coil-spring train (no character). Replaces the old Visuals 2 oval.
+{const B=new LMB(0,0,0),RD=0xd8392f,YL=0xf4c430,BL=0x2f6fd0,OR=0xf08a3c,GN=0x43a047,WD=0xd8a35a,WD2=0xb98444,CRM=0xf6efe0,
+  NY=0xffd84a,NB2=0x3fb8ff,NP2=0xff5fa8,TAN=0xc98a4a,TAN2=0x9a6236,SV=0xc9ccd2,KIT=[BL,RD,YL,OR];
+ hsAt(B,0,0,0);const K=HSK,V=(x,y,z)=>new THREE.Vector3(x,y,z);
+ const CP=[[56,-70,1.5],[56,-84,1.5],[60,-92,1.6],[70,-96,1.8],[88,-96,2.2],[100,-102,5],[106,-110,9],[98,-120,6],[84,-123,2.2],[70,-123,2.2],
+   [60,-117,6],[57,-107,12],[66,-100,17],[80,-103,10.5],[90,-96,12],[98,-84,6],[108,-76,10],[102,-66,4.5],[88,-63,3],[76,-67,7],[66,-64,2.6],[59,-65,1.7]];
+ const curve=new THREE.CatmullRomCurve3(CP.map(p=>V(p[0]*K,p[2],p[1]*K)),true,'centripetal'),N=360,P=curve.getSpacedPoints(N).slice(0,N);
+ const T=[],L=[],BK=[],up=V(0,1,0);
+ for(let i=0;i<N;i++){const a=P[(i-1+N)%N],b=P[(i+1)%N],t=V().subVectors(b,a).normalize();T.push(t);L.push(V(-t.z,0,t.x).normalize())}
+ // bank from the change of heading, smoothed over a window
+ const hd=i=>Math.atan2(T[i].x,T[i].z),raw=[];for(let i=0;i<N;i++){let d=hd((i+1)%N)-hd((i-1+N)%N);d=(d+3*Math.PI)%(2*Math.PI)-Math.PI;raw.push(d)}
+ for(let i=0;i<N;i++){let s=0;for(let k=-6;k<=6;k++)s+=raw[(i+k+N)%N];BK.push(Math.max(-0.55,Math.min(0.55,-s/13*9)))}
+ const off=(i,lat,dy)=>{const p=P[i],l=L[i],b=BK[i],c=Math.cos(b),s=Math.sin(b);return[p.x+l.x*lat*c,p.y+dy+lat*s,p.z+l.z*lat*c]};
+ for(let i=0;i<N;i++){const j=(i+1)%N;
+   B.beam(off(i,-0.72,0),off(j,-0.72,0),0.3,RD,5);B.beam(off(i,0.72,0),off(j,0.72,0),0.3,RD,5);B.beam(off(i,0,-0.55),off(j,0,-0.55),0.6,YL,4);
+   if(i%2===0)B.beam(off(i,-0.8,-0.12),off(i,0.8,-0.12),0.2,BL,4);
+   if(i%5===0){const p=P[i],y0=0.3,top=p.y-0.85;if(top>0.6){const col=KIT[Math.floor(i/30)%4];
+     B.cyl(p.x,y0,p.z,0.42,0.48,top-y0,col,8);B.cyl(p.x,y0,p.z,0.7,0.8,0.35,0x8a8f98,8);B.ball(p.x,top,p.z,0.48,WD,1);
+     if(top>5){B.cyl(p.x,top*0.5-0.25,p.z,0.75,0.75,0.5,WD2,10);const l=L[i];for(const s of[-1,1])B.beam([p.x+l.x*s*2.6,y0,p.z+l.z*s*2.6],[p.x,top*0.5,p.z],0.26,KIT[(Math.floor(i/30)+1)%4],5)}
+     if(top>11){const l=L[i];B.beam([p.x-l.x*2.2,top*0.78,p.z-l.z*2.2],[p.x+l.x*2.2,top*0.78,p.z+l.z*2.2],0.24,WD2,5)}}}
+   if(i%9===0){const p=P[i];hsAv(p.x/K,p.z/K,3.2)}}
+ // launch rings (glow at night): nearest track points to targets along each launch straight
+ const near=(lx,lz)=>{let bi=0,bd=1e9;for(let i=0;i<N;i++){const d=(P[i].x-lx*K)**2+(P[i].z-lz*K)**2;if(d<bd){bd=d;bi=i}}return bi};
+ const ring=(i,c)=>{const p=P[i],t=T[i];B.at(new THREE.TorusGeometry(2.4,0.3,8,22),c,p.x,p.y+0.9,p.z,1,1,1,Math.atan2(t.x,t.z));B.gl(p.x,p.y+3.3,p.z,c,2.2,0.6)};
+ [[66,-95],[72,-96],[78,-96],[84,-96]].forEach(([x,z],k)=>ring(near(x,z),[NY,NB2,NP2][k%3]));
+ [[82,-123],[76,-123],[70,-123]].forEach(([x,z],k)=>ring(near(x,z),[NP2,NY,NB2][k%3]));
+ // station: toy-box shed over the station leg, striped lid, wooden posts, platform
+ hsAt(B,53,-77,0);{const W=6.4,D=13;B.box(0.4,0.3,0,W,0.9,D,0xd9cba8);for(const x of[-2.6,3.6])for(const z of[-5.6,0,5.6])B.box(x,1.2,z,0.45,4,0.45,WD);
+   B.box(0.5,5.2,0,W+1.4,0.7,D+1,BL);B.box(0.5,5.9,0,W+1.4,0.35,D+1,YL);B.gable(0.5,6.25,0,D+1,2.2,W+1.4,RD,Math.PI/2);
+   for(let k=-2;k<=2;k++)B.box(0.5,6.3,k*2.4,W+1.5,0.25,0.5,CRM);B.box(-3,1.2,0,0.3,1.1,D-1,OR)}
+ // Andy's plans: notebook-paper board on posts facing the Toy Story Land node
+ {const [tx,tz]=PARKS.HS.nodes.tsl;hsAt(B,49,-64,hsFace(49,-64,tx,tz));B.box(-2.4,0,0,0.3,2,0.3,WD);B.box(2.4,0,0,0.3,2,0.3,WD);B.box(0,2,0,6,4,0.25,CRM);
+   for(let k=0;k<6;k++)B.box(0,2.4+k*0.6,0.14,5.8,0.06,0.04,0x6f9fd8);B.box(-2.3,2,0.15,0.07,4,0.04,0xe05a5a);
+   B.beam([-1.8,3.2,0.17],[-0.4,4.6,0.17],0.12,RD,4);B.beam([-0.4,4.6,0.17],[1,3,0.17],0.12,RD,4);B.beam([1,3,0.17],[2.2,4.2,0.17],0.12,RD,4);B.gl(0,4.2,0.6,0xfff0d0,2.2)}
+ hsAt(B,0,0,0);
+ // generic coil-spring train waiting in the station: tan cars joined by silver coils
+ {const i0=near(56,-80);for(let k=0;k<6;k++){const i=(i0-k*2+N)%N,p=P[i],t=T[i],ry=Math.atan2(t.x,t.z);
+     B.box(p.x,p.y+0.1,p.z,1.6,0.9,1.5,TAN,ry);B.box(p.x,p.y+1,p.z,1.65,0.2,1.55,TAN2,ry);B.box(p.x,p.y+0.75,p.z,1.2,0.45,0.9,0x3a2a24,ry);
+     if(k===0)B.ball(p.x+t.x*0.9,p.y+0.6,p.z+t.z*0.9,0.55,TAN2,1);
+     if(k<5){const q=P[(i-1+N)%N];for(let c=0;c<3;c++){const f=(c+1)/4,x=p.x+(q.x-p.x)*f*2,y=p.y+0.6,z=p.z+(q.z-p.z)*f*2;B.at(new THREE.TorusGeometry(0.55,0.08,5,12),SV,x,y,z,1,1,1,ry)}}}}
+ B.buildVC({[NY]:'self',[NB2]:'self',[NP2]:'self'},null)}
+
 
 
 // Disney Springs + TTC
@@ -2389,7 +2432,7 @@ function updateExtras(){const t=G.t;
 // ride buildings + pins
 const CUSTOM=new Set(['pp','jc','potc','buzz','isw','pooh','ariel','spdwy','pm','phil','mil','carp','tron','btm','space','tot','ee','sse','tea','dumbo','astro','hm','tiana','sdmt','barn','soar','lwtl','seas','fig','tt','msp','gotg','fea','remy','aa','gft','mmrr','sdd','msr','rotr','rnrc','tsm','ass','st','indy','bob','fop','navi','flk','kili','krr']);
 const LANDCOL={adv:0x5c8f4a,frl:0x9a6b45,lib:0x6e7b8f,fant:0xc98bb9,tomo:0x8ca7c9,main:0xd8b28a,fwe:0x7f93ad,fww:0x5fa3a0,se:0xa9b6c4,mex:0xd7934e,nor:0x8b5a4a,fra:0x8fa3c4,usa:0xb98a6a,ge:0x8d755e,tsl:0xe0b04a,sun:0xc77a8e,cen:0xc94f4f,echo:0x5aa4b0,pan:0x6c8fbf,afr:0xc49a58,asia:0xb5543e,di:0x6f9d4f};
-const PIN_Y={pp:22,isw:22,phil:16,pooh:15,ariel:20,jc:12,potc:24,carp:13,buzz:15,mil:15,spdwy:13,pm:12,space:31,ee:46,sse:52,btm:36,tron:18,hm:30,sdmt:16,gotg:24,tt:15,msp:15,soar:22,lwtl:22,seas:16,fig:26,gft:30,aa:34,fea:16,remy:14,tot:70,rotr:24,rnrc:20,mmrr:27,msr:18,tsm:16,ass:15,sdd:14,st:16,indy:16,bob:15,fop:18,navi:16,flk:22,kili:12,krr:12};
+const PIN_Y={pp:22,isw:22,phil:16,pooh:15,ariel:20,jc:12,potc:24,carp:13,buzz:15,mil:15,spdwy:13,pm:12,space:31,ee:46,sse:52,btm:36,tron:18,hm:30,sdmt:16,gotg:24,tt:15,msp:15,soar:22,lwtl:22,seas:16,fig:26,gft:30,aa:34,fea:16,remy:14,tot:70,rotr:24,rnrc:20,mmrr:27,msr:18,tsm:16,ass:15,sdd:22,st:16,indy:16,bob:15,fop:18,navi:16,flk:22,kili:12,krr:12};
 const pinGeo=new THREE.CylinderGeometry(0.5,0.5,16,5);pinGeo.translate(0,8,0);const headGeo=new THREE.SphereGeometry(3.4,12,10);
 for(const r of RIDES){
   const s=r.kind==='show'?11:9+r.base/10;
