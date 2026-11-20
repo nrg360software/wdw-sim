@@ -220,6 +220,7 @@ select{background:var(--chip);color:var(--text);border:1px solid var(--line);bor
   <div class="modal">
     <h1>WDW <span>Sim</span></h1>
     <p class="sub">Steer one guest through a crowded Walt Disney World day. Every minute in a line, on a bus or shoving through a packed land costs you mood. Great rides and smart Lightning Lane picks win it back.</p>
+    <div id="resumeBox" hidden></div>
     <div class="fld"><label for="selHotel">Your hotel</label><select id="selHotel"></select></div>
     <div class="fld"><label for="inDate">Park day</label><input type="date" id="inDate"><div class="fc" id="crowdFc"></div><div class="fc" id="rfFc"></div><div class="hrs" id="hoursFc"></div></div>
     <div class="fld"><label>Crowds</label><div class="seg" id="segCrowd"><button data-v="0.8">Lighter</button><button data-v="1" aria-pressed="true">As forecast</button><button data-v="1.2">Busier</button></div></div>
@@ -772,14 +773,14 @@ function llCanBook(r,t,ignore){const L=G.LL;if(!r.ll)return{why:'No Lightning La
 function llBook(r,t,start,ignore){const c=llCanBook(r,t,ignore);if(!c.ok)return c;const P=PARKS[r.pk];const s=clamp(start!=null?start:c.ret,c.ret,P.close*60-LL_WIN);
   if(ignore){ignore.rid=r.id;ignore.start=s;ignore.end=s+LL_WIN;delete G.LL.rem['go'+ignore.id];delete G.LL.rem['end'+ignore.id];return{ok:true,p:ignore}}
   const p={id:G.LL.nid++,rid:r.id,type:r.llType,start:s,end:s+LL_WIN,st:'active',pre:false};G.LL.passes.push(p);
-  if(p.type==='sp')G.LL.spent+=llPrice(LL_SP_PRICE[r.id],G.pf[r.pk]);return{ok:true,p}}
-function llRetime(p,s){const r=llR(p),lo=llNext(r,G.t);if(lo==null)return false;p.start=clamp(s,lo,PARKS[r.pk].close*60-LL_WIN);p.end=p.start+LL_WIN;delete G.LL.rem['go'+p.id];delete G.LL.rem['end'+p.id];return true}
-function llCancel(p){if(p.type!=='mp')return;p.st='cancelled';}
-function llBuy(kind,pk){const L=G.LL;if(kind==='mp'&&!L.mp){L.mp=pk;L.spent+=llPrice(LL_MP_PRICE[pk],G.pf[pk])}if(kind==='prem'&&!L.premier){L.premier=pk;L.spent+=llPrice(LL_PREM_PRICE[pk],G.pf[pk])}}
+  if(p.type==='sp')G.LL.spent+=llPrice(LL_SP_PRICE[r.id],G.pf[r.pk]);runDirty();return{ok:true,p}}
+function llRetime(p,s){runDirty();const r=llR(p),lo=llNext(r,G.t);if(lo==null)return false;p.start=clamp(s,lo,PARKS[r.pk].close*60-LL_WIN);p.end=p.start+LL_WIN;delete G.LL.rem['go'+p.id];delete G.LL.rem['end'+p.id];return true}
+function llCancel(p){runDirty();if(p.type!=='mp')return;p.st='cancelled';}
+function llBuy(kind,pk){runDirty();const L=G.LL;if(kind==='mp'&&!L.mp){L.mp=pk;L.spent+=llPrice(LL_MP_PRICE[pk],G.pf[pk])}if(kind==='prem'&&!L.premier){L.premier=pk;L.spent+=llPrice(LL_PREM_PRICE[pk],G.pf[pk])}}
 // What you'd use at this ride: a booking, a Premier Pass use, or a Multiple Experience Pass
 function llUse(r){if(!r.ll)return null;const p=llPassFor(r);if(p)return{kind:'pass',p};if(G.LL.premier===r.pk&&!G.LL.premUsed[r.id])return{kind:'prem'};const m=llMepFor(r);if(m)return{kind:'mep',p:m};return null}
 function llUseOK(u,r,t){if(!u)return false;if(u.kind==='pass'){const w=llWinState(u.p,t);return w==='open'||w==='grace'}return parkOpenPublic(r.pk,t)}
-function llTap(u,r,t){const L=G.LL;L.used++;if(u.kind==='prem'){L.premUsed[r.id]=1;return}if(u.kind==='mep'){u.p.st='mepused';u.p.usedAt=t;u.p.usedOn=r.id;return}
+function llTap(u,r,t){runDirty();const L=G.LL;L.used++;if(u.kind==='prem'){L.premUsed[r.id]=1;return}if(u.kind==='mep'){u.p.st='mepused';u.p.usedAt=t;u.p.usedOn=r.id;return}
   u.p.st='used';u.p.usedAt=t;if(u.p.type==='mp'&&!L.tapped){L.tapped=true;setTimeout(()=>llToast('First tap-in done · you can now book Lightning Lanes in any park and any group, one at a time',null),1200)}}
 function llCanBookAny(t){if(!G.LL.mp||llHeld().length>=3)return false;return RIDES.some(r=>r.llType==='mp'&&llCanBook(r,t).ok)}
 // Booking recommendations: minutes saved at the return time × how much the ride is worth to you,
@@ -2991,7 +2992,7 @@ function endSeg(s){
     G.ridden.push(r.id);G.score+=Math.round(joy);G.node=NI[r.nodeId];
     const actual=G.trip?G.t-G.trip.start-r.dur:0;let msg=s.sync?`${r.short} counted`:`${r.short} done · ${fmtDur(actual)} to get on`;
     addMood(Math.round(joy),msg);
-    G.trip=null;G.tripEnd=null;if(G.plan)setTimeout(dpNudge,1700)}
+    G.trip=null;G.tripEnd=null;runDirty();if(G.plan)setTimeout(dpNudge,1700)}
   if(s.k==='snack'){toast('Recharged with a snack')}
   G.seg++;if(G.seg>=G.segs.length){G.segs=null}}
 function moodRate(s,dt){const h=G.t/60,heat=h>=12&&h<16?0.06:0;let r=0;
@@ -3591,7 +3592,7 @@ function dpGameOpts(S,x){let node=G.node,t=G.t;const done=[...new Set(G.ridden)]
   const bd=(G.plan&&G.plan.blkDone)||{};
   return Object.assign({},S,{must:(S.must||[]).filter(id=>!done.includes(id)),blocks:(S.blocks||[]).filter(b=>!bd[b.id]),node,t,LLs,done,lunchDone:!!(G.plan&&G.plan.lunchAt)||t>14*60})}
 function dpMakeGame(S,x){const old=G.plan,lunchAt=old?old.lunchAt:null,blkDone=old&&old.blkDone||{};const o=dpGameOpts(S,x);let res;DPX=dpGameDPX();try{res=dpRun(o)}finally{DPX=null;DPW={}}
-  G.plan={settings:Object.assign({},S),res,ridIdx:G.ridden.length,lunchAt,blkDone,made:G.t,notes:old&&old.notes||[],base:autoBase(res,o)};dpSave(G.date,G.plan.settings);return res}
+  G.plan={settings:Object.assign({},S),res,ridIdx:G.ridden.length,lunchAt,blkDone,made:G.t,notes:old&&old.notes||[],base:autoBase(res,o)};dpSave(G.date,G.plan.settings);runDirty();return res}
 function dpToast(text){const el=document.createElement('div');el.className='toast dp';el.innerHTML=`<span>${text}</span>`;el.onclick=()=>{if(G.started&&!G.over)openPlan()};
   const box=$('#toasts');box.appendChild(el);while(box.children.length>3)box.firstChild.remove();setTimeout(()=>el.remove(),6000)}
 function dpStepLabel(s){const r=RIDE_BY[s.rid];return `${r.short} · ${DP_HOW[s.how][0].replace('⚡ ','⚡')}`}
@@ -3703,7 +3704,7 @@ function autoReplan(rs,manual){const P=G.plan;if(!P)return null;const pr=dpProgr
   const old={res:P.res,rem:P.res.steps.filter((s,i)=>s.k==='ride'&&!pr.done[i]&&!(cur&&!dropCur&&s.rid===cur.id))};
   let res;try{res=dpMakeGame(P.settings,dropCur?{dropCur:true}:null)}catch(e){showErr(e);return null}
   AUTO.last=G.t;AUTO.lastReal=Date.now();const note={t:G.t,text:`${rs.slice(0,2).map(r=>r.text).join(' · ')} → ${autoDiff(old,res)}`,manual:!!manual};
-  G.plan.notes=[note].concat(G.plan.notes||[]).slice(0,8);
+  G.plan.notes=[note].concat(G.plan.notes||[]).slice(0,8);runDirty();
   // a replan that changes nothing that matters updates times quietly (the note is still kept in the Plan sheet)
   const loud=rs.some(r=>r.k==='sync')||AUTO.diffLoud;if(!manual){if(loud)dpToast('Plan adjusted · '+note.text);if(!sheet.hidden&&sheetIn.querySelector('#dpRe'))openPlan()}return note}
 function autoDiff(old,res){const S=id=>RIDE_BY[id].short,a=old.rem.map(s=>s.rid),bs=res.steps.filter(s=>s.k==='ride'),b=bs.map(s=>s.rid),out=[];
@@ -3729,7 +3730,7 @@ document.querySelectorAll('#segGfx button').forEach(b=>b.setAttribute('aria-pres
 segPick('#speedSeg',b=>{G.speed=+b.dataset.s});
 $('#segTime [data-now]').addEventListener('click',rtPick);$('#segTime').addEventListener('click',()=>setTimeout(rtStartLabel,0));rtStartLabel();setInterval(()=>{if(!G.started)rtStartLabel()},20000);
 $('#rtDone').onclick=rtRodeIt;$('#rtWhere').onclick=()=>openWhere();$('#rtMore').onclick=()=>{const s=G.segs&&G.segs[G.seg];if(!s||s.k!=='queue')return;if(s.base!=null)s.base+=5;s.dur=Math.max(s.dur,s.el)+5;s.hold=false;toast('Line +5 min');setTimeout(()=>autoCheck('line'),50)};rtStartUI();
-$('#bPlay').onclick=startDay;$('#bAgain').onclick=()=>{G.real=false;rtStartUI();$('#end').hidden=true;$('#start').hidden=false;G.over=false;G.started=false;$('#top').hidden=true;$('#bottom').hidden=true;me.visible=false;flyTo(150,330,5000,1200)};
+$('#bPlay').onclick=startDay;$('#bAgain').onclick=()=>{setTimeout(runBox,0);G.real=false;rtStartUI();$('#end').hidden=true;$('#start').hidden=false;G.over=false;G.started=false;$('#top').hidden=true;$('#bottom').hidden=true;me.visible=false;flyTo(150,330,5000,1200)};
 $('#bRides').onclick=()=>openRides();$('#bPlan').onclick=()=>{DPV.edit=false;DPV.S=null;openPlan()};$('#bDayPlan').onclick=openDaySetup;$('#bPicks').onclick=openPicks;$('#llchip').onclick=()=>{if(G.started&&!G.over){llView.confirm=null;openLL()}};
 $('#bLLPlan').onclick=openLLSetup;
 $('#bBreak').onclick=()=>{if(G.segs)return;G.segs=[{k:'snack',dur:20,el:0,started:false}];G.seg=0;sayBubble('Snack time')};
@@ -3745,13 +3746,87 @@ function startDay(){
   $('#start').hidden=true;$('#top').hidden=false;$('#bottom').hidden=false;me.visible=true;setFollow(true);
   const n=NODES[G.node];flyTo(n.x,n.z,520,1300);
   setTimeout(()=>toast(G.real?'Real-time day: the clock follows Orlando time. Already in a park? Tap 📍 I\'m at…':G.plan?'Tap Plan to follow your day plan':'Tap Rides, Plan or Top picks to choose where to go first'),1400);
+  runDirty();runSave();runBox();
   const nb=G.LL.passes.length;setTimeout(()=>llToast(nb?`You have ${nb} Lightning Lane${nb===1?'':'s'} booked · tap ⚡ to see or change them`:G.LL.mp?'Multi Pass ready · tap ⚡ to book rides':'No Lightning Lanes yet · tap ⚡ to buy or book'),3200)}
-function endDay(){G.over=true;closeSheet();const m=Math.round(G.mood);
+function endDay(){G.over=true;closeSheet();runClear(G.date);const m=Math.round(G.mood);
   $('#endFace').innerHTML=faceSVG(m);$('#endTitle').textContent=m>=70?'What a day':m>=45?'Day’s done':'Rough day';
   $('#endSub').textContent=`Your guest finished the day ${moodWord(m).toLowerCase()} at ${m}/100 after ${G.ridden.length} ride${G.ridden.length===1?'':'s'}.`;
   const S=G.stats;$('#endStats').innerHTML=`<div><b>${G.score}</b><span>Magic points</span></div><div><b>${G.ridden.length}</b><span>Rides & shows</span></div><div><b>${fmtDur(S.wait)}</b><span>Waiting</span></div><div><b>${fmtDur(S.transit+S.walk)}</b><span>Getting around</span></div><div><b>${G.LL.used}</b><span>Lightning Lanes used</span></div><div><b>≈$${G.LL.spent}</b><span>Spent on LL per person</span></div>`;
   $('#ridden').textContent=G.ridden.length?'Rode: '+G.ridden.map(id=>RIDE_BY[id].short).join(', '):'No rides today. Next time try rope drop.';
   $('#end').hidden=false}
+
+// ================= SAVE & RESUME (roadmap row 55) =================
+// The run survives a Safari reload or a closed tab: one saved run per park day in localStorage wdwsim.run.<date>, written
+// every few seconds of real time while playing, right after rides, syncs, replans and Lightning Lane changes, and when the
+// page is hidden. Derived state (crowd factors, hours, wait curves) is rebuilt with prepDay on resume. A trip in progress
+// comes back as "still in line" / "still riding"; a walk or bus ride in progress restarts from the last place reached.
+// Real-time runs catch the clock up to now (rtAdvance) and then auto-adjust; simulated runs pick up at their saved time.
+var RUN={dirty:false,last:0,v:1};
+const RUN_KEY=d=>'wdwsim.run.'+d;
+function runDirty(){RUN.dirty=true}
+function runTrip(){const segs=G.segs;if(!segs||!segs.length)return null;const s=segs[G.seg],last=segs[segs.length-1];
+  if(s&&s.k==='snack')return{k:'snack',el:s.el,dur:s.dur,name:s.name||null};
+  if(!last.ride)return null;const r=last.ride,q=segs.find(x=>x.k==='queue');
+  const o={rid:r.id,ll:!!(q&&q.ll),start:G.trip?G.trip.start:G.t,est:G.trip?G.trip.est:0};
+  if(s&&s.k==='queue'&&s.started){Object.assign(o,{k:'queue',el:s.el,dur:s.dur,base:s.base!=null?s.base:null,hold:!!s.hold});if(s.use)o.use={kind:s.use.kind,pid:s.use.p?s.use.p.id:null}}
+  else if(s&&s.k==='onride'&&s.started)Object.assign(o,{k:'onride',el:s.el,sync:!!s.sync});
+  else o.k='travel';return o}
+function runState(){const P=G.plan,down={};for(const r of RIDES)if(r.downUntil)down[r.id]=r.downUntil;
+  return{v:RUN.v,saved:Date.now(),date:G.date,real:!!G.real,t:G.t,mult:G.pfMult||1,hotel:selH.value,speed:G.speed,node:G.node,
+    ridden:G.ridden,mood:G.mood,score:G.score,stats:G.stats,LL:G.LL,down,autoLast:AUTO.last,trip:runTrip(),
+    plan:P?{settings:P.settings,res:P.res,ridIdx:P.ridIdx,lunchAt:P.lunchAt,blkDone:P.blkDone||{},made:P.made,notes:P.notes||[],base:P.base}:null}}
+function runSave(){if(!G.started||G.over||!G.date)return false;RUN.last=Date.now();RUN.dirty=false;
+  try{localStorage.setItem(RUN_KEY(G.date),JSON.stringify(runState()));return true}catch(e){return false}}
+// called every frame: save when something changed, or every 5 s of real time (= every game minute at 1×, ~1 h at 15×)
+function runTick(){if(G.over)return;const now=Date.now();if(RUN.dirty?now-RUN.last>400:now-RUN.last>5000)runSave()}
+function runLoad(d){try{const o=JSON.parse(localStorage.getItem(RUN_KEY(d))||'null');return o&&o.v===RUN.v&&o.date===d?o:null}catch(e){return null}}
+function runClear(d){try{localStorage.removeItem(RUN_KEY(d))}catch(e){}}
+// drop saved runs older than 3 days
+function runPrune(){try{const cut=Date.now()-3*864e5;for(let i=localStorage.length-1;i>=0;i--){const k=localStorage.key(i);if(!k||!k.startsWith('wdwsim.run.'))continue;
+  let o=null;try{o=JSON.parse(localStorage.getItem(k))}catch(e){}if(!o||!o.saved||o.saved<cut)localStorage.removeItem(k)}}catch(e){}}
+// which saved run the start screen offers: the chosen Park day's, else the most recently saved one (real-time runs only today)
+function runOK(o){return o&&(!o.real||o.date===orlandoNow().date)}
+function runFind(){const a=runLoad(inDate.value);if(runOK(a))return a;let best=null;
+  try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(!k||!k.startsWith('wdwsim.run.'))continue;const o=runLoad(k.slice(11));if(runOK(o)&&(!best||o.saved>best.saved))best=o}}catch(e){}return best}
+function runAgo(ms){const m=Math.round(ms/60000);return m<1?'just now':m<60?m+' min ago':m<1440?Math.round(m/60)+' h ago':Math.round(m/1440)+' d ago'}
+function runBox(){const box=$('#resumeBox');if(!box)return;const o=G.started&&!G.over?null:runFind();if(!o){box.hidden=true;box.innerHTML='';return}
+  const d=parseDay(o.date),pk=o.plan&&o.plan.res?PARKS[o.plan.res.pk].short:null,n=o.ridden.length;
+  box.hidden=false;box.innerHTML=`<div class="callout" style="margin:0 0 10px;border-color:rgba(79,209,141,.55);background:rgba(79,209,141,.1)">
+    <div style="font-weight:700;margin-bottom:3px">Saved day: ${d.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})}${o.real?' · real time':''}</div>
+    <div style="font-size:13px;opacity:.85">${fmtClock(o.t)}${pk?' · '+pk+' plan':''} · ${n} ride${n===1?'':'s'} done · saved ${runAgo(Date.now()-o.saved)}${o.real?'. The clock catches up to now and your plan adjusts.':''}</div>
+    <div class="row" style="margin-top:8px;gap:8px"><button class="btn pri" id="bResume" style="flex:1;padding:11px">▶ Resume your day</button><button class="btn sm" id="bRunClr">${RUN.clr?'Tap again to delete':'Start over'}</button></div></div>`;
+  $('#bResume').onclick=()=>runResume(o);
+  $('#bRunClr').onclick=()=>{if(!RUN.clr){RUN.clr=true;runBox();setTimeout(()=>{RUN.clr=false;runBox()},6000);return}RUN.clr=false;runClear(o.date);runBox();toast('Saved day deleted')}}
+function runResume(o){const r0=o.trip&&RIDE_BY[o.trip.rid];
+  inDate.value=o.date;if(RESORTS.some(h=>h.id===o.hotel))selH.value=o.hotel;
+  document.querySelectorAll('#segCrowd button').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.v===o.mult?'true':'false'));showForecast();llSumUpdate();daySumUpdate();
+  prepDay(o.date,o.mult,o.hotel);G.real=!!o.real;RT.at=0;G.t=o.t;livePoll(!!G.real);rtStartUI();
+  Object.assign(G,{ridden:o.ridden.slice(),mood:o.mood,score:o.score,stats:Object.assign({wait:0,transit:0,walk:0,ride:0},o.stats),segs:null,seg:0,started:true,over:false,trip:null,tripEnd:null,plan:null});
+  DPV={edit:false};G.LL=Object.assign(llFresh(),o.LL);llClock=0;
+  RIDES.forEach(r=>r.downUntil=o.down&&o.down[r.id]||0);G.node=NODES[o.node]?o.node:NI['R:'+selH.value];
+  if(o.plan&&o.plan.res){G.plan=Object.assign({},o.plan,{settings:Object.assign({},o.plan.settings),notes:o.plan.notes||[],blkDone:o.plan.blkDone||{}})}
+  AUTO.last=o.autoLast!=null?o.autoLast:-1e9;
+  if(!G.real&&o.speed!=null){G.speed=o.speed;document.querySelectorAll('#speedSeg button').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.s===G.speed?'true':'false'))}
+  // the trip in progress
+  let msg='';const T=o.trip;
+  if(T&&T.k==='snack'){G.segs=[{k:'snack',dur:T.dur,el:T.el,started:true,name:T.name||undefined}];G.seg=0}
+  else if(T&&r0&&(T.k==='queue'||T.k==='onride')){const on={k:'onride',ride:r0,dur:r0.dur,el:T.k==='onride'?T.el:0,started:T.k==='onride',sync:!!T.sync};
+    if(T.k==='queue'){const q={k:'queue',ride:r0,ll:T.ll,el:T.el,dur:T.dur,started:true};if(T.base!=null)q.base=T.base;if(T.hold)q.hold=true;
+      if(T.use){const p=T.use.pid!=null?G.LL.passes.find(x=>x.id===T.use.pid):null;q.use=T.use.kind==='prem'?{kind:'prem'}:p?{kind:T.use.kind,p}:null}
+      G.segs=[q,on];msg=`still in line for ${r0.short}`}else{G.segs=[on];msg=`riding ${r0.short}`}
+    G.seg=0;G.node=NI[r0.nodeId];G.trip={start:T.start,est:T.est,ride:r0,ll:T.ll};G.tripEnd=NI[r0.nodeId]}
+  placePlayer();
+  AG.forEach(g=>g.on=false);stepAgents(0.01,true);rebuildQueues();refreshPins();hudT=-1;rtHudK='';
+  $('#start').hidden=true;$('#end').hidden=true;$('#top').hidden=false;$('#bottom').hidden=false;me.visible=true;setFollow(true);
+  const n=NODES[G.node];flyTo(G.pos[0]||n.x,G.pos[2]||n.z,520,1300);
+  // a walk or bus ride in progress restarts from the last place reached
+  if(T&&T.k==='travel'&&r0&&!G.over){go(r0,T.ll);if(G.segs)msg=`heading to ${r0.short} again`}
+  RUN.dirty=true;runBox();
+  setTimeout(()=>toast(`Welcome back · resumed at ${fmtClock(o.t)}${msg?' · '+msg:''}${G.real?' · catching up to now':''}`),900);
+  if(G.plan)setTimeout(()=>{if(G.started&&!G.over)autoCheck('resume')},2500)}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')runSave()});
+window.addEventListener('pagehide',()=>runSave());
+runPrune();runBox();inDate.addEventListener('change',runBox);inDate.addEventListener('input',runBox);
 
 // attract mode before the day starts
 stepAgents(0.01,true);rebuildQueues();refreshPins();
@@ -3767,9 +3842,9 @@ function tick(now){checkSize();const dtR=Math.min(0.1,Math.max(0,(now-last)/1000
   updateVehicles();updateExtras();updateSky(now);updateFireworks(dtR);
   if(G.started){me.position.set(G.pos[0],G.pos[1],G.pos[2]);me.ring.material.opacity=0.6+0.35*Math.sin(now/300)}
   camStep(now);controls.update();skyDome.position.copy(camera.position);if(!G.segs&&tripLine)showTrip(null);renderFrame();updateLabels();
-  if(G.started)updateHUD();
+  if(G.started){updateHUD();runTick()}
 }
-window.WDW={AUTO,RT,autoCheck,autoReasons,autoReplan,autoDiff,rtRodeIt,rtAt,rtNow,openWhere,dpGameOpts,camera,controls,RF,rfCompact,rfStore,rfLoad,rfResid,rfCalibrate,rfEstimate,rfBacktest,rfUpdateToday,rfApplyDay,rfMul,rfCal,openRF,rfAfterUpdate,rfNoteUpdate,rfTick,rfBannerHTML,liveMatch,stRun,stHTML,stCalib,stModelDay,dpParseTP,dpApplyImport,scene,setGfx,LIGHT,sunDir,fwShows,fwSim:(n,dt)=>{for(let i=0;i<n;i++)updateFireworks(dt)},holdTime:t=>{G.holdT=t==null?null:t*60;if(t!=null)G.t=t*60},dpRun,dpMakeGame,dpProgress,dpLoad,dpSave,openPlan,openDaySetup,prepDay,llFromPlan,llFresh,llBook,llNext,llRecs,llUse,llHeld,llTick,llPlanErrors,llSuggest,llLoadPlan,openLL,openRides,openPicks,LIVE,liveIngest,liveFor,curveAt,orlandoNow,livePoll,G,go,flyTo,setFollow,RIDE_BY,PARKS,camera,controls,openRide,closeSheet,rawWait,waitAt,dayFactor,holiday,hoursFor,applyHours,accessOpen,lastClose,renderer,dijkstra,NI,NODES,RESORTS,RIDES,LINES};
+window.WDW={RUN,runSave,runLoad,runClear,runResume,runState,runBox,runFind,AUTO,RT,autoCheck,autoReasons,autoReplan,autoDiff,rtRodeIt,rtAt,rtNow,openWhere,dpGameOpts,camera,controls,RF,rfCompact,rfStore,rfLoad,rfResid,rfCalibrate,rfEstimate,rfBacktest,rfUpdateToday,rfApplyDay,rfMul,rfCal,openRF,rfAfterUpdate,rfNoteUpdate,rfTick,rfBannerHTML,liveMatch,stRun,stHTML,stCalib,stModelDay,dpParseTP,dpApplyImport,scene,setGfx,LIGHT,sunDir,fwShows,fwSim:(n,dt)=>{for(let i=0;i<n;i++)updateFireworks(dt)},holdTime:t=>{G.holdT=t==null?null:t*60;if(t!=null)G.t=t*60},dpRun,dpMakeGame,dpProgress,dpLoad,dpSave,openPlan,openDaySetup,prepDay,llFromPlan,llFresh,llBook,llNext,llRecs,llUse,llHeld,llTick,llPlanErrors,llSuggest,llLoadPlan,openLL,openRides,openPicks,LIVE,liveIngest,liveFor,curveAt,orlandoNow,livePoll,G,go,flyTo,setFollow,RIDE_BY,PARKS,camera,controls,openRide,closeSheet,rawWait,waitAt,dayFactor,holiday,hoursFor,applyHours,accessOpen,lastClose,renderer,dijkstra,NI,NODES,RESORTS,RIDES,LINES};
 requestAnimationFrame(frame);
 })();
 </script>
