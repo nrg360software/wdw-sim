@@ -118,6 +118,7 @@ button:focus-visible,select:focus-visible{outline:2px solid var(--gold);outline-
 .pick .sc small{display:block;font-family:var(--body);font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
 .callout{background:rgba(182,156,255,.12);border:1px solid rgba(182,156,255,.35);border-radius:14px;padding:11px 12px;margin:4px 0 10px;font-size:13.5px;line-height:1.4}
 .callout b{color:var(--ll)}
+.callout .why{margin-top:6px;font-size:12.5px;line-height:1.35}.callout .why.m{opacity:.75}
 .callout.warnc{background:rgba(246,163,71,.12);border-color:rgba(246,163,71,.45)}
 #llsetup,#daysetup,#rfview{z-index:11;background:rgba(8,12,22,.9)}
 textarea{box-sizing:border-box;width:100%;background:var(--chip);color:var(--text);border:1px solid var(--line);border-radius:12px;padding:9px 11px;font:500 14px var(--body);-webkit-user-select:text;user-select:text;resize:vertical}
@@ -889,9 +890,19 @@ function pathEdges(D,target){const out=[];let v=target;while(D.prev[v]){out.push
 // comes from a walking matrix scaled by crowds; the first leg uses the real route from where you are.
 // Optional lunch break (45 min, first gap after 11:45) and extra rides to fill free time after.
 const DP_KEY='wdwsim.day.',DP_LLQ=7,DP_LUNCH=45,DP_GRACE=30;
+// Pacing (roadmap row 57). Fastest = old scoring (most must-dos, then earliest finish). Balanced/Relaxed add a comfort cost in
+// minutes: standing in standby/rope-drop lines ≥ DP_LONG min builds a "stretch"; a short line or Lightning Lane eases it by 30,
+// a meal/show/break resets it. Minutes past cap cost w each. A favourite must-do (biggest headliner) in line during the evening
+// earns a bonus, and if the must-dos would all be done before the evening, dpSaveFav holds it back for the evening (free-time ideas
+// fill the gap) when its evening wait is at most `slack` min worse. A short break (rest) comes before another long line once the stretch
+// reaches rf × cap.
+// Comfort never beats must-dos: dpRun falls back to Fastest if pacing would fit fewer.
+const DP_LONG=20,DP_PACE={fast:null,bal:{cap:60,w:1,bonus:20,rest:10,rf:1,slack:10},relax:{cap:45,w:1.5,bonus:35,rest:15,rf:0.8,slack:25}};
+const DP_PACE_NAME={fast:'Fastest',bal:'Balanced',relax:'Relaxed'};
 function dpLoad(date){try{const s=localStorage.getItem(DP_KEY+date);if(s)return JSON.parse(s)}catch(e){}return null}
 function dpSave(date,s){try{localStorage.setItem(DP_KEY+date,JSON.stringify(s))}catch(e){}}
-function dpDefaults(pk){return{pk:pk||'MK',must:[],ll:'mine',lunch:true,extras:true}}
+function dpDefaults(pk){return{pk:pk||'MK',must:[],ll:'mine',lunch:true,extras:true,pace:'bal'}}
+const dpPaceOf=S=>S&&DP_PACE.hasOwnProperty(S.pace)?S.pace:'bal';
 // Same-day setup shared by the start screen, the planners and startDay
 function prepDay(dstr,mult,hid){const day=parseDay(dstr)||new Date();G.date=ymd(day);G.deluxe=DELUXE.has(hid);const HR=applyHours(day);
   for(const k in G.pf)G.pf[k]=clamp(dayFactor(k,day)*mult*(PARKS[k].party?0.85:1),0.6,1.7);G.crowd=Object.values(G.pf).reduce((a,b)=>a+b,0)/4;
@@ -920,9 +931,14 @@ function dpCtx(o){const pk=o.pk,M=dpMatrix(pk),park=RIDES.filter(r=>r.pk===pk),b
   // lowest standby from each 15-min bucket to close (for the search heuristic)
   ctx.b0=Math.floor(o.t/15);const nb=Math.max(1,Math.ceil(ctx.end/15)-ctx.b0+1);ctx.suf={};
   for(const r of park){const a=new Array(nb).fill(99);let m=99;for(let i=nb-1;i>=0;i--){const t=(ctx.b0+i)*15;if(t>=accessOpen(pk)&&parkOpen(pk,t))m=Math.min(m,dpWait(r,t));else if(t<accessOpen(pk))m=Math.min(m,dpWait(r,accessOpen(pk)));a[i]=m}ctx.suf[r.id]=a}
+  // last minute you can still join a standby line ("in line by close")
+  ctx.lj=null;for(let t=Math.ceil(ctx.end);t>=Math.floor(o.t);t--)if(parkOpen(pk,t)){ctx.lj=t+1;break}
+  // pacing: preset, evening start, favourite must-do to save for the evening
+  ctx.paceK=o.keep?'fast':dpPaceOf(o);ctx.pace=DP_PACE[ctx.paceK];ctx.eve=Math.max(16*60,(ctx.lj||ctx.end)-150);ctx.fav=null;
+  if(ctx.pace&&o.t<ctx.eve-30){let bv=0;for(const id of ctx.must){const r=RIDE_BY[id];if(r.kind==='show'||(o.done||[]).includes(id))continue;const v=r.avg*(r.thrill+4);if(v>bv){bv=v;ctx.fav=id}}}
   return ctx}
 function dpRoot(ctx,o,ll){ll=Object.assign({},ll);let done=0;for(const id of o.done||[])if(ctx.bit[id])done|=ctx.bit[id];
-  const S={t:o.t,at:null,done,ll,lunch:ctx.lunchDone||!ctx.lunch,n:0,par:null,step:null};
+  const S={t:o.t,at:null,done,ll,lunch:ctx.lunchDone||!ctx.lunch,n:0,par:null,step:null,str:0,pen:0};
   const books=dpBook(ctx,S,o.t,dpRem(ctx,S));const bl=dpBlocks(ctx,'_start',o.t);S.t=bl.t;S.nw=bl.next;S.tb=0;if(bl.blocks.some(b=>b.meal))S.lunch=true;if(ctx.timed.length){S.lunch=true;dpTimed(ctx,S,bl.blocks,false)}S.step={k:'start',t:o.t,books,blocks:bl.blocks};return S}
 // fixed-time blocks attached after a ride: walk there, wait for a reservation time if any, then the block
 // timed dining in free order: take it once the reservation is within 25 min (or when forced at the end)
@@ -951,7 +967,9 @@ function dpBook(ctx,S,t,pool){const L=S.ll,out=[];if(!L.mp)return out;const ord=
     if(!best)break;L.held=L.held.concat([{rid:best.r.id,start:best.ret,end:best.ret+LL_WIN,type:'mp'}]);L.booked=Object.assign({},L.booked,{[best.r.id]:1});out.push({rid:best.r.id,ret:best.ret,at:t})}
   return out}
 function dpExpand(ctx,S,r,useLL,pool){
-  if(S.done&ctx.bit[r.id])return null;const arr=S.t+dpTravel(ctx,S,r);if(!isFinite(arr))return null;
+  if(S.done&ctx.bit[r.id])return null;const P=ctx.pace,str0=S.str||0;let rest=0;
+  if(P&&P.rest&&!useLL&&str0>=P.cap*P.rf){const a0=S.t+dpTravel(ctx,S,r);if(isFinite(a0)&&a0>=accessOpen(r.pk)&&dpWait(r,a0+P.rest)>=DP_LONG)rest=P.rest}
+  const arr=S.t+rest+dpTravel(ctx,S,r);if(!isFinite(arr))return null;
   const ll=Object.assign({},S.ll);let how,q0=arr,wait,tap=null;
   if(useLL){if(!r.ll)return null;const p=ll.held.find(p=>p.rid===r.id);
     if(p){if(arr>p.end+ctx.grace)return null;how=p.type==='sp'?'sp':'ll';q0=Math.max(arr,p.start-LL_EARLY);ll.held=ll.held.filter(x=>x!==p);if(p.type==='mp'&&!ll.tapped){ll.tapped=true}tap=p}
@@ -965,40 +983,64 @@ function dpExpand(ctx,S,r,useLL,pool){
   let end=q0+wait+(ctx.dur&&ctx.dur[r.id]!=null?ctx.dur[r.id]:r.dur);
   // passes whose window has passed expire (their ride stays used for the day)
   ll.held=ll.held.filter(p=>p.end+ctx.grace>=end);
-  const N={t:end,at:r.id,done:S.done|ctx.bit[r.id],ll,lunch:S.lunch,n:S.n+1,par:S,step:null,tb:S.tb||0};
-  const step={k:'ride',rid:r.id,how,leave:S.t,arr,q0,wait:Math.round(wait),end,books:[],meal:null,must:ctx.must.includes(r.id),win:tap?tap.start:null,late:tap&&arr>tap.end?Math.round(arr-tap.end):0,tp:ctx.tp[r.id],blocks:[],down:Math.round(down)};
+  // comfort cost (pacing): stretch of standing in long lines since the last break
+  const stand=(how==='standby'||how==='rope')&&wait>=DP_LONG;let str=rest?0:str0;str=stand?str+wait:Math.max(0,str-30);let pen=S.pen||0;
+  if(P){pen+=P.w*(Math.max(0,str-P.cap)-Math.max(0,(rest?0:str0)-P.cap))+rest*0.5;if(ctx.fav===r.id&&q0>=ctx.eve-10)pen-=P.bonus}
+  const N={t:end,at:r.id,done:S.done|ctx.bit[r.id],ll,lunch:S.lunch,n:S.n+1,par:S,step:null,tb:S.tb||0,str,pen};
+  const step={k:'ride',rid:r.id,how,leave:S.t+rest,rest,str:Math.round(str),fav:ctx.fav===r.id&&q0>=ctx.eve-10,arr,q0,wait:Math.round(wait),end,books:[],meal:null,must:ctx.must.includes(r.id),win:tap?tap.start:null,late:tap&&arr>tap.end?Math.round(arr-tap.end):0,tp:ctx.tp[r.id],blocks:[],down:Math.round(down)};
   const pl=pool?pool(N):dpRem(ctx,N);
   step.books=dpBook(ctx,N,tap&&tap.type==='mp'?q0:end,pl);
   const bl=dpBlocks(ctx,r.id,end);step.blocks=bl.blocks;N.t=bl.t;N.nw=bl.next;if(bl.blocks.some(b=>b.meal))N.lunch=true;if(ctx.timed.length)dpTimed(ctx,N,step.blocks,false);
   if(!N.lunch&&N.t>=705&&N.t<=900){step.meal={start:N.t,end:N.t+DP_LUNCH};N.t+=DP_LUNCH;N.lunch=true;N.nw=null}
+  if(step.meal||step.blocks.some(b=>!b.missed&&b.dur>=15))N.str=0;
   N.step=step;return N}
 function dpH(ctx,S){let h=0;const i=Math.max(0,Math.floor(S.t/15)-ctx.b0);
   for(const id of dpRem(ctx,S)){const r=RIDE_BY[id],a=ctx.suf[id];let w=a[Math.min(i,a.length-1)];
     if(r.ll&&(S.ll.mp||S.ll.prem===r.pk||S.ll.held.some(p=>p.rid===id)))w=Math.min(w,DP_LLQ);h+=w+r.dur+2}
+  if(ctx.fav&&!(S.done&ctx.bit[ctx.fav]))h-=ctx.pace.bonus;
   return h}
-const dpBetter=(a,b)=>a.n!==b.n?a.n>b.n:a.t<b.t;
+const dpCost=S=>S.t+(S.pen||0);
+const dpBetter=(a,b)=>a.n!==b.n?a.n>b.n:dpCost(a)<dpCost(b);
 function dpBeam(ctx,root,W){let beam=[root],best=root;
   for(let d=0;d<ctx.must.length;d++){const next=[];
     for(const S of beam){for(const id of dpRem(ctx,S)){const r=RIDE_BY[id],k=next.length;const a=dpExpand(ctx,S,r,false);if(a)next.push(a);if(r.ll){const b=dpExpand(ctx,S,r,true);if(b)next.push(b)}if(ctx.keep&&next.length>k)break}}
-    if(!next.length)break;for(const S of next)S.key=S.t+dpH(ctx,S);next.sort((a,b)=>a.key-b.key);
+    if(!next.length)break;for(const S of next)S.key=dpCost(S)+dpH(ctx,S);next.sort((a,b)=>a.key-b.key);
     beam=[];const seen=new Set();
-    for(const S of next){const sig=S.done+'|'+S.at+'|'+S.ll.held.map(p=>p.rid+p.start).join(',')+'|'+(S.ll.tapped?1:0)+(S.lunch?1:0)+'|'+(S.tb||0)+'|'+Math.round(S.t/5);if(seen.has(sig))continue;seen.add(sig);beam.push(S);if(beam.length>=W)break}
-    for(const S of beam)if(dpBetter(S,best))best=S}
+    for(const S of next){const sig=S.done+'|'+S.at+'|'+S.ll.held.map(p=>p.rid+p.start).join(',')+'|'+(S.ll.tapped?1:0)+(S.lunch?1:0)+'|'+(S.tb||0)+'|'+Math.round(S.t/5)+'|'+(ctx.pace?Math.floor((S.str||0)/25):0);if(seen.has(sig))continue;seen.add(sig);beam.push(S);if(beam.length>=W)break}
+    for(const S of beam)if((!ctx.req||S.done&ctx.req)&&dpBetter(S,best))best=S}
   return best}
 // after the must-dos: keep adding the best fun-per-hour ride (no repeats) until the park closes
-function dpExtras(ctx,S){const val=r=>4+r.thrill*1.6+r.base/12;const pool=N=>ctx.park.filter(r=>!(N.done&ctx.bit[r.id])).map(r=>r.id);
+function dpExtras(ctx,S,until,hold){const val=r=>4+r.thrill*1.6+r.base/12;const pool=N=>ctx.park.filter(r=>!(N.done&ctx.bit[r.id])).map(r=>r.id);
   for(let g=0;g<30;g++){let best=null,bs=-1;
-    for(const r of ctx.park){if(S.done&ctx.bit[r.id])continue;for(const u of r.ll?[false,true]:[false]){const N=dpExpand(ctx,S,r,u,pool);if(!N)continue;const sc=val(r)/(N.t-S.t+15)*60;if(sc>bs){bs=sc;best=N}}}
+    for(const r of ctx.park){if(S.done&ctx.bit[r.id]||r.id===hold)continue;for(const u of r.ll?[false,true]:[false]){const N=dpExpand(ctx,S,r,u,pool);if(!N||(until!=null&&N.t>until))continue;const sc=val(r)/(N.t-S.t+15+Math.max(0,(N.pen||0)-(S.pen||0)))*60;if(sc>bs){bs=sc;best=N}}}
     if(!best)break;best.step.extra=true;S=best}
   return S}
 function dpSteps(S){const out=[];for(let x=S;x;x=x.par)if(x.step)out.push(x.step);return out.reverse()}
-function dpPack(ctx,S,W){const best=dpBeam(ctx,S,W);let fin=ctx.extras?dpExtras(ctx,best):best;
+// Save the favourite for the evening: plan the other must-dos, fill free time until the evening (extras on), then the favourite.
+function dpSaveFav(ctx,root,best,W){const fav=ctx.fav,fs=dpSteps(best).find(s=>s.rid===fav);if(!fs||fs.q0>=ctx.eve-10||ctx.keep)return null;
+  const cB=Object.assign({},ctx,{must:ctx.must.filter(x=>x!==fav)}),bB=dpBeam(cB,root,W);if(bB.n<best.n-1)return null;
+  const r=RIDE_BY[fav],tv=x=>dpTravel(ctx,x,r);let S1=ctx.extras?dpExtras(ctx,bB,ctx.eve-10,fav):bB;
+  const lv=Math.max(S1.t,ctx.eve-tv(S1)),free=lv-S1.t;if(!ctx.extras&&free>120)return null;
+  const S2=Object.assign({},S1,{t:lv,nw:null,str:free>=15?0:S1.str}),N=dpExpand(ctx,S2,r,false)||dpExpand(ctx,S2,r,true);if(!N)return null;
+  if(N.step.how==='standby'&&N.step.wait>fs.wait+ctx.pace.slack)return null;
+  N.par=S1;N.step.free=Math.round(free);N.step.leave=lv;let fin=ctx.extras?dpExtras(ctx,N):N;return{best:N,fin}}
+function dpPack(ctx,S,W){let best=dpBeam(ctx,S,W);let fin=null;
+  if(ctx.pace&&ctx.fav&&!ctx.req){const sv=dpSaveFav(ctx,S,best,W);if(sv){best=sv.best;fin=sv.fin}}
+  if(!fin)fin=ctx.extras?dpExtras(ctx,best):best;
   if(ctx.timed.length&&ctx.timed.some((b,i)=>!((fin.tb||0)&(1<<i)))&&fin.step){fin=Object.assign({},fin,{step:Object.assign({},fin.step,{blocks:(fin.step.blocks||[]).slice()})});dpTimed(ctx,fin,fin.step.blocks,true)}
   const steps=dpSteps(fin);
   const mustSteps=steps.filter(s=>s.k==='ride'&&s.must);const doneIds=new Set(mustSteps.map(s=>s.rid));
-  return{steps,nMust:ctx.must.length,nDone:mustSteps.length,endMust:mustSteps.length?mustSteps[mustSteps.length-1].end:ctx.t0,end:fin.t,
-    missed:ctx.must.filter(id=>!doneIds.has(id)),ll:best.ll}}
-const dpScore=p=>p.nDone*10000-p.endMust;
+  const res={steps,nMust:ctx.must.length,nDone:mustSteps.length,endMust:mustSteps.length?mustSteps[mustSteps.length-1].end:ctx.t0,end:fin.t,
+    missed:ctx.must.filter(id=>!doneIds.has(id)),ll:best.ll,pen:Math.round(best.pen||0)};
+  Object.defineProperty(res,'_best',{value:best,enumerable:false});res.pace=dpPaceStats(ctx,steps);return res}
+// how the must-dos feel: total standby, longest stretch in line without a real break, favourite saved for the evening
+function dpPaceStats(ctx,steps){let str=0,longest=0,standby=0,fav=null;
+  for(const s of steps){if(s.k!=='ride'||s.extra)continue;const stand=(s.how==='standby'||s.how==='rope')&&s.wait>=DP_LONG;if(s.rest)str=0;
+    str=stand?str+s.wait:Math.max(0,str-30);if(s.how==='standby'||s.how==='rope')standby+=s.wait;longest=Math.max(longest,str);if(s.meal||(s.blocks||[]).some(b=>!b.missed&&b.dur>=15))str=0;
+    if(s.rid===ctx.fav)fav={rid:s.rid,q0:s.q0,eve:s.q0>=ctx.eve-10}}
+  const oth=steps.filter(s=>s.k==='ride'&&s.must&&s.rid!==ctx.fav);
+  return{mode:ctx.paceK,standby:Math.round(standby),longest:Math.round(longest),fav,favId:ctx.fav,eve:ctx.eve,rests:steps.filter(s=>s.rest).length,othersEnd:oth.length?oth[oth.length-1].end:null}}
+const dpScore=p=>p.nDone*10000-p.endMust-(p.pen||0);
 // Multi Pass pre-book suggestion: the most valuable Group 1 + two Group 2 must-dos (any 3 at AK),
 // tried in every order and several staggered start times; also plain day-of booking. Best plan wins.
 function dpSuggest(ctx,o,base){const pk=ctx.pk,P=PARKS[pk],open=P.open*60,last=P.close*60-LL_WIN;
@@ -1012,14 +1054,39 @@ function dpSuggest(ctx,o,base){const pk=ctx.pk,P=PARKS[pk],open=P.open*60,last=P
     const held=ord.map((r,i)=>({rid:r.id,start:s0+40*i,end:s0+40*i+LL_WIN,type:'mp',pre:true}));if(held.some(p=>p.start>last))continue;
     const res=dpPack(ctx,dpRoot(ctx,o,mk(held)),18);if(dpScore(res)>dpScore(best)){best=res;bestPre=held}}}
   const pre=bestPre.map(p=>({rid:p.rid,start:p.start}));
-  const fin=dpPack(ctx,dpRoot(ctx,o,mk(bestPre)),48);return Object.assign(fin,{pre})}
+  const fin=dpPack(ctx,dpRoot(ctx,o,mk(bestPre)),48);Object.defineProperty(fin,'_ll',{value:mk(bestPre),enumerable:false});return Object.assign(fin,{pre})}
 // o = {pk, must[], ll:'mine'|'suggest'|'none', lunch, lunchDone, extras, node, t, L (G.LL-like), done[]}
-function dpRun(o){DPW={};const t0=performance.now();const ctx=dpCtx(o);const base=o.LLs||dpLLFrom(o.L||llFresh());let res;
-  if(o.ll==='none')res=dpPack(ctx,dpRoot(ctx,o,dpLLFrom(llFresh())),48);
-  else if(o.ll==='suggest')res=dpSuggest(ctx,o,base);
-  else res=dpPack(ctx,dpRoot(ctx,o,base),48);
+function dpRun(o){DPW={};const t0=performance.now();const ctx=dpCtx(o);const base=o.LLs||dpLLFrom(o.L||llFresh());let res,rootLL;
+  if(o.ll==='none'){rootLL=dpLLFrom(llFresh());res=dpPack(ctx,dpRoot(ctx,o,rootLL),48)}
+  else if(o.ll==='suggest'){res=dpSuggest(ctx,o,base);rootLL=res._ll}
+  else{rootLL=base;res=dpPack(ctx,dpRoot(ctx,o,rootLL),48)}
+  // pacing: compare with Fastest on the same passes; never trade a must-do for comfort
+  if(ctx.pace&&ctx.must.length){const cf=Object.assign({},ctx,{pace:null,paceK:'fast',fav:null}),fast=o.ll==='suggest'?dpSuggest(cf,o,base):dpPack(cf,dpRoot(cf,o,rootLL),48);
+    const gain=(fast.pace.longest-res.pace.longest)+(fast.pace.standby-res.pace.standby)/3+(res.pace.fav&&res.pace.fav.eve?ctx.pace.bonus:0)+res.pace.rests*5;
+    if(fast.nDone>res.nDone){if(fast._ll)rootLL=fast._ll;fast.paceFallback=ctx.paceK;fast.pace.mode=ctx.paceK;fast.pace.favId=ctx.fav;res=fast}
+    else if(gain<=0&&fast.endMust<=res.endMust){if(fast._ll)rootLL=fast._ll;fast.pace.mode=ctx.paceK;fast.pace.favId=ctx.fav;fast.fast={nDone:fast.nDone,endMust:fast.endMust,standby:fast.pace.standby,longest:fast.pace.longest};res=fast}
+    else res.fast={nDone:fast.nDone,endMust:fast.endMust,standby:fast.pace.standby,longest:fast.pace.longest,favQ0:ctx.fav?(fast.steps.find(s=>s.rid===ctx.fav)||{}).q0:null}}
+  if(res.missed.length&&!o.noCmp&&!o.noWhy)try{res.why=dpWhy(ctx,o,res,rootLL)}catch(e){res.why={}}
   if(!o.noCmp&&o.ll!=='none'&&ctx.must.some(id=>RIDE_BY[id].ll)&&(o.ll==='suggest'||base.mp||base.prem||base.held.length)){const nl=Object.assign({},ctx,{extras:false});res.noLL=dpPack(nl,dpRoot(nl,o,dpLLFrom(llFresh())),48)}
   res.pk=o.pk;res.mode=o.ll;res.t0=o.t;res.ms=Math.round(performance.now()-t0);return res}
+// Why each dropped must-do won't fit (roadmap row 59): down for the day, can't reach the line before the last entry,
+// or the time it needs after the other must-dos vs the time left; plus what you'd have to skip to fit it and the
+// latest time to head straight there. Times are minutes of the day; "last entry" = last minute to join a standby line.
+function dpWhy(ctx,o,res,rootLL){const out={},lj=ctx.lj,t0=ctx.t0,best=res._best,others=res.nDone;
+  for(const id of res.missed){const r=RIDE_BY[id],walk=Math.round(ctx.startD[id]),w={};out[id]=w;
+    w.leaveBy=lj!=null&&isFinite(walk)?Math.floor((lj-walk-1)/5)*5:null;if(w.leaveBy!=null&&w.leaveBy<t0)w.leaveBy=null;
+    if(lj==null||lj<=t0){w.short='park closed';w.text=`The park has no standby entry left today.`;continue}
+    const up=DPX?DPX.up(r,t0):t0;if(up>=lj){w.short='down';w.text=`${r.short} is down and isn't expected back before ${fmtClock(lj)}.`;w.leaveBy=null;continue}
+    if(!isFinite(walk)||t0+walk>=lj){w.short=`${walk}m away, ${Math.max(0,Math.round(lj-t0))}m left`;w.text=`It's about ${walk} min from you and standby entry ends at ${fmtClock(lj)}, so you can't reach the line in time.`;continue}
+    if(best){const arr=best.t+(best.at===id?0:dpTravel(ctx,best,r)),need=Math.round(arr-t0),have=Math.round(lj-t0);
+      if(need>have){w.need=need;w.have=have;w.short=`needs ~${fmtDur(need)}, ${fmtDur(have)} left`;
+        w.text=`After your other ${others} must-do${others===1?'':'s'} it needs ~${fmtDur(need)} to reach the line; you have ${fmtDur(have)} (last entry ${fmtClock(lj)}).`}}
+    if(!w.text){w.short='timing';w.text=`No order gets it in line by ${fmtClock(lj)} without missing a Lightning Lane window, meal or show in the plan.`}
+    // what it would take: best plan that must include this ride
+    const cr=Object.assign({},ctx,{req:ctx.bit[id]}),b2=dpBeam(cr,dpRoot(cr,o,rootLL),18);
+    if(b2.done&ctx.bit[id]){const done=new Set(dpSteps(b2).filter(s=>s.k==='ride').map(s=>s.rid));const skip=res.steps.filter(s=>s.k==='ride'&&s.must&&!done.has(s.rid)).map(s=>s.rid);
+      if(skip.length&&skip.length<=2){w.skip=skip;w.text+=` It fits if you swap it for ${skip.map(x=>RIDE_BY[x].short).join(' and ')}.`}}}
+  return out}
 
 // ================= STRESS TEST (late starts × simulated days) =================
 // Runs a plan in its own order (Keep my order) starting on time and later, on the forecast day and on many
@@ -3469,6 +3536,16 @@ function dpParsePlan(txt){const found=[];for(const ln of String(txt).split(/\n|;
     for(const r of RIDES){const k=LIVE_KEYS[r.id];if(k&&!found.includes(r.id)&&new RegExp('\\b('+k+')').test(n)){found.push(r.id);break}}}
   const cnt={};found.forEach(id=>cnt[RIDE_BY[id].pk]=(cnt[RIDE_BY[id].pk]||0)+1);const pk=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a])[0];
   return pk?{pk,must:found.filter(id=>RIDE_BY[id].pk===pk),other:found.filter(id=>RIDE_BY[id].pk!==pk)}:null}
+const DP_PACE_NOTE={fast:'Most must-dos, earliest finish. Long lines can come back to back.',bal:'Breaks up long stretches in line and saves your biggest must-do for the evening. May finish a bit later; never drops a must-do for it.',relax:'Caps time in line harder and adds a short break before a long line. Finishes later; never drops a must-do for it.'};
+function dpPaceHTML(res){const P=res.pace;if(!P||!res.nMust)return '';const nm=DP_PACE_NAME[P.mode]||'';
+  if(res.paceFallback)return `<br>${nm} pacing would fit fewer must-dos, so this is the fastest order.`;
+  if(P.mode==='fast')return P.longest>=90?`<br>Longest stretch in line: ${fmtDur(P.longest)}. Balanced pacing breaks that up.`:'';
+  const f=res.fast;if(!f)return '';const saved=P.fav&&P.fav.eve,fav=saved?` · ⭐ ${RIDE_BY[P.fav.rid].short} saved for ${fmtClock(P.fav.q0)}${P.othersEnd!=null&&res.nDone>1?` (the rest done by ${fmtClock(P.othersEnd)})`:''}`:'',d=Math.round(res.endMust-f.endMust);
+  if(Math.abs(d)<5&&Math.abs(P.longest-f.longest)<10&&!fav&&!P.rests)return `<br>${nm} pace: same as the fastest order (longest stretch in line ${fmtDur(P.longest)}).`;
+  return `<br><b>${nm} pace:</b> longest stretch in line ${fmtDur(P.longest)} (Fastest ${fmtDur(f.longest)})${P.rests?` · ${P.rests} short break${P.rests>1?'s':''}`:''}${fav}${saved?'':` · ${d>=5?`done ${fmtDur(d)} later than Fastest`:d<=-5?`done ${fmtDur(-d)} earlier than Fastest`:'same finish as Fastest'}`}.`}
+function dpWhyHTML(res){if(!res.missed.length)return '';const W=res.why||{},inGame=!!(G.started&&G.plan&&G.plan.res===res);
+  return res.missed.map(id=>{const w=W[id]||{},r=RIDE_BY[id];return `<div class="why">⚠ <b>${r.short}</b> won't fit${w.text?': '+w.text:'.'}${w.leaveBy!=null&&!w.skip?` Latest to head straight there: ${fmtClock(w.leaveBy)}.`:''}</div>`}).join('')+
+    (inGame&&AUTO.on&&!res.missed.every(id=>W[id]&&(W[id].short==='down'||W[id].short==='park closed'))?`<div class="why m">Kept as a stretch goal: if waits drop, the plan brings ${res.missed.length>1?'them':'it'} back by itself.</div>`:'')}
 function dpEditorHTML(S,L,inGame){
   const seg=(k,opts,cur)=>`<div class="seg" data-dk="${k}">${opts.map(([v,t])=>`<button type="button" data-v="${v}" aria-pressed="${cur===v}">${t}</button>`).join('')}</div>`;
   const n=S.must.filter(id=>RIDE_BY[id]&&RIDE_BY[id].pk===S.pk).length;
@@ -3478,6 +3555,7 @@ function dpEditorHTML(S,L,inGame){
   <div class="fld"><label>Must-dos · ${n} picked</label><div class="chips">${chips}</div><div class="row" style="gap:6px"><button class="btn sm" type="button" data-dq="head">Top 5 headliners</button><button class="btn sm" type="button" data-dq="clr">Clear</button></div><div class="fc">${S.keep?'Order: '+S.must.filter(id=>RIDE_BY[id].pk===S.pk).map((id,i)=>`${i+1} ${RIDE_BY[id].short}`).join(' · '):'Typical whole-day standby shown. Pick in any order; the planner finds the best one.'}</div>
   <details class="lld"${S.imported?' open':''}><summary>Import a plan</summary><p class="note">Choose a TouringPlans print PDF (touringplans.com/plans/…/print.pdf, saved to Files), or paste its text or any list of rides. Steps keep your order; times, Lightning Lanes and replans adjust to the day.</p><label class="btn sm" style="display:inline-flex;margin-bottom:6px">📄 Choose PDF<input type="file" id="dpFile" accept="application/pdf,.pdf,text/plain,.txt" hidden></label><textarea id="dpPaste" rows="4" placeholder="…or paste: 1. Seven Dwarfs Mine Train&#10;2. Peter Pan's Flight"></textarea><div class="row" style="margin-top:6px"><button type="button" class="btn sm" data-dimp>Import pasted text</button></div><div class="fc" id="dpImpMsg">${S.imported||''}</div></details></div>
   <div class="fld"><label>Lightning Lane</label>${seg('ll',llOpts,S.ll)}<div class="fc">${dpLLNote(S,L,inGame)}</div></div>
+  <div class="fld"><label>Pace</label>${seg('pace',[['fast','Fastest'],['bal','Balanced'],['relax','Relaxed']],dpPaceOf(S))}<div class="fc">${S.keep?'Keep my order is on, so pacing doesn\'t reorder anything.':DP_PACE_NOTE[dpPaceOf(S)]}</div></div>
   <div class="fld"><label>Options</label><div class="row" style="gap:6px;flex-wrap:wrap"><button type="button" class="btn sm tog" data-dt="lunch" aria-pressed="${!!S.lunch}">Lunch break · 45 min</button><button type="button" class="btn sm tog" data-dt="extras" aria-pressed="${!!S.extras}">Fill free time</button><button type="button" class="btn sm tog" data-dt="keep" aria-pressed="${!!S.keep}">Keep my order</button></div></div>`}
 function dpBindEditor(root,S,changed,inGame){
   root.querySelectorAll('.seg[data-dk] button').forEach(b=>b.onclick=()=>{const k=b.parentNode.dataset.dk,v=b.dataset.v;if(S[k]===v)return;S[k]=v;if(k==='pk'){S.must=S.must.filter(id=>RIDE_BY[id].pk===v);S.blocks=[];S.tp={};S.arrive=null;S.llImport=null;S.book=null;S.gate=null;S.tpw=null;S.tpd=null;S.tpWalks=null;S.imported=''}changed()});
@@ -3500,20 +3578,23 @@ function dpTimelineHTML(res,prog){const n=res.nMust,parts=[];
   if(!n)return '<p class="note">Pick at least one must-do.</p>';
   const miss=res.missed.map(id=>RIDE_BY[id].short).join(', ');
   let sum=res.nDone===n?`All ${n} must-do${n===1?'':'s'} done by <b>${fmtClock(res.endMust)}</b>.`:`${res.nDone} of ${n} must-dos fit, done by <b>${fmtClock(res.endMust)}</b>. Won't fit: ${miss}.`;
+  sum+=dpPaceHTML(res);
   if(res.noLL){const a=res.noLL;sum+=`<br>Standby only: ${a.nDone===n?'all done':a.nDone+' of '+n} by ${fmtClock(a.endMust)}${a.nDone===res.nDone&&a.endMust-res.endMust>=10?` · Lightning Lane saves about ${fmtDur(a.endMust-res.endMust)}`:''}.`}
   if(res.pre&&res.pre.length)sum+=`<br><b>Suggested Multi Pass pre-books</b> (≈$${llPrice(LL_MP_PRICE[res.pk],G.pf[res.pk])}/person): ${res.pre.map(p=>`${RIDE_BY[p.rid].short} ${fmtClock(p.start)}`).join(' · ')}.`;
   else if(res.mode==='suggest')sum+='<br>No pre-books help this list; plain day-of booking is just as good.';
-  parts.push(`<div class="callout">${sum}</div>`);
+  parts.push(`<div class="callout">${sum}${dpWhyHTML(res)}</div>`);
   const bk=s=>s.books.map(b=>`<div class="bk">⚡ ${s.k==='start'?'Book':'Then book'} ${RIDE_BY[b.rid].short} · returns ~${fmtClock(b.ret)}</div>`).join('');
   let extraHdr=false;
   res.steps.forEach((s,i)=>{
     const blk=s=>(s.blocks||[]).forEach(b=>parts.push(`<div class="tl meal ${G.plan&&G.plan.blkDone&&G.plan.blkDone[b.id]&&prog?'done':''}"><span class="tt">${fmtClock(b.start).replace(/ [AP]M/,'')}<small>${fmtClock(b.start).slice(-2)}</small></span><div><div class="n">${b.meal?'🍽':'📍'} ${b.name}</div><div class="m">${b.missed?`<span style="color:var(--warn)">⚠ no showtime left you can reach</span>`:`${b.walk?`walk ~${b.walk}m · `:''}${b.dur} min${b.show&&b.at?` · show at ${fmtClock(b.at)}`:b.at?` · booked for ${fmtClock(b.at)}`:''}${b.late>15?` <span style="color:var(--warn)">(${b.late}m late for the reservation)</span>`:b.late>0?` (${b.late}m late)`:''} · held as fixed time · done ${fmtClock(b.end)}`}${b.tp!=null?` · <span class="tpx">TP ${fmtClock(b.tp)}</span>`:''}</div></div></div>`));
     if(s.k==='start'){if(s.books.length)parts.push(`<div class="tl"><span class="tt">${fmtClock(s.t).replace(/ [AP]M/,'')}</span><div><div class="n">Start${res.mode==='suggest'?' · after your pre-books':''}</div>${bk(s)}</div></div>`);blk(s);return}
-    if(s.extra&&!extraHdr){extraHdr=true;parts.push(`<h3>Free time ideas <small>after your must-dos</small></h3>`)}
+    if(s.extra&&!extraHdr){extraHdr=true;const fv=res.steps.slice(i).find(x=>x.k==='ride'&&x.must&&x.fav);parts.push(`<h3>Free time ideas <small>${fv?'before ⭐ '+RIDE_BY[fv.rid].short+' this evening':'after your must-dos'}</small></h3>`)}
     const r=RIDE_BY[s.rid],h=DP_HOW[s.how],cls=[prog&&prog.done[i]?'done':'',prog&&prog.next===i?'nx':'',s.extra?'ex':''].join(' ');
+    if(s.free>=10){const b0=s.leave-s.free;parts.push(`<div class="tl meal ${prog&&prog.done[i]?'done':''}"><span class="tt">${fmtClock(b0).replace(/ [AP]M/,'')}<small>${fmtClock(b0).slice(-2)}</small></span><div><div class="n">🎈 Free time · ${fmtDur(s.free)}</div><div class="m">shows, snacks, shops, a re-ride · leave ${fmtClock(s.leave)} for ⭐ ${r.short}</div></div></div>`)}
+    if(s.rest){const b0=s.leave-s.rest;parts.push(`<div class="tl meal ${prog&&prog.done[i]?'done':''}"><span class="tt">${fmtClock(b0).replace(/ [AP]M/,'')}<small>${fmtClock(b0).slice(-2)}</small></span><div><div class="n">☕ Break</div><div class="m">${s.rest} min · snack or shade before a long line · leave ${fmtClock(s.leave)}</div></div></div>`)}
     const win=s.win!=null?` · window ${fmtClock(s.win).replace(/ [AP]M/,'')}–${fmtClock(s.win+LL_WIN).replace(/ [AP]M/,'')}${s.late?` <span style="color:var(--warn)">(${s.late}m late; tap points usually allow it)</span>`:''}`:'';
     const idle=s.q0-s.arr>2?` · ${fmtDur(s.q0-s.arr)} until ${s.how==='rope'?'it opens':'your window'}`:'';
-    parts.push(`<div class="tl ${cls}"><span class="tt">${fmtClock(s.q0).replace(/ [AP]M/,'')}<small>${fmtClock(s.q0).slice(-2)}</small></span><div><div class="n">${prog&&prog.done[i]?'✓ ':''}${r.name} <span class="tag ${h[1]}">${h[0]}</span></div><div class="m">leave ${fmtClock(s.leave)} · get there ${fmtDur(s.arr-s.leave)}${idle} · ${s.how==='ll'||s.how==='sp'||s.how==='prem'||s.how==='mep'?'LL line':'wait'} ~${s.wait}m${s.down?` <span class="dn">(incl. ~${s.down}m for it to reopen)</span>`:''}${win} · done ${fmtClock(s.end)}${s.tp!=null?` · <span class="tpx">TP ${fmtClock(s.tp)} (${s.q0-s.tp>=0?'+':'−'}${Math.round(Math.abs(s.q0-s.tp))}m)</span>`:''}</div>${bk(s)}</div></div>`);blk(s);
+    parts.push(`<div class="tl ${cls}"><span class="tt">${fmtClock(s.q0).replace(/ [AP]M/,'')}<small>${fmtClock(s.q0).slice(-2)}</small></span><div><div class="n">${prog&&prog.done[i]?'✓ ':''}${r.name} <span class="tag ${h[1]}">${h[0]}</span></div><div class="m">leave ${fmtClock(s.leave)} · get there ${fmtDur(s.arr-s.leave)}${idle} · ${s.how==='ll'||s.how==='sp'||s.how==='prem'||s.how==='mep'?'LL line':'wait'} ~${s.wait}m${s.down?` <span class="dn">(incl. ~${s.down}m for it to reopen)</span>`:''}${win} · done ${fmtClock(s.end)}${s.fav?' · ⭐ saved for the evening':''}${s.tp!=null?` · <span class="tpx">TP ${fmtClock(s.tp)} (${s.q0-s.tp>=0?'+':'−'}${Math.round(Math.abs(s.q0-s.tp))}m)</span>`:''}</div>${bk(s)}</div></div>`);blk(s);
     if(s.meal)parts.push(`<div class="tl meal ${prog&&G.plan&&G.plan.lunchAt?'done':''}"><span class="tt">${fmtClock(s.meal.start).replace(/ [AP]M/,'')}<small>${fmtClock(s.meal.start).slice(-2)}</small></span><div><div class="n">🍔 Lunch</div><div class="m">${DP_LUNCH} min · quick service nearby · back at it ${fmtClock(s.meal.end)}</div></div></div>`)});
   return parts.join('')}
 // ---- TouringPlans import (print PDF from touringplans.com/plans/<id>/print.pdf, or its text pasted)
@@ -3642,7 +3723,9 @@ function planViewHTML(){
   else if(pr.meal){status=`<b>Lunch break</b> is next in your plan (${DP_LUNCH} min).`;btns+=`<button class="btn pri" id="dpLunch">Take lunch · ${DP_LUNCH} min</button>`}
   if(s){const r=RIDE_BY[s.rid],late=Math.round(G.t-s.leave),u=llUse(r),wantLL=s.how!=='rope'&&s.how!=='standby',canLL=wantLL&&!!u;
     if(!pr.meal&&!pr.blk)status=`<b>Next:</b> ${r.name} · ${DP_HOW[s.how][0]} · get in line ~${fmtClock(s.q0)}`;
-    status+=late>10?`<br><span style="color:var(--warn)">About ${fmtDur(late)} behind plan${late>20?'. Replan to reshuffle the rest':''}.</span>`:late<-10&&!pr.meal?`<br>${fmtDur(-late)} ahead of plan. Leave by ${fmtClock(s.leave)} or start early.`:'';
+    const brk=s.rest&&late<-2&&-late<=s.rest+8&&!pr.meal&&!pr.blk,fr=s.free>=10&&late<-2&&!pr.meal&&!pr.blk;
+    if(fr)status+=`<br>🎈 Free time until ${fmtClock(s.leave)}: your plan saves ${r.short} for the evening. Ride anything you like; it replans around you.`;
+    status+=fr?'':late>10?`<br><span style="color:var(--warn)">About ${fmtDur(late)} behind plan${late>20?'. Replan to reshuffle the rest':''}.</span>`:brk?`<br>☕ Your plan has a ${s.rest}-min break before this line: snack or shade, then leave by ${fmtClock(s.leave)}.`:late<-10&&!pr.meal?`<br>${fmtDur(-late)} ahead of plan. Leave by ${fmtClock(s.leave)} or start early.`:'';
     if(rideState(r,G.t)==='down')status+=`<br><span style="color:var(--bad)">${r.short} is down right now. Wait it out or Replan.</span>`;
     if(wantLL&&!u)status+=`<br><span style="color:var(--warn)">You don't hold that Lightning Lane, so you'd use standby.</span>`;
     const busyNow=!!G.segs&&!effectiveStart().can;let early=null;if(canLL&&u.kind==='pass'){const pl=planTo(r,true);if(pl.arr<u.p.start-LL_EARLY-20)early=u.p.start-LL_EARLY-pl.eta-10}
@@ -3675,7 +3758,7 @@ function planRefresh(){if(PV.on)pvRefresh(true);else openPlan()}
 // "I'm at…" / "Rode it" keep the guest in step with the real day. Auto-adjust replans the day plan by itself when you fall
 // behind (or get well ahead), a planned ride goes down or comes back, the crowd read shifts a level, or live waits drift from
 // the plan, and leaves a one-line "what changed" note (toast + top of the Plan sheet). Works in the simulated day too.
-const RT_HOLD=60,DP_DOWN_GUESS=40,AUTO_LATE=15,AUTO_AHEAD=25,AUTO_DRIFT=15,AUTO_COOL=10;
+const RT_HOLD=60,DP_DOWN_GUESS=40,AUTO_LATE=15,AUTO_AHEAD=25,AUTO_DRIFT=15,AUTO_COOL=10,AUTO_STRETCH=10;
 const RT={at:0,base:0,t0:0,catching:false,lbl:''};
 function rtNow(){const now=Date.now();if(!RT.at||now-RT.at>60000||now<RT.at){const o=orlandoNow();let m=o.min+(new Date(now).getSeconds()+now%1000/1000)/60;if(G.date&&o.date>G.date)m+=1440;RT.t0=m;RT.base=now;RT.at=now}return RT.t0+(now-RT.base)/60000}
 function rtHolds(s){return G.real&&s.k==='queue'&&s.el<(s.base!=null?s.base:s.dur)+RT_HOLD-1e-4}
@@ -3725,11 +3808,15 @@ function autoReasons(){const P=G.plan;if(!P||!P.base)return[];const pr=dpProgres
   for(const id in P.base.down){const r=RIDE_BY[id];if(rideState(r,G.t)!=='down'&&!G.ridden.includes(id)&&(P.settings.must.includes(id)||rem.some(s=>s.rid===id))){rs.push({k:'up',text:`${r.short} is back up`});break}}
   const nx=rem[0];if(nx&&!rs.length){const o=dpGameOpts(P.settings),late=Math.round(o.t-nx.leave);
     if(late>=AUTO_LATE)rs.push({k:'behind',text:`You're ${fmtDur(late)} behind`});
-    else if(late<=-AUTO_AHEAD&&nx.how==='standby'&&!pr.meal&&!pr.blk&&!G.segs)rs.push({k:'ahead',text:`You're ${fmtDur(-late)} ahead`})}
+    else if(late<=-AUTO_AHEAD-(nx.rest||0)&&!nx.free&&nx.how==='standby'&&!pr.meal&&!pr.blk&&!G.segs)rs.push({k:'ahead',text:`You're ${fmtDur(-late)} ahead`})}
   const e=RF.est[P.res.pk];if(e&&e.date===G.date&&e.units>=4){const was=P.base.lvl!=null?P.base.lvl:e.lvl0;if(Math.abs(e.lvl-was)>=1)rs.push({k:'crowd',text:`Crowd read now ${e.lvl} (${P.base.lvl!=null?'was':'forecast'} ${was})`})}
   if(liveActive()){let n=0;for(const s of rem){if(s.q0>G.t+180||n>=3)break;if(s.how!=='standby'||s.down)continue;n++;const r=RIDE_BY[s.rid];if(rideState(r,G.t)==='down')continue;
     const w=rawWait(r,Math.max(G.t,s.q0));if(Math.abs(w-s.wait)>=Math.max(AUTO_DRIFT,0.4*s.wait)){rs.push({k:'drift',text:`${r.short} is ${w} min now (plan ${s.wait})`});break}}}
+  // stretch goals (row 59): a dropped must-do comes back when a quiet dry run shows it fits now (checked every AUTO_STRETCH game min)
+  if(!rs.length&&P.res.missed.length&&G.t-(P.stretchT||P.made)>=AUTO_STRETCH){P.stretchT=G.t;const back=autoStretch();if(back.length)rs.push({k:'fits',text:'Waits dropped'})}
   return rs}
+function autoStretch(){const P=G.plan,o=Object.assign(dpGameOpts(P.settings),{noWhy:true});let res;DPX=dpGameDPX();try{res=dpRun(o)}catch(e){return[]}finally{DPX=null;DPW={}}
+  const was=P.res.missed.filter(id=>!G.ridden.includes(id));return res.missed.length<was.length?was.filter(id=>!res.missed.includes(id)):[]}
 function autoCheck(src){if(!AUTO.on||!G.plan||!G.started||G.over||RT.catching||(typeof DPV!=='undefined'&&DPV.edit))return;
   if(src==='tick'&&Date.now()-AUTO.lastReal<1000)return;let rs;try{rs=autoReasons()}catch(e){return}if(!rs.length)return;
   const urgent=rs.some(r=>r.k==='down'||r.k==='up');if(!urgent&&G.t-AUTO.last<AUTO_COOL)return;autoReplan(rs)}
@@ -3743,7 +3830,7 @@ function autoReplan(rs,manual){const P=G.plan;if(!P)return null;const pr=dpProgr
   const loud=rs.some(r=>r.k==='sync')||AUTO.diffLoud;if(!manual){if(loud)dpToast('Plan adjusted · '+note.text);if(!sheet.hidden&&sheetIn.querySelector('#dpRe'))openPlan()}return note}
 function autoDiff(old,res){const S=id=>RIDE_BY[id].short,a=old.rem.map(s=>s.rid),bs=res.steps.filter(s=>s.k==='ride'),b=bs.map(s=>s.rid),out=[];
   const lost=a.filter(id=>res.missed.includes(id)),won=old.res.missed.filter(id=>b.includes(id));
-  if(lost.length)out.push(`dropped ${lost.map(S).join(', ')} (won't fit)`);if(won.length)out.push(`${won.map(S).join(', ')} fits again`);
+  if(lost.length)out.push(`dropped ${lost.map(id=>`${S(id)} (won't fit${res.why&&res.why[id]&&res.why[id].short?': '+res.why[id].short:''})`).join(', ')}`);if(won.length)out.push(`${won.map(S).join(', ')} fits again`);
   const ca=a.filter(id=>b.includes(id)),cb=b.filter(id=>a.includes(id)),i=ca.findIndex((id,k)=>id!==cb[k]);if(i>=0)out.push(`${S(cb[i])} moved ahead of ${S(ca[i])}`);
   const sb=h=>h==='standby'||h==='rope';for(const s of bs){const o=old.rem.find(x=>x.rid===s.rid);if(o&&sb(o.how)!==sb(s.how)){out.push(`${S(s.rid)} now ${sb(s.how)?'standby':'by Lightning Lane'}`);break}}
   AUTO.diffLoud=out.length>0;const nx=bs.find(s=>!s.extra);if(!out.length)out.push(nx?`same order, next ${S(nx.rid)} at ${fmtClock(nx.q0)}`:'nothing left to reorder');
