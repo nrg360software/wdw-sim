@@ -811,12 +811,12 @@ function llCanBook(r,t,ignore){const L=G.LL;if(!r.ll)return{why:'No Lightning La
     if(!L.tapped){if(r.pk!==L.mp)return{why:`Until your first tap-in, bookings stay in ${PARKS[L.mp].short}`};
       if(r.tier===1&&held.some(p=>llR(p).tier===1))return{why:'Only one Group 1 ride until your first tap-in'}}}
   if(t>=P.close*60)return{why:'Closed for the day'};
-  const ret=llNext(r,t);if(ret==null)return{why:'Sold out for today'};return{ok:true,ret}}
-function llBook(r,t,start,ignore){const c=llCanBook(r,t,ignore);if(!c.ok)return c;const P=PARKS[r.pk];const s=clamp(start!=null?start:c.ret,c.ret,P.close*60-LL_WIN);
+  const ret=llNext(r,t);if(ret==null){if(G.real)return{ok:true,ret:Math.ceil(t/5)*5,noEst:true};return{why:'Sold out for today'}}return{ok:true,ret}}
+function llBook(r,t,start,ignore){const c=llCanBook(r,t,ignore);if(!c.ok)return c;const P=PARKS[r.pk];const s=clamp(start!=null?start:c.ret,G.real&&start!=null?0:c.ret,P.close*60-LL_WIN);
   if(ignore){ignore.rid=r.id;ignore.start=s;ignore.end=s+LL_WIN;delete G.LL.rem['go'+ignore.id];delete G.LL.rem['end'+ignore.id];return{ok:true,p:ignore}}
   const p={id:G.LL.nid++,rid:r.id,type:r.llType,start:s,end:s+LL_WIN,st:'active',pre:false};G.LL.passes.push(p);
   if(p.type==='sp')G.LL.spent+=llPrice(LL_SP_PRICE[r.id],G.pf[r.pk]);runDirty();return{ok:true,p}}
-function llRetime(p,s){runDirty();const r=llR(p),lo=llNext(r,G.t);if(lo==null)return false;p.start=clamp(s,lo,PARKS[r.pk].close*60-LL_WIN);p.end=p.start+LL_WIN;delete G.LL.rem['go'+p.id];delete G.LL.rem['end'+p.id];return true}
+function llRetime(p,s){runDirty();const r=llR(p);let lo=llNext(r,G.t);if(G.real)lo=0;if(lo==null)return false;p.start=clamp(s,lo,PARKS[r.pk].close*60-LL_WIN);p.end=p.start+LL_WIN;delete G.LL.rem['go'+p.id];delete G.LL.rem['end'+p.id];return true}
 function llCancel(p){runDirty();if(p.type!=='mp')return;p.st='cancelled';}
 function llBuy(kind,pk){runDirty();const L=G.LL;if(kind==='mp'&&!L.mp){L.mp=pk;L.spent+=llPrice(LL_MP_PRICE[pk],G.pf[pk])}if(kind==='prem'&&!L.premier){L.premier=pk;L.spent+=llPrice(LL_PREM_PRICE[pk],G.pf[pk])}}
 // What you'd use at this ride: a booking, a Premier Pass use, or a Multiple Experience Pass
@@ -1039,6 +1039,27 @@ function dpExtras(ctx,S,until,hold){const val=r=>4+r.thrill*1.6+r.base/12;const 
     for(const r of ctx.park){if(S.done&ctx.bit[r.id]||r.id===hold)continue;for(const u of r.ll?[false,true]:[false]){const N=dpExpand(ctx,S,r,u,pool);if(!N||(until!=null&&N.t>until))continue;const sc=val(r)/(N.t-S.t+15+Math.max(0,(N.pen||0)-(S.pen||0)))*60;if(sc>bs){bs=sc;best=N}}}
     if(!best)break;best.step.extra=true;S=best}
   return S}
+// Fill idle gaps inside the plan (e.g. an hour before a Lightning Lane window): try short standby rides from the state before
+// the waiting step that still let you reach it by its queue time, then replay the rest of the plan from there. Kept only if
+// every later must-do / pass step replays the same way and no later than before (+5 min); later extras may drop out.
+function dpReplay(ctx,S,olds,pool){let cur=S;const out=[];
+  for(const o of olds){const st=o.step;if(!st)return null;if(st.fav||st.free)return null;const r=RIDE_BY[st.rid];if(!r)return null;
+    const M=dpExpand(ctx,cur,r,st.how!=='standby'&&st.how!=='rope',st.extra?pool:null);
+    if(!M||M.step.how!==st.how||M.t>o.t+(st.extra?15:5)){if(st.extra)continue;return null}
+    if(st.extra)M.step.extra=true;if(st.gap)M.step.gap=true;out.push(M);cur=M}
+  return out}
+function dpFillGaps(ctx,fin){if(!fin||!fin.par)return fin;const val=r=>4+r.thrill*1.6+r.base/12,pool=N=>ctx.park.filter(r=>!(N.done&ctx.bit[r.id])).map(r=>r.id);
+  let chain=[];for(let x=fin;x;x=x.par)chain.push(x);chain.reverse();
+  for(let i=1;i<chain.length;i++){const P=chain[i-1],st=chain[i].step;if(!st||st.extra||st.fav||st.free)continue;const r=RIDE_BY[st.rid];if(!r)continue;
+    const idle=st.q0-P.t-(st.rest||0)-dpTravel(ctx,P,r);if(!(idle>=25))continue;
+    const later=new Set(chain.slice(i).map(x=>x.step&&x.step.rid).filter(Boolean));let E=P;const added=[];
+    for(let g=0;g<6;g++){let best=null,bs=-1;
+      for(const x of ctx.park){if(E.done&ctx.bit[x.id]||later.has(x.id)||ctx.passOnly[x.id]||ctx.must.includes(x.id))continue;
+        const M=dpExpand(ctx,E,x,false,()=>[]);if(!M||M.step.meal||M.t+dpTravel(ctx,M,r)>st.q0-2)continue;const sc=val(x)/(M.t-E.t+15)*60;if(sc>bs){bs=sc;best=M}}
+      if(!best)break;best.step.extra=true;best.step.gap=true;E=best;added.push(best)}
+    while(added.length){const rp=dpReplay(ctx,added[added.length-1],chain.slice(i),pool);
+      if(rp){chain=chain.slice(0,i).concat(added,rp);i+=added.length;break}added.pop()}}
+  return chain[chain.length-1]}
 function dpSteps(S){const out=[];for(let x=S;x;x=x.par)if(x.step)out.push(x.step);return out.reverse()}
 // Save the favourite for the evening: plan the other must-dos, fill free time until the evening (extras on), then the favourite.
 function dpSaveFav(ctx,root,best,W){const fav=ctx.fav,fs=dpSteps(best).find(s=>s.rid===fav);if(!fs||fs.q0>=ctx.eve-10||ctx.keep)return null;
@@ -1051,6 +1072,7 @@ function dpSaveFav(ctx,root,best,W){const fav=ctx.fav,fs=dpSteps(best).find(s=>s
 function dpPack(ctx,S,W){let best=dpBeam(ctx,S,W);let fin=null;
   if(ctx.pace&&ctx.fav&&!ctx.req){const sv=dpSaveFav(ctx,S,best,W);if(sv){best=sv.best;fin=sv.fin}}
   if(!fin)fin=ctx.extras?dpExtras(ctx,best):best;
+  if(ctx.extras&&!ctx.keep)try{fin=dpFillGaps(ctx,fin)}catch(e){}
   if(ctx.timed.length&&ctx.timed.some((b,i)=>!((fin.tb||0)&(1<<i)))&&fin.step){fin=Object.assign({},fin,{step:Object.assign({},fin.step,{blocks:(fin.step.blocks||[]).slice()})});dpTimed(ctx,fin,fin.step.blocks,true)}
   const steps=dpSteps(fin);
   const mustSteps=steps.filter(s=>s.k==='ride'&&s.must);const doneIds=new Set(mustSteps.map(s=>s.rid));
@@ -3495,12 +3517,12 @@ function llRideBlock(r,plan){const none={html:'',bind:()=>{}};if(!r.ll)return no
     else html=`<button class="btn ll" id="goL" ${canGo&&llUseOK(u,r,arr)?'':'disabled'}>Go · ${u.kind==='prem'?'Premier Pass':'Multiple Experience Pass'} (saves ~${fmtDur(save)})</button>`}
   else{const c=llCanBook(r,G.t);
     if(c.ok){nowOK=c.ret-LL_EARLY<=arr;const price=r.llType==='sp'?` · ≈$${llPrice(LL_SP_PRICE[r.id],G.pf[r.pk])}`:'';
-      html=`<button class="btn ll" id="llBook">${nowOK&&canGo?'Book & go':'Book'} · Lightning Lane ${fmtClock(c.ret)}–${fmtClock(c.ret+LL_WIN)}${price}</button><p class="note">${llGroupName(r)} · ${r.llType==='mp'?`you hold ${llHeld().length} of 3`:`${llSps().length} of 2 Single Passes bought today, no refunds`}. ${nowOK?'The window is open by the time you get there.':`The window opens ${fmtDur(c.ret-G.t)} from now; standby then is about ${waitAt(r,Math.min(c.ret+30,PARKS[r.pk].close*60-1))}m.`}</p>`}
+      const idle=!G.segs||!G.segs.length,cur=!idle&&G.segs[G.segs.length-1].ride;html=`<button class="btn ll" id="llBook">${nowOK&&canGo&&idle?'Book & go':'Book'} · Lightning Lane ${fmtClock(c.ret)}–${fmtClock(c.ret+LL_WIN)}${price}</button><p class="note">${llGroupName(r)} · ${r.llType==='mp'?`you hold ${llHeld().length} of 3`:`${llSps().length} of 2 Single Passes bought today, no refunds`}. ${nowOK?(idle?'The window is open by the time you get there.':`Booking won't take you out of ${cur&&cur!==r?'your '+cur.short+' trip':'what you\'re doing'}; tap Go when you're ready.`):`The window opens ${fmtDur(c.ret-G.t)} from now; standby then is about ${waitAt(r,Math.min(c.ret+30,PARKS[r.pk].close*60-1))}m.`}</p>`}
     else if(c.buy)html=`<button class="btn ll" id="llMine">No Multi Pass today · buy one</button>`;
     else html=`<button class="btn ll" disabled>${c.why}</button>`}
   return{html,bind:()=>{const gl=$('#goL');if(gl)gl.onclick=()=>go(r,true);const lm=$('#llMine');if(lm)lm.onclick=()=>{llView.confirm=null;openLL()};
-    const lb=$('#llBook');if(lb)lb.onclick=()=>{const res=llBook(r,G.t);if(!res.ok){toast(res.why);return}
-      if(nowOK&&canGo&&llUseOK(llUse(r),r,planTo(r,true).arr))go(r,true);else{toast(`Booked ${r.short} · ${fmtClock(res.p.start)}–${fmtClock(res.p.end)}`);openRide(r)}}}}}
+    const lb=$('#llBook');if(lb)lb.onclick=()=>{if(G.real){openLLEnter(r);return}const res=llBook(r,G.t);if(!res.ok){toast(res.why);return}
+      if(nowOK&&canGo&&(!G.segs||!G.segs.length)&&llUseOK(llUse(r),r,planTo(r,true).arr))go(r,true);else{toast(`Booked ${r.short} · ${fmtClock(res.p.start)}–${fmtClock(res.p.end)}`);openRide(r)}}}}}
 let llView={all:false,confirm:null};
 function llPassRow(p,D,t){const r=llR(p),win=`${fmtClock(p.start)}–${fmtClock(p.end)}`;let meta='',btns='';const b=(a,txt,cls)=>`<button class="btn sm${cls?' '+cls:''}" data-a="${a}" data-p="${p.id}">${txt}</button>`;
   if(p.st==='active'){const eta=D.dist[NI[r.nodeId]],w=llWinState(p,t);
@@ -3533,11 +3555,21 @@ function openLL(){const L=G.LL,t=G.t,D=dijkstra(effectiveStart().node,t/60),held
     switch(a){case 'go':openRide(llR(p));break;case 'time':openLLTime(p);break;case 'swap':openLLSwap(p);break;
       case 'cancel':if(llView.confirm===p.id){llCancel(p);llView.confirm=null;toast(`${llR(p).short} booking cancelled`)}else llView.confirm=p.id;openLL();break;
       case 'mep':openRides(llR(p).pk);break;
-      case 'book':{const res=llBook(r,G.t);toast(res.ok?`Booked ${r.short} · ${fmtClock(res.p.start)}–${fmtClock(res.p.end)}`:res.why);openLL();break}
+      case 'book':{if(G.real){openLLEnter(r);break}const res=llBook(r,G.t);toast(res.ok?`Booked ${r.short} · ${fmtClock(res.p.start)}–${fmtClock(res.p.end)}`:res.why);openLL();break}
       case 'ride':openRide(r);break;case 'all':llView.all=!llView.all;openLL();break;
       case 'buymp':llBuy('mp',b.dataset.k);toast(`Multi Pass for ${PARKS[b.dataset.k].short}`);openLL();break;
       case 'buyprem':llBuy('prem',b.dataset.k);toast(`Premier Pass for ${PARKS[b.dataset.k].short}`);openLL();break}})}
-function openLLTime(p){const r=llR(p),lo=llNext(r,G.t),last=PARKS[r.pk].close*60-LL_WIN;if(lo==null){toast('No other return times left today');return}
+// Real-time day: enter the return window exactly as the Disney app shows it (new booking, or a time change)
+function llHHMM(m){m=Math.round(m);return String(Math.floor(m/60)%24).padStart(2,'0')+':'+String(m%60).padStart(2,'0')}
+function openLLEnter(r,p){const c=p?null:llCanBook(r,G.t);if(!p&&!c.ok){toast(c.why);return}const est=p?p.start:c.ret;
+  openSheet(`<div class="sh"><h2>${r.short} · return time</h2><button class="x" aria-label="Close">×</button></div><div class="sb">
+  <p class="note">Enter the start of the return window from the Disney app (windows run an hour). ${p?`Now ${fmtClock(p.start)}–${fmtClock(p.end)}.`:c.noEst?'Our model thinks this one has sold out; if the app gave you a time, enter it.':`Our estimate was ${fmtClock(c.ret)}.`}</p>
+  <input type="time" id="llT" step="300" value="${llHHMM(est)}" style="width:100%;box-sizing:border-box;font:600 22px var(--body);padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--chip);color:var(--text);-webkit-user-select:text;margin:4px 0 12px">
+  <button class="btn ll" id="llTok" style="width:100%">${p?'Save new time':'Book '+r.short}</button></div>`);
+  $('#llTok').onclick=()=>{const v=/^(\d\d):(\d\d)/.exec($('#llT').value||'');if(!v){toast('Pick a time');return}const m=+v[1]*60+ +v[2];
+    if(p){llRetime(p,m);toast(`${r.short} set to ${fmtClock(p.start)}–${fmtClock(p.end)}`)}else{const res=llBook(r,G.t,m);if(!res.ok){toast(res.why);return}toast(`Booked ${r.short} · ${fmtClock(res.p.start)}–${fmtClock(res.p.end)}`)}
+    closeSheet();try{autoKick('Lightning Lane changed')}catch(e){}}}
+function openLLTime(p){if(G.real){openLLEnter(llR(p),p);return}const r=llR(p),lo=llNext(r,G.t),last=PARKS[r.pk].close*60-LL_WIN;if(lo==null){toast('No other return times left today');return}
   const opts=[];for(let s=lo;s<=last&&opts.length<18;s+=opts.length<4?5:15)opts.push(s);
   openSheet(`<div class="sh"><button class="x" aria-label="Back" style="font-size:15px" data-back>‹</button><h2>${r.short} · new time</h2><button class="x" aria-label="Close">×</button></div><div class="sb">
   <p class="note">Now ${fmtClock(p.start)}–${fmtClock(p.end)}. The earliest return you can get right now is ${fmtClock(lo)}.</p>
@@ -3689,7 +3721,8 @@ function dpTimelineHTML(res,prog){const n=res.nMust,parts=[];
     if(s.k==='hop'){const dn=prog&&prog.next>i;parts.push(`<div class="tl hop ${dn?'done':''}"><span class="tt">${fmtClock(s.leave).replace(/ [AP]M/,'')}<small>${fmtClock(s.leave).slice(-2)}</small></span><div><div class="n">🚝 Park hop · ${PARKS[s.from].short} → ${PARKS[s.to].name}</div><div class="m">${s.idle>=10?`free time in ${PARKS[s.from].short} ${fmtDur(s.idle)} · `:''}leave ${fmtClock(s.leave)}${s.target!=null?' (your hop time)':' (after the must-dos)'} · ~${s.travel} min to the gate · there ${fmtClock(s.arr)}</div></div></div>`);return}
     if(s.k==='start'&&res.legs){const L=res.legs[s.leg]||{};extraHdr=false;parts.push(`<h3>${PARKS[L.pk].name} <small>${L.nMust?`${L.nDone} of ${L.nMust} must-do${L.nMust===1?'':'s'}${L.nDone?' by '+fmtClock(L.endMust):''}`:'no must-dos'}${res.hops&&res.hops[s.leg]?` · leave ${fmtClock(res.hops[s.leg].leave)}`:''}</small></h3>`)}
     if(s.k==='start'){if(s.books.length)parts.push(`<div class="tl"><span class="tt">${fmtClock(s.t).replace(/ [AP]M/,'')}</span><div><div class="n">Start${res.mode==='suggest'?' · after your pre-books':''}</div>${bk(s)}</div></div>`);blk(s);return}
-    if(s.extra&&!extraHdr){extraHdr=true;const fv=res.steps.slice(i).find(x=>x.k==='ride'&&x.must&&x.fav);parts.push(`<h3>Free time ideas <small>${fv?'before ⭐ '+RIDE_BY[fv.rid].short+' this evening':'after your must-dos'}</small></h3>`)}
+    if(s.gap&&!(res.steps[i-1]&&res.steps[i-1].gap)){const nx=res.steps.slice(i).find(x=>!x.gap&&x.rid),nr=nx&&RIDE_BY[nx.rid];if(nr)parts.push(`<div class="tl meal"><span class="tt">${fmtClock(s.leave).replace(/ [AP]M/,'')}<small>${fmtClock(s.leave).slice(-2)}</small></span><div><div class="n">🎈 Free time before ${nr.short}</div><div class="m">${nx.win!=null?'your window opens '+fmtClock(nx.win):'nothing else fits until then'} · ideas that still get you there by ${fmtClock(nx.q0)}</div></div></div>`)}
+    if(s.extra&&!s.gap&&!extraHdr){extraHdr=true;const fv=res.steps.slice(i).find(x=>x.k==='ride'&&x.must&&x.fav);parts.push(`<h3>Free time ideas <small>${fv?'before ⭐ '+RIDE_BY[fv.rid].short+' this evening':'after your must-dos'}</small></h3>`)}
     const r=RIDE_BY[s.rid],h=DP_HOW[s.how],cls=[prog&&prog.done[i]?'done':'',prog&&prog.next===i?'nx':'',s.extra?'ex':''].join(' ');
     if(s.free>=10){const b0=s.leave-s.free;parts.push(`<div class="tl meal ${prog&&prog.done[i]?'done':''}"><span class="tt">${fmtClock(b0).replace(/ [AP]M/,'')}<small>${fmtClock(b0).slice(-2)}</small></span><div><div class="n">🎈 Free time · ${fmtDur(s.free)}</div><div class="m">shows, snacks, shops, a re-ride · leave ${fmtClock(s.leave)} for ⭐ ${r.short}</div></div></div>`)}
     if(s.rest){const b0=s.leave-s.rest;parts.push(`<div class="tl meal ${prog&&prog.done[i]?'done':''}"><span class="tt">${fmtClock(b0).replace(/ [AP]M/,'')}<small>${fmtClock(b0).slice(-2)}</small></span><div><div class="n">☕ Break</div><div class="m">${s.rest} min · snack or shade before a long line · leave ${fmtClock(s.leave)}</div></div></div>`)}
@@ -3856,7 +3889,11 @@ function planViewHTML(){
     if(pr.blk)status+=`<br>Then: ${r.name}.`;btns+=tgt&&tgt.id===r.id?`<button class="btn" id="dpNext" disabled>${cs&&cs.k==='queue'?(cs.ll?'In the Lightning Lane':'In line'):cs&&cs.k==='onride'?'Riding':'On your way'} · ${r.short}${G.real&&cs&&(cs.k==='queue'||cs.k==='onride')?' · tap ✓ when off':''}</button>`:early!=null?`<button class="btn ll" id="dpNext" disabled>${r.short} window ${fmtClock(u.p.start)} · leave by ${fmtClock(early)}</button>`:`<button class="btn ${canLL?'ll':pr.meal?'':'pri'}" id="dpNext" ${busyNow?'disabled':''}>Go · ${hp?'hop to '+PARKS[hop.to].short+' · ':''}${r.short} ${canLL?'with Lightning Lane':'standby'}</button>`;
     if(early!=null)status+=`<br>Too early for that window. Do something nearby until ${fmtClock(early)}, or Replan.`}
   else if(!pr.meal)status=P.res.nMust?'<b>All planned rides done.</b> Replan to fill the rest of the day.':'';
-  const bkH=books.map(({r,b})=>{const c=llCanBook(r,G.t);return `<button class="btn ll" data-bk="${r.id}" ${c.ok?'':'disabled'}>Book ${r.short} · ${c.ok?'returns '+fmtClock(c.ret):c.why}</button>`}).join('');
+  let bkH=books.map(({r,b})=>{const c=llCanBook(r,G.t);return `<button class="btn ll" data-bk="${r.id}" ${c.ok?'':'disabled'}>Book ${r.short} · ${c.ok?'returns '+fmtClock(c.ret):c.why}</button>`}).join('');
+  // a free Multi Pass slot the plan didn't fill (its bookings sit on steps you may not follow, and it only books for must-dos
+  // or ≥10 min savings): offer the best booking now, whatever you're doing
+  if(!books.some(x=>llCanBook(x.r,G.t).ok)&&G.LL.mp&&llCanBookAny(G.t)){const rec=llRecs(G.t).find(x=>x.save>=3);
+    if(rec)bkH+=`<button class="btn ll" data-bk="${rec.r.id}">⚡ Free slot · book ${rec.r.short} · returns ~${fmtClock(rec.ret)} (saves ~${fmtDur(rec.save)})</button>`}
   const top=`${autoNoteHTML()}${status?`<p class="note" style="color:var(--text)">${status}</p>`:''}
   <div class="go">${btns}${bkH}</div>${bkH?'<p class="note">Your plan books these as soon as you tap in. Return times shown are live.</p>':''}
   <div class="row" style="margin:10px 0 4px;flex-wrap:wrap"><button class="btn sm" id="dpRe">Replan from here</button><button class="btn sm" id="dpEdit">Change must-dos</button><button class="btn sm" id="dpClr">${DPV.clr?'Tap again to clear':'Clear plan'}</button><button class="btn sm tog" id="dpAuto" aria-pressed="${AUTO.on}">Auto-adjust ${AUTO.on?'on':'off'}</button></div>`;
@@ -3868,7 +3905,7 @@ function planBind(root,v){const pr=v.pr,s=v.s,q=x=>root.querySelector(x);
   const nx=q('#dpNext');if(nx)nx.onclick=()=>{const r=RIDE_BY[s.rid],wantLL=s.how!=='rope'&&s.how!=='standby';go(r,wantLL&&!!llUse(r))};
   const bb=q('#dpBlk');if(bb)bb.onclick=()=>{if(G.segs&&!effectiveStart().can){toast('Finish this ride first');return}const b=pr.blk,dur=Math.max(b.walk+b.dur,b.at?b.at-(b.meal?15:0)+b.dur-G.t:0);G.plan.blkDone[b.id]=1;if(b.meal)G.plan.lunchAt=G.t;G.segs=[{k:'snack',dur:Math.round(dur),el:0,started:false,name:b.name}];G.seg=0;sayBubble(b.meal?'Food!':'Off we go');planDone()};
   const lu=q('#dpLunch');if(lu)lu.onclick=()=>{if(G.segs&&!effectiveStart().can){toast('Finish this ride first');return}G.plan.lunchAt=G.t;G.segs=[{k:'snack',dur:DP_LUNCH,el:0,started:false}];G.seg=0;sayBubble('Lunch!');planDone()};
-  root.querySelectorAll('[data-bk]').forEach(b=>b.onclick=()=>{const r=RIDE_BY[b.dataset.bk],res=llBook(r,G.t);toast(res.ok?`Booked ${r.short} · ${fmtClock(res.p.start)}–${fmtClock(res.p.end)}`:res.why);planRefresh()});
+  root.querySelectorAll('[data-bk]').forEach(b=>b.onclick=()=>{const r=RIDE_BY[b.dataset.bk];if(G.real){openLLEnter(r);return}const res=llBook(r,G.t);toast(res.ok?`Booked ${r.short} · ${fmtClock(res.p.start)}–${fmtClock(res.p.end)}`:res.why);planRefresh()});
   q('#dpRe').onclick=()=>{autoReplan([{k:'manual',text:'You replanned'}],true);toast('Plan updated from here');planRefresh()};
   q('#dpEdit').onclick=()=>{DPV.edit=true;DPV.S=null;openPlan()};
   q('#dpClr').onclick=()=>{if(DPV.clr){G.plan=null;DPV.clr=false;planDone();toast('Plan cleared')}else{DPV.clr=true;planRefresh();setTimeout(()=>{DPV.clr=false;if(PV.on)pvRefresh(true)},4000)}}}
