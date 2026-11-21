@@ -145,6 +145,12 @@ textarea{box-sizing:border-box;width:100%;background:var(--chip);color:var(--tex
 .tl .n{font-weight:700;font-size:14px;line-height:1.3}
 .tl .m{font-size:12px;color:var(--muted);margin-top:2px;line-height:1.4}
 .tl .bk{font-size:12px;color:var(--ll);margin-top:3px;font-weight:600}
+.odds{font-weight:600}.odds.ok{color:var(--good)}.odds.warn{color:var(--warn)}.odds.bad{color:var(--bad)}.tl .bk .odm{font-weight:400;color:var(--text);opacity:.8;margin-top:2px}
+.conf{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin:4px 0 10px;font-size:13px;line-height:1.35}
+.conf .cp{font:700 22px var(--body);min-width:52px;text-align:center;padding-top:1px}.conf.ok .cp{color:var(--good)}.conf.warn .cp{color:var(--warn)}.conf.bad .cp{color:var(--bad)}
+.conf.ok{border-color:rgba(95,211,141,.35)}.conf.warn{border-color:rgba(246,163,71,.45)}.conf.bad{border-color:rgba(242,102,95,.5)}
+.conf .n{font-weight:700}.conf .m{opacity:.85;margin-top:2px}.conf .risk{color:var(--warn);opacity:1}.conf small.up{color:var(--good)}.conf small.dn{color:var(--bad)}
+.conf details summary{font-size:12px;opacity:.7}.conf .btn.sm{margin-left:6px;padding:3px 9px}
 .tl.done{opacity:.45}.tl.nx{background:rgba(255,201,77,.09);border-radius:10px}
 .tl.ex .tt{color:var(--muted)}.tl.meal .tt{color:var(--good)}.tl.hop .tt{color:#5bc0ff}
 .tpx{color:#ff8fa3;font-weight:600}
@@ -811,9 +817,11 @@ function llWinState(p,t){return t<p.start-LL_EARLY?'early':t<=p.end?'open':t<=p.
 // Return-time inventory: advance bookings eat the morning (more for headliners), then same-day
 // returns race ahead of the clock until the ride sells out around its sell hour.
 function llPre(r){return r.llType==='sp'?2.5:r.tier===1?1.5:clamp((r.avg-12)/30,0,1.1)}
-function llNext(r,t){const P=PARKS[r.pk],open=P.open*60,close=P.close*60,last=close-LL_WIN;if(!r.ll||t>=close)return null;
-  const sellM=llSell(r)*60;if(t>=sellM)return null;const pre=llPre(r)*60,m=Math.max(1,(last-open-pre)/Math.max(30,sellM-open));
-  let e=open+pre+Math.max(0,t-open)*m+(hash((G.date||'')+r.id+Math.floor(t/30))-0.5)*24;e=Math.max(e,t,open);e=Math.ceil(e/5)*5;return e>last?null:e}
+// raw = the plain model (no learning from your own bookings); LLX = sampled offsets for odds / confidence runs (row 43/45)
+function llNext(r,t,raw){const P=PARKS[r.pk],open=P.open*60,close=P.close*60,last=close-LL_WIN;if(!r.ll||t>=close)return null;
+  const cs=raw?null:llCalFor(r),x=LLX;
+  const sellM=(llSell(r)+(cs?cs.sell:0)+(x?x.sell(r):0))*60;if(t>=sellM)return null;const pre=llPre(r)*60,m=Math.max(1,(last-open-pre)/Math.max(30,llSell(r)*60-open));
+  let e=open+pre+Math.max(0,t-open)*m+(hash((G.date||'')+r.id+Math.floor(t/30))-0.5)*24+(cs?cs.ret:0)+(x?x.ret(r,t):0);e=Math.max(e,t,open);e=Math.ceil(e/5)*5;return e>last?null:e}
 function llCanBook(r,t,ignore){const L=G.LL;if(!r.ll)return{why:'No Lightning Lane on this one'};const P=PARKS[r.pk];
   if(L.premier===r.pk&&!L.premUsed[r.id]&&!ignore)return{why:'Your Premier Pass covers this one',prem:true};
   if(r.llType==='sp'){if(L.passes.some(p=>p!==ignore&&p.rid===r.id))return{why:'You already bought this Single Pass'};
@@ -957,7 +965,7 @@ function dpCtx(o){const pk=o.pk,M=dpMatrix(pk),park=RIDES.filter(r=>r.pk===pk),b
   const must0=o.must.filter(id=>RIDE_BY[id]&&RIDE_BY[id].pk===pk);
   // Lightning Lanes you already hold for rides that aren't must-dos get planned too (only with the pass), so a pass is never left unused
   const passOnly={};{const L0=o.LLs||(o.L?dpLLFrom(o.L):null);for(const p of (L0&&L0.held)||[]){const r=RIDE_BY[p.rid];if(r&&r.pk===pk&&!must0.includes(p.rid)&&!(o.done||[]).includes(p.rid))passOnly[p.rid]=1}}
-  const ctx={pk,M,bit,park,must:must0.concat(Object.keys(passOnly)),passOnly,keep:!!o.keep,lunch:!!o.lunch,lunchDone:!!o.lunchDone,tp:o.tp||{},blkAfter:{},extras:!!o.extras,t0:o.t,end:o.until!=null?Math.min(dpParkEnd(pk),o.until):dpParkEnd(pk),until:o.until!=null&&o.until<dpParkEnd(pk)?o.until:null,later:o.later||null,startD:{},book:(o.book||[]).map(k=>typeof k==='string'?{rid:k}:k).filter(k=>RIDE_BY[k.rid]&&RIDE_BY[k.rid].pk===pk),walkK:o.cal?o.cal.walk:1,llAdj:o.cal?o.cal.ll:null,grace:o.grace||DP_GRACE,dur:o.cal&&o.cal.dur||null,pw:o.cal&&o.cal.pw||null};
+  const ctx={pk,M,bit,park,must:must0.concat(Object.keys(passOnly)),passOnly,keep:!!o.keep,lunch:!!o.lunch,lunchDone:!!o.lunchDone,tp:o.tp||{},blkAfter:{},extras:!!o.extras,t0:o.t,end:o.until!=null?Math.min(dpParkEnd(pk),o.until):dpParkEnd(pk),until:o.until!=null&&o.until<dpParkEnd(pk)?o.until:null,later:o.later||null,startD:{},book:(o.book||[]).map(k=>typeof k==='string'?{rid:k}:k).filter(k=>RIDE_BY[k.rid]&&RIDE_BY[k.rid].pk===pk),bookLater:(o.book||[]).map(k=>typeof k==='string'?{rid:k}:k).filter(k=>RIDE_BY[k.rid]&&RIDE_BY[k.rid].pk!==pk),walkK:o.cal?o.cal.walk:1,llAdj:o.cal?o.cal.ll:null,grace:o.grace||DP_GRACE,dur:o.cal&&o.cal.dur||null,pw:o.cal&&o.cal.pw||null};
   ctx.timed=[];for(const b of o.blocks||[]){if(!o.keep&&b.meal&&b.at){ctx.timed.push(b);continue}const k=b.after&&!(o.done||[]).includes(b.after)?b.after:'_start';(ctx.blkAfter[k]=ctx.blkAfter[k]||[]).push(b)}
   const D=dijkstra(o.node,o.t/60);park.forEach(r=>ctx.startD[r.id]=D.dist[NI[r.nodeId]]);
   // lowest standby from each 15-min bucket to close (for the search heuristic)
@@ -992,7 +1000,9 @@ function dpTravel(ctx,S,r){if(S.nw!=null)return S.nw;if(S.at!=null&&ctx.pw){cons
 function dpRet(ctx,r,t,k){const sh=ctx.llAdj&&ctx.llAdj[r.id]||0;let ret=llNext(r,t+sh);if(ret==null)return null;
   if(DPX)ret+=DPX.ll(r);ret=Math.max(Math.ceil(t/5)*5,Math.round(ret/5)*5);if(k&&k.ret!=null)ret=Math.max(ret,k.ret+Math.max(0,t-(k.at!=null?k.at:t)));
   return ret>PARKS[r.pk].close*60-LL_WIN?null:ret}
-function dpBook(ctx,S,t,pool){const L=S.ll,out=[];if(!L.mp)return out;const ord=ctx.book.length?ctx.book.filter(k=>pool.includes(k.rid)):null;
+function dpBook(ctx,S,t,pool){const L=S.ll,out=[];if(!L.mp)return out;let ord=ctx.book.length?ctx.book.filter(k=>pool.includes(k.rid)):null;
+  // a rigid follow (live confidence) also replays the plan's bookings for the next park once tapped in
+  if(ord&&ctx.later&&L.tapped&&ctx.bookLater.length)ord=ord.concat(ctx.bookLater.filter(k=>ctx.later.ids.includes(k.rid)));
   for(let g=0;g<3;g++){const held=L.held.filter(p=>p.type==='mp');if(held.length>=3)break;let best=null,bs=ord?-1e9:9;
     for(const k of ord||(ctx.later&&L.tapped?pool.concat(ctx.later.ids):pool)){if(ord&&best)break;const id=ord?k.rid:k;const r=RIDE_BY[id];if(r.llType!=='mp'||L.booked[id]||(L.prem===r.pk&&!L.premUsed[id]))continue;
       if(!L.tapped){if(r.pk!==L.mp)continue;if(r.tier===1&&held.some(p=>RIDE_BY[p.rid].tier===1))continue}
@@ -3581,9 +3591,14 @@ function openLLEnter(r,p){const c=p?null:llCanBook(r,G.t);if(!p&&!c.ok){toast(c.
   openSheet(`<div class="sh"><h2>${r.short} · return time</h2><button class="x" aria-label="Close">×</button></div><div class="sb">
   <p class="note">Enter the start of the return window from the Disney app (windows run an hour). ${p?`Now ${fmtClock(p.start)}–${fmtClock(p.end)}.`:c.noEst?'Our model thinks this one has sold out; if the app gave you a time, enter it.':`Our estimate was ${fmtClock(c.ret)}.`}</p>
   <input type="time" id="llT" step="300" value="${llHHMM(est)}" style="width:100%;box-sizing:border-box;font:600 22px var(--body);padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--chip);color:var(--text);-webkit-user-select:text;margin:4px 0 12px">
+  ${p||!G.real?'':`<label class="note" style="display:flex;gap:8px;align-items:flex-start;margin:0 0 12px"><input type="checkbox" id="llEarl" checked style="margin-top:2px"> <span>This was the earliest return the app offered. WDW Sim learns ${PARKS[r.pk].short}'s return times from these (the odds in your plan use them).</span></label>`}
   <button class="btn ll" id="llTok" style="width:100%">${p?'Save new time':'Book '+r.short}</button></div>`);
   $('#llTok').onclick=()=>{const v=/^(\d\d):(\d\d)/.exec($('#llT').value||'');if(!v){toast('Pick a time');return}const m=+v[1]*60+ +v[2];
-    if(p){llRetime(p,m);toast(`${r.short} set to ${fmtClock(p.start)}–${fmtClock(p.end)}`)}else{const res=llBook(r,G.t,m);if(!res.ok){toast(res.why);return}toast(`Booked ${r.short} · ${fmtClock(res.p.start)}–${fmtClock(res.p.end)}`)}
+    if(p){llRetime(p,m);toast(`${r.short} set to ${fmtClock(p.start)}–${fmtClock(p.end)}`)}else{const est=llNext(r,G.t,true),earl=$('#llEarl');const res=llBook(r,G.t,m);if(!res.ok){toast(res.why);return}
+      res.p.bat=Math.round(G.t);res.p.est=est;
+      // row 43: a real earliest return teaches the model (est null = our model thought it had sold out)
+      if(G.real&&earl&&earl.checked)try{llObsAdd({date:G.date,pk:r.pk,rid:r.id,at:Math.round(G.t),ret:m,est,gap:est==null?Math.max(0,(G.t-llSell(r)*60)/60+0.5):null,crowd:+G.crowd.toFixed(2)})}catch(e){}
+      toast(`Booked ${r.short} · ${fmtClock(res.p.start)}–${fmtClock(res.p.end)}`)}
     closeSheet();try{autoKick('Lightning Lane changed')}catch(e){}}}
 function openLLTime(p){if(G.real){openLLEnter(llR(p),p);return}const r=llR(p),lo=llNext(r,G.t),last=PARKS[r.pk].close*60-LL_WIN;if(lo==null){toast('No other return times left today');return}
   const opts=[];for(let s=lo;s<=last&&opts.length<18;s+=opts.length<4?5:15)opts.push(s);
@@ -3730,7 +3745,11 @@ function dpTimelineHTML(res,prog){const n=res.nMust,parts=[];
   if(res.pre&&res.pre.length)sum+=`<br><b>Suggested Multi Pass pre-books</b> (≈$${llPrice(LL_MP_PRICE[res.pk],G.pf[res.pk])}/person): ${res.pre.map(p=>`${RIDE_BY[p.rid].short} ${fmtClock(p.start)}`).join(' · ')}.`;
   else if(res.mode==='suggest')sum+='<br>No pre-books help this list; plain day-of booking is just as good.';
   parts.push(`<div class="callout">${sum}${dpWhyHTML(res)}</div>`);
-  const bk=s=>s.books.map(b=>`<div class="bk">⚡ ${s.k==='start'?'Book':'Then book'} ${RIDE_BY[b.rid].short} · returns ~${fmtClock(b.ret)}</div>`).join('');
+  // row 43: odds that each planned booking is still there (and on time) when you get to book it
+  const now0=G.started&&prog?G.t:(res.steps[0]&&res.steps[0].t!=null?res.steps[0].t:res.t0);
+  const bk=s=>s.books.map(b=>{const r=RIDE_BY[b.rid],held=!!prog&&G.LL.passes.some(p=>p.rid===b.rid&&p.st!=='cancelled'),st=res.steps.find(x=>x.k==='ride'&&x.rid===b.rid);let od='';
+    if(!held&&!G.ridden.includes(b.rid))try{od=llOddsHTML(llOdds(r,Math.max(b.at,now0||b.at),b.ret,now0),r,b.ret,st)}catch(e){}
+    return `<div class="bk">⚡ ${held?'Booked':s.k==='start'?'Book':'Then book'} ${r.short} · returns ~${fmtClock(b.ret)}${od}</div>`}).join('');
   let extraHdr=false;
   res.steps.forEach((s,i)=>{
     const blk=s=>(s.blocks||[]).forEach(b=>parts.push(`<div class="tl meal ${G.plan&&G.plan.blkDone&&G.plan.blkDone[b.id]&&prog?'done':''}"><span class="tt">${fmtClock(b.start).replace(/ [AP]M/,'')}<small>${fmtClock(b.start).slice(-2)}</small></span><div><div class="n">${b.meal?'🍽':'📍'} ${b.name}</div><div class="m">${b.missed?`<span style="color:var(--warn)">⚠ no showtime left you can reach</span>`:`${b.walk?`walk ~${b.walk}m · `:''}${b.dur} min${b.show&&b.at?` · show at ${fmtClock(b.at)}`:b.at?` · booked for ${fmtClock(b.at)}`:''}${b.late>15?` <span style="color:var(--warn)">(${b.late}m late for the reservation)</span>`:b.late>0?` (${b.late}m late)`:''} · held as fixed time · done ${fmtClock(b.end)}`}${b.tp!=null?` · <span class="tpx">TP ${fmtClock(b.tp)}</span>`:''}</div></div></div>`));
@@ -3866,7 +3885,7 @@ function dpGameOpts(S,x){let node=G.node,t=G.t;const done=[...new Set(G.ridden)]
 function dpLegAt(S,node){const legs=dpLegs(S),min=Math.min(G.plan&&G.plan.legI||0,legs.length-1),n=NODES[node]||{},pk=n.park||n.outside;
   for(let i=min;i<legs.length;i++)if(legs[i].pk===pk)return i;return min}
 function dpMakeGame(S,x){const old=G.plan,lunchAt=old?old.lunchAt:null,blkDone=old&&old.blkDone||{};const o=dpGameOpts(S,x);let res;DPX=dpGameDPX();try{res=dpRunDay(o)}finally{DPX=null;DPW={}}
-  G.plan={settings:Object.assign({},S),res,legI:o.legI||0,ridIdx:G.ridden.length,lunchAt,blkDone,made:G.t,notes:old&&old.notes||[],base:autoBase(res,o)};if(!G.planFirst)try{G.planFirst=resPlanSnap(G.plan)}catch(e){}dpSave(G.date,G.plan.settings);runDirty();return res}
+  G.plan={settings:Object.assign({},S),res,legI:o.legI||0,ridIdx:G.ridden.length,lunchAt,blkDone,made:G.t,notes:old&&old.notes||[],base:autoBase(res,o),conf:old&&old.conf?{base:null,hist:(old.conf.hist||[]).slice(-40),last:old.conf.last}:null};if(!G.planFirst)try{G.planFirst=resPlanSnap(G.plan)}catch(e){}dpSave(G.date,G.plan.settings);runDirty();return res}
 function dpToast(text){const el=document.createElement('div');el.className='toast dp';el.innerHTML=`<span>${text}</span>`;el.onclick=()=>{if(G.started&&!G.over)openPlan()};
   const box=$('#toasts');box.appendChild(el);while(box.children.length>3)box.firstChild.remove();setTimeout(()=>el.remove(),6000)}
 function dpStepLabel(s){const r=RIDE_BY[s.rid];return `${r.short} · ${DP_HOW[s.how][0].replace('⚡ ','⚡')}`}
@@ -3913,7 +3932,7 @@ function planViewHTML(){
   if(!books.some(x=>llCanBook(x.r,G.t).ok)&&G.LL.mp&&llCanBookAny(G.t)){const pks=new Set([currentPark()]);(P.res.legs||[]).forEach((l,i)=>{if(i>=(P.legI||0))pks.add(l.pk)});
     const rec=llRecs(G.t,true).find(x=>x.save>=3&&pks.has(x.r.pk)&&(x.away==null||x.ret>=G.t+x.away-5));
     if(rec)bkH+=`<button class="btn ll" data-bk="${rec.r.id}">⚡ Free slot · book ${rec.r.short} · returns ~${fmtClock(rec.ret)} (saves ~${fmtDur(rec.save)})</button>`}
-  const top=`${nowCardHTML()}${autoNoteHTML()}${status?`<p class="note" style="color:var(--text)">${status}</p>`:''}
+  const top=`${nowCardHTML()}${confCardHTML()}${autoNoteHTML()}${status?`<p class="note" style="color:var(--text)">${status}</p>`:''}
   <div class="go">${btns}${bkH}</div>${bkH?'<p class="note">Your plan books these as soon as you tap in. Return times shown are live.</p>':''}
   <div class="row" style="margin:10px 0 4px;flex-wrap:wrap"><button class="btn sm" id="dpRe">Replan from here</button><button class="btn sm" id="dpEdit">Change must-dos</button><button class="btn sm" id="dpClr">${DPV.clr?'Tap again to clear':'Clear plan'}</button><button class="btn sm tog" id="dpAuto" aria-pressed="${AUTO.on}">Auto-adjust ${AUTO.on?'on':'off'}</button></div>`;
   const rest=`${dpTimelineHTML(P.res,pr)}
@@ -3926,6 +3945,7 @@ function planBind(root,v){const pr=v.pr,s=v.s,q=x=>root.querySelector(x);nowBind
   const lu=q('#dpLunch');if(lu)lu.onclick=()=>{if(G.segs&&!effectiveStart().can){toast('Finish this ride first');return}G.plan.lunchAt=G.t;G.segs=[{k:'snack',dur:DP_LUNCH,el:0,started:false,act:'dine',name:'Lunch'}];G.seg=0;sayBubble('Lunch!');planDone()};
   root.querySelectorAll('[data-bk]').forEach(b=>b.onclick=()=>{const r=RIDE_BY[b.dataset.bk];if(G.real){openLLEnter(r);return}const res=llBook(r,G.t);toast(res.ok?`Booked ${r.short} · ${fmtClock(res.p.start)}–${fmtClock(res.p.end)}`:res.why);planRefresh()});
   q('#dpRe').onclick=()=>{autoReplan([{k:'manual',text:'You replanned'}],true);toast('Plan updated from here');planRefresh()};
+  const cr=q('#confRe');if(cr)cr.onclick=()=>{autoReplan([{k:'manual',text:'Replanned for a safer day'}],true);toast('Plan updated from here');planRefresh()};
   q('#dpEdit').onclick=()=>{DPV.edit=true;DPV.S=null;openPlan()};
   q('#dpClr').onclick=()=>{if(DPV.clr){G.plan=null;DPV.clr=false;planDone();toast('Plan cleared')}else{DPV.clr=true;planRefresh();setTimeout(()=>{DPV.clr=false;if(PV.on)pvRefresh(true)},4000)}}}
 function planDone(){if(PV.on)pvRefresh(true);else closeSheet()}
@@ -4131,6 +4151,126 @@ function autoDiff(old,res){const S=id=>RIDE_BY[id].short,a=old.rem.map(s=>s.rid)
 function autoNoteHTML(){const N=G.plan&&G.plan.notes;if(!N||!N.length)return '';const n=N[0],more=N.slice(1,5);
   return `<div class="callout chg"><b style="color:#5bc0ff">${n.manual?'Replanned':'Auto-adjusted'} ${fmtClock(n.t)}:</b> ${n.text}${more.length?`<details style="margin-top:4px"><summary style="font-size:12px;opacity:.75">Earlier changes</summary>${more.map(x=>`<div style="font-size:12px;opacity:.8;margin-top:3px">${fmtClock(x.t)} · ${x.text}</div>`).join('')}</details>`:''}</div>`}
 
+// ================= LIGHTNING LANE ODDS & LIVE CONFIDENCE (roadmap rows 43, 45) =================
+// Odds (row 43): each planned in-day booking gets a spread instead of llNext's single curve: sell-out hour, return-time
+// luck growing with how far ahead the booking is, and the crowd (narrower once the crowd read has readings). Returns
+// you enter on a live day (earliest offered) are kept in localStorage and shift the model for that park (llCalFor).
+// Confidence (row 45): the rest of the plan, followed in its order, on CONF.N modelled days that start from now (live waits
+// near now, surprises growing with time ahead, rides down now, outages in the time left, Lightning Lane luck as above).
+var LLX=null,LLOBS=null,LLCAL=null,LLO=null,CONF=null;
+var LLOBS_KEY='wdwsim.llobs.v1',CONF_EVERY=10;
+LLOBS={list:null,n:0};LLCAL={k:null,by:{}};LLO={key:'',memo:{}};
+CONF={on:true,busy:false,ver:0,last:-1e9,lastReal:0,sig:'',warnT:-1e9,N:60,ms:0};
+function llObs(){if(!LLOBS)return[];if(!LLOBS.list){try{LLOBS.list=JSON.parse(localStorage.getItem(LLOBS_KEY)||'[]')}catch(e){LLOBS.list=[]}LLOBS.n=LLOBS.list.length}return LLOBS.list}
+function llObsAdd(o){const a=llObs().filter(x=>!(x.date===o.date&&x.rid===o.rid));a.push(o);while(a.length>300)a.shift();LLOBS.list=a;LLOBS.n++;
+  try{localStorage.setItem(LLOBS_KEY,JSON.stringify(a))}catch(e){}}
+// per park: mean (real − modelled) return over your observations (today's count fully, other days 0.4), shrunk toward 0
+function llCalFor(r){if(!LLCAL||!LLOBS)return null;const k=(G.date||'')+'|'+LLOBS.n;
+  if(LLCAL.k!==k){const obs=llObs();LLCAL.k=k;LLCAL.by={};
+    for(const pk in PARKS){let sw=0,sd=0,ss=0,sg=0,n=0;for(const o of obs){if(o.pk!==pk)continue;const w=o.date===G.date?1:0.4;n++;
+        if(o.est!=null){sw+=w;sd+=w*clamp(o.ret-o.est,-180,180)}else{ss+=w;sg+=w*clamp(o.gap||0,0,4)}}
+      LLCAL.by[pk]={ret:sw?Math.round(sd/(sw+1.5)):0,sell:ss?sg/(ss+1):0,n,today:obs.filter(o=>o.pk===pk&&o.date===G.date).length}}}
+  const c=LLCAL.by[r.pk];return c&&c.n?c:null}
+// crowd surprise (sd of the crowd factor): narrows as the crowd read gets readings on today's park day
+function confCrowdSd(pk){const e=RF.est[pk],today=orlandoNow().date;
+  if(G.date===today&&e&&e.date===today&&e.units)return clamp(0.05+0.11*Math.exp(-e.units/6),0.05,0.16);return G.date===today?0.13:0.16}
+function llRetSd(lead){return 12+Math.min(45,Math.max(0,lead)*0.15)}
+function llSellSd(lead){return 0.3+Math.min(0.9,Math.max(0,lead)/240*0.9)}
+// odds that a booking made at `at` gets a return, and one no later than need+30 (the plan's return, with the plan's margin)
+function llOdds(r,at,need,now){if(!r||!r.llType||!LLO)return null;now=now!=null?now:(G.started?G.t:at);const lead=Math.max(0,at-now);
+  const mk=(G.date||'')+'|'+(LLCAL&&LLCAL.k||'')+'|'+(RF.est[r.pk]&&RF.est[r.pk].units||0)+'|'+G.crowd.toFixed(3)+'|'+(G.pf[r.pk]||1).toFixed(3);if(LLO.key!==mk){LLO.key=mk;LLO.memo={}}
+  const k=r.id+'|'+Math.round(at/5)+'|'+need+'|'+Math.round(lead/15);if(LLO.memo[k])return LLO.memo[k];
+  const rnd=stRng(hash((G.date||'')+r.id+'llo'+Math.round(at/5))),sdR=llRetSd(lead),sdS=llSellSd(Math.max(lead,llSell(r)*60-now)),sdC=confCrowdSd(r.pk),N=160,v=[];
+  const x0=LLX;try{for(let i=0;i<N;i++){const c=clamp(Math.exp(sdC*stGauss(rnd)),0.7,1.45),ds=sdS*stGauss(rnd)-(c-1)*G.crowd*2.5,dr=sdR*stGauss(rnd)+(c-1)*90;
+      LLX={sell:()=>ds,ret:()=>dr};v.push(llNext(r,at))}}finally{LLX=x0}
+  const ok=v.filter(x=>x!=null).sort((a,b)=>a-b);
+  return LLO.memo[k]={n:N,p:ok.length/N,by:need!=null?ok.filter(x=>x<=need+30).length/N:null,med:ok.length?stPct(ok,0.5):null,p80:ok.length?stPct(ok,0.8):null,lead}}
+function pct(x){return Math.round(x*100)+'%'}
+function oddsCol(x){return x>=0.8?'ok':x>=0.5?'warn':'bad'}
+// " · 82% on time" badge for a planned booking, and a fallback line when it's shaky
+function llOddsHTML(o,r,need,step){if(!o)return '';const m=o.by!=null?o.by:o.p;
+  let h=` <span class="odds ${oddsCol(m)}">${m>=0.98?'· very likely':o.by!=null&&o.by<o.p-0.02?`· ${pct(o.by)} on time · ${pct(o.p)} bookable`:`· ${pct(m)} likely`}</span>`;
+  if(m<0.8){const w=step?dpWait(r,step.q0):null;h+=`<div class="m odm">${o.med!=null&&need!=null&&o.med-need>=15?`Likely return ~${fmtClock(o.med)}. `:''}If it's gone or too late: ${step&&w!=null?`standby ~${w}m around ${fmtClock(step.q0)}`:'standby'}${o.p<0.6?', or book it at your first chance':''}.</div>`}
+  return h}
+// ---- live confidence
+// the plan from here as a rigid follow: its rides (must-dos and pass rides) in its order, its bookings in its order, no earlier than its returns
+function confOpts(res,fresh){const P=G.plan,o=dpGameOpts(P.settings),pr=fresh?null:dpProgress();
+  const rem=res.steps.filter((s,i)=>s.k==='ride'&&(fresh||!pr.done[i])&&(s.must||s.pass)&&!o.done.includes(s.rid));
+  const ord=pk=>[...new Set(rem.filter(s=>RIDE_BY[s.rid].pk===pk).map(s=>s.rid))];
+  const held=new Set(G.LL.passes.filter(p=>p.st!=='cancelled').map(p=>p.rid)),book=[];
+  res.steps.forEach(s=>{for(const b of s.books||[])if(!held.has(b.rid)&&!G.ridden.includes(b.rid)&&!book.some(x=>x.rid===b.rid))book.push({rid:b.rid,at:Math.max(b.at,o.t),ret:b.ret})});
+  const x={must:ord(o.pk),keep:true,book,extras:false,noCmp:true,noWhy:true,noLLCmp:true,pace:'fast',ll:o.ll==='none'?'none':'mine'};
+  if(o.legs&&o.legs.length)x.legs=o.legs.map(L=>Object.assign({},L,{must:ord(L.pk),keep:true,book}));
+  return Object.assign({},o,x)}
+function confPks(o){return[o.pk].concat((o.legs||[]).map(l=>l.pk))}
+function confNMust(o){return o.must.length+(o.legs||[]).reduce((a,l)=>a+l.must.length,0)}
+// one modelled rest-of-day from `now`
+function confDay(seed,pks,now){const rnd=stRng(seed),live=liveActive(),day={},ups=dpGameDPX();
+  for(const pk of pks){const op=accessOpen(pk),cl=dpParkEnd(pk),rest=Math.max(0,cl-Math.max(now,op)),frac=clamp(rest/Math.max(60,cl-op),0,1);
+    const c=clamp(Math.exp(confCrowdSd(pk)*stGauss(rnd)),0.7,1.45),bias={},out={};
+    for(const r of RIDES){if(r.pk!==pk)continue;bias[r.id]=stGauss(rnd);
+      if(r.kind!=='show'&&rnd()<(r.thrill>=6?0.5:0.3)*frac){const s=Math.max(now,op)+rnd()*Math.max(30,rest-30);out[r.id]=[s,s+15+Math.min(105,-Math.log(1-rnd()*0.999)*25)]}}
+    day[pk]={c,bias,out}}
+  const fade=t=>live?clamp((t-now)/120,0.15,1):clamp(0.5+(t-now)/240,0.5,1);
+  return{day,ll:()=>0,
+    wait:(r,t,w)=>{const d=day[r.pk];if(!d||r.kind==='show')return w;const f=fade(t),e=0.10*stGauss(stRng(hash(seed+r.id+Math.floor(t/60))));
+      return Math.max(1,Math.round(w*(1+(d.c-1)*f)*Math.exp((0.12*d.bias[r.id]+e)*f)))},
+    up:(r,t)=>{const u=ups.up(r,t);if(u>t)return u;const d=day[r.pk],o=d&&d.out[r.id];return o&&t>=o[0]&&t<o[1]?o[1]:t}}}
+function confLLX(seed,dm,now){const m={},g=r=>m[r.id]||(m[r.id]=(()=>{const q=stRng(hash(seed+r.id+'ll')),d=dm.day[r.pk],c=d?d.c:1;
+    return{s:stGauss(q)*llSellSd(llSell(r)*60-now)-(c-1)*G.crowd*2.5,g:stGauss(q),c}})());
+  return{sell:r=>g(r).s,ret:(r,t)=>{const k=g(r);return k.g*llRetSd(t-now)+(k.c-1)*90}}}
+function confMetrics(res,o){const m=stMetrics(res,o,G.LL,0),made=new Set();res.steps.forEach(s=>(s.books||[]).forEach(b=>made.add(b.rid)));
+  for(const b of o.book)if(!made.has(b.rid)&&RIDE_BY[b.rid])m.events.push({t:b.at,what:`${RIDE_BY[b.rid].short} Lightning Lane not bookable in time`,key:'llb:'+b.rid});
+  const want=new Set(confAllMust(o));return{nDone:m.nDone,nMust:m.nMust,endMust:m.endMust,events:m.events,did:[...new Set(res.steps.filter(s=>s.k==='ride'&&want.has(s.rid)).map(s=>s.rid))]}}
+function confAllMust(o){return o.must.concat(...(o.legs||[]).map(l=>l.must))}
+function confOne(o,seed,now){const dm=confDay(seed,confPks(o),now),x0=LLX;DPX=dm;LLX=confLLX(seed,dm,now);DPW={};
+  try{return confMetrics(dpRunDay(o),o)}finally{DPX=null;LLX=x0;DPW={}}}
+function confFlat(o){DPX=dpGameDPX();DPW={};try{return confMetrics(dpRunDay(o),o)}finally{DPX=null;DPW={}}}
+function confAgg(sims,fc){const n=sims.length,risk={},fk=new Set(fc.events.map(e=>e.key));
+  // things the plan itself already gives up on (e.g. a pass it rides standby instead) aren't risks; they're listed apart
+  const known=[...new Set(fc.events.filter(e=>/^(ll|llb|miss|show):/.test(e.key)).map(e=>e.what.replace(/ window missed$/,' goes unused')))];
+  sims.forEach(m=>{const seen={};m.events.forEach(e=>{if(seen[e.key]||fk.has(e.key))return;seen[e.key]=1;
+    const b=risk[e.key]=risk[e.key]||{key:e.key,what:e.what.replace("doesn't fit before close","doesn't fit in time").replace(/ \d+m late \(needs the full 60-min grace\)/,' used 30+ min late').replace(/ \d+m late/,' late'),n:0};b.n++})});
+  const top=Object.values(risk).map(b=>Object.assign(b,{p:b.n/n})).filter(b=>b.p>=0.15).sort((a,b)=>b.p-a.p).slice(0,3);
+  // headline: the rides the plan still fits on the expected day (fc) all get done, on how many modelled days
+  return{n,all:sims.filter(m=>fc.did.every(id=>m.did.includes(id))).length/n,allMust:sims.filter(m=>m.nDone===m.nMust).length/n,holds:sims.filter(m=>!m.events.length).length/n,avgDone:sims.reduce((a,m)=>a+m.nDone,0)/n,
+    nMust:fc.nMust,fcDone:fc.nDone,fcFin:fc.endMust,fin50:stPct(sims.map(m=>m.endMust),0.5),fin90:stPct(sims.map(m=>m.endMust),0.9),top,known}}
+function confYield(){return new Promise(r=>setTimeout(r,0))}
+// runs the sims a slice at a time; null if the plan changed meanwhile
+async function confSims(o,P,made){const now=o.t,fc=confFlat(o),sims=[],t0=performance.now();
+  for(let i=0;i<CONF.N;i++){if(G.plan!==P||P.made!==made||G.over)return null;sims.push(confOne(o,hash((G.date||'')+'cf'+i),now));await confYield()}
+  CONF.ms=Math.round((performance.now()-t0)/CONF.N);return confAgg(sims,fc)}
+async function confRun(why){if(CONF.busy||!G.plan)return;const P=G.plan,made=P.made;CONF.busy=true;
+  try{const o=confOpts(P.res);if(!confNMust(o)){P.conf=null;CONF.ver++;return}
+    const R=await confSims(o,P,made);if(!R)return;R.t=Math.round(o.t);R.why=why;R.live=liveActive();R.read=!!(RF.est[o.pk]&&RF.est[o.pk].date===G.date&&RF.est[o.pk].units);
+    const c=P.conf=P.conf||{base:null,hist:[]};if(c.base==null)c.base=R.all;c.hist.push([R.t,Math.round(R.all*100)]);if(c.hist.length>40)c.hist.splice(0,c.hist.length-40);
+    c.last=R;CONF.ver++;runDirty();confWarn(P,R)}
+  catch(e){console.warn('confidence',e)}finally{CONF.busy=false;CONF.last=G.t;CONF.lastReal=Date.now()}}
+// called every frame: after any change (ride done, replan, booking) and every CONF_EVERY game minutes
+function confTick(){if(!CONF||!CONF.on||CONF.busy||!G.plan||!G.started||G.over||document.hidden||RT.catching)return;if(typeof DPV!=='undefined'&&DPV.edit)return;
+  const P=G.plan;if(Date.now()-CONF.lastReal<3000)return;
+  const sig=P.made+'|'+G.ridden.length+'|'+(P.legI||0)+'|'+G.LL.passes.map(p=>p.id+p.st+p.start).join(',');
+  const ch=sig!==CONF.sig;if(ch||G.t-CONF.last>=CONF_EVERY||!P.conf||!P.conf.last){CONF.sig=sig;confRun(ch?'change':'time')}}
+function confWarn(P,R){const c=P.conf,b=c.base,p=R.all;if(!R.nMust)return;
+  const prev=c.hist.length>1?c.prevLast:null,lost=R.fcDone<R.nMust&&(!prev||prev.fcDone>=prev.nMust);c.prevLast={fcDone:R.fcDone,nMust:R.nMust};
+  const drop=(b!=null&&b-p>=0.15&&p<0.7)||lost;if(!drop){if(p>=(b||0)-0.05)c.warned=false;return}
+  if(c.warned||G.t-CONF.warnT<30)return;c.warned=true;CONF.warnT=G.t;
+  dpToast(lost?`Your plan no longer fits ${R.nMust-R.fcDone} ride${R.nMust-R.fcDone>1?'s':''} · tap to see a replan`:`Plan confidence ${pct(p)} (was ${pct(b)})${R.top[0]?' · '+R.top[0].what:''} · tap to see`);confCompare(P)}
+// would a fresh replan (any order) hold up better? same modelled days
+async function confCompare(P){if(!P||G.plan!==P)return;const made=P.made;let res;DPX=dpGameDPX();try{res=dpRunDay(Object.assign({},dpGameOpts(P.settings),{noWhy:true}))}catch(e){return}finally{DPX=null;DPW={}}
+  const o=confOpts(res,true);if(!confNMust(o))return;while(CONF.busy)await new Promise(r=>setTimeout(r,200));CONF.busy=true;
+  try{const R=await confSims(o,P,made);if(!R)return;P.conf.cmp={t:Math.round(o.t),all:R.all,avgDone:R.avgDone,nMust:R.nMust,fin50:R.fin50,nDoneRes:res.nDone,missed:res.missed.slice()};CONF.ver++}
+  finally{CONF.busy=false}}
+function confCardHTML(){const P=G.plan;if(!CONF||!CONF.on||!P||!P.res.nMust)return '';const c=P.conf,R=c&&c.last;
+  if(!R)return `<div class="conf"><div class="cp">…</div><div><div class="n">Plan confidence</div><div class="m">Checking how the rest of the plan holds up…</div></div></div>`;
+  if(!R.nMust)return '';const p=R.all,col=oddsCol(p);let tr='';
+  {const h=c.hist,old=h.slice().reverse().find(x=>R.t-x[0]>=45);if(old){const d=Math.round(p*100)-old[1];if(Math.abs(d)>=5)tr=` <small class="${d>0?'up':'dn'}">${d>0?'▲':'▼'} ${Math.abs(d)} since ${fmtClock(old[0])}</small>`}}
+  const cm=c.cmp&&G.t-c.cmp.t<40&&(c.cmp.all-p>=0.1||c.cmp.avgDone-R.avgDone>=0.5||c.cmp.nDoneRes>R.fcDone)?c.cmp:null;
+  return `<div class="conf ${col}"><div class="cp">${Math.round(p*100)}%</div><div style="flex:1;min-width:0"><div class="n">Plan confidence${tr}</div>
+  <div class="m">Chance the rest goes as planned: ${R.fcDone<R.nMust?`the ${R.fcDone} of ${R.nMust} planned rides that still fit`:`all ${R.nMust} planned ride${R.nMust===1?'':'s'}`} · finish ~${fmtClock(R.fin50)}, ${fmtClock(R.fin90)} on a bad day</div>
+  ${R.top.map(b=>`<div class="m risk">⚠ ${b.what} · ${pct(b.p)}</div>`).join('')}${R.known&&R.known.length?`<div class="m">Already in the plan: ${R.known.join('; ')}.</div>`:''}
+  ${cm?`<div class="m">A replan now: <b>${pct(cm.all)}</b> for ${cm.nDoneRes} ride${cm.nDoneRes===1?'':'s'}${cm.missed.length?` (drops ${cm.missed.map(id=>RIDE_BY[id].short).join(', ')})`:''} · finish ~${fmtClock(cm.fin50)} <button class="btn sm" id="confRe" type="button">Replan</button></div>`:''}
+  <details class="m"><summary>How this works</summary>Runs the rest of your plan in its order on ${R.n} modelled days from ${fmtClock(R.t)}: crowds ${R.read?'around the crowd read':'around the forecast'}, ${R.live?'live waits near now with ':''}lines that run long or short, ride outages, and Lightning Lane returns and sell-outs. Updates every ${CONF_EVERY} min and after every ride, booking or replan. The risks are things that fail on 15%+ of days.</details></div></div>`}
 // ================= FLOW =================
 const selH=$('#selHotel');RESORTS.forEach(h=>{const o=document.createElement('option');o.value=h.id;o.textContent=h.name;selH.appendChild(o)});selH.value='pop';
 function segPick(id,cb){const el=$(id);el.querySelectorAll('button').forEach(b=>b.onclick=()=>{el.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed','false'));b.setAttribute('aria-pressed','true');cb&&cb(b)})}
@@ -4289,7 +4429,7 @@ function runTrip(){const segs=G.segs;if(!segs||!segs.length)return null;const s=
 function runState(){const P=G.plan,down={};for(const r of RIDES)if(r.downUntil)down[r.id]=r.downUntil;
   return{v:RUN.v,saved:Date.now(),date:G.date,real:!!G.real,t:G.t,mult:G.pfMult||1,hotel:selH.value,speed:G.speed,node:G.node,
     ridden:G.ridden,mood:G.mood,score:G.score,stats:G.stats,LL:G.LL,down,autoLast:AUTO.last,trip:runTrip(),log:G.log||[],planFirst:G.planFirst||null,
-    plan:P?{settings:P.settings,res:P.res,legI:P.legI||0,ridIdx:P.ridIdx,lunchAt:P.lunchAt,blkDone:P.blkDone||{},made:P.made,notes:P.notes||[],base:P.base}:null}}
+    plan:P?{settings:P.settings,res:P.res,legI:P.legI||0,ridIdx:P.ridIdx,lunchAt:P.lunchAt,blkDone:P.blkDone||{},made:P.made,notes:P.notes||[],base:P.base,conf:P.conf||null}:null}}
 function runSave(){if(!G.started||G.over||!G.date)return false;RUN.last=Date.now();RUN.dirty=false;
   try{localStorage.setItem(RUN_KEY(G.date),JSON.stringify(runState()));return true}catch(e){return false}}
 // called every frame: save when something changed, or every 5 s of real time (= every game minute at 1×, ~1 h at 15×)
@@ -4373,7 +4513,7 @@ function pvRefresh0(force){if(!PV.on||!G.started||G.over)return;const now=perfor
   if(!force&&(now-PV.last<2000||now-PV.touch<1500))return;
   const cur=G.segs&&G.segs[G.seg],pk=NODES[effectiveStart().node].park||(G.plan?G.plan.res.pk:currentPark());
   const sig=[G.plan?G.plan.made+':'+G.plan.notes.length+':'+Object.keys(G.plan.blkDone||{}).length+':'+G.plan.lunchAt:'-',G.ridden.length,G.seg,G.segs?G.segs.length:0,cur?cur.k+(cur.started?1:0)+(cur.hold?1:0)+(cur.act||''):'',G.node,
-    G.LL.passes.map(p=>p.rid+p.st+p.start).join(),LIVE.got,Math.floor(G.t/(G.real?1:5)),DPV.clr,AUTO.on,pk,G.LL.tapped].join('|');
+    G.LL.passes.map(p=>p.rid+p.st+p.start).join(),LIVE.got,CONF&&CONF.ver,Math.floor(G.t/(G.real?1:5)),DPV.clr,AUTO.on,pk,G.LL.tapped].join('|');
   PV.last=now;if(!force&&sig===PV.sig)return;PV.sig=sig;
   const el=$('#pvIn'),sc=$('#pv').scrollTop;let html,v=null;
   if(G.plan){v=planViewHTML();html=`<div class="pvh"><h2>Your plan · ${dpParksLabel(G.plan.res)}</h2><span>${G.real?'● Real time':fmtClock(G.t)}</span></div>${pvLLHTML()}${v.top}${pvWaitsHTML(pk)}<h3 id="pvPlanH">Plan</h3>${v.rest}`}
@@ -4402,9 +4542,9 @@ function tick(now){const pv=PV.on;if(pv&&(G.real||!G.started||G.over)&&now-PV.ti
   if(!pv){updateVehicles();updateExtras();updateSky(now);updateFireworks(dtR);
     if(G.started){me.position.set(G.pos[0],G.pos[1],G.pos[2]);me.ring.material.opacity=0.6+0.35*Math.sin(now/300)}
     camStep(now);controls.update();skyDome.position.copy(camera.position);renderFrame();updateLabels()}
-  if(G.started){updateHUD();runTick();if(pv)pvRefresh(false)}
+  if(G.started){updateHUD();runTick();try{confTick()}catch(e){}if(pv)pvRefresh(false)}
 }
-window.WDW={endDay,resBuild,resHTML,resShow,resLoad,resLatest,RUN,runSave,runLoad,runClear,runResume,runState,runBox,runFind,AUTO,RT,autoCheck,autoReasons,autoReplan,autoDiff,rtRodeIt,rtAt,rtNow,openWhere,dpGameOpts,camera,controls,RF,rfCompact,rfStore,rfLoad,rfResid,rfCalibrate,rfEstimate,rfBacktest,rfUpdateToday,rfApplyDay,rfMul,rfCal,openRF,rfAfterUpdate,rfNoteUpdate,rfTick,rfBannerHTML,liveMatch,stRun,stHTML,stCalib,stModelDay,dpParseTP,dpApplyImport,scene,setGfx,LIGHT,sunDir,fwShows,fwSim:(n,dt)=>{for(let i=0;i<n;i++)updateFireworks(dt)},holdTime:t=>{G.holdT=t==null?null:t*60;if(t!=null)G.t=t*60},dpRun,dpRunDay,dpLegs,dpAllMust,getDPS:()=>DPS,dpStartOpts:S=>dpStartOpts(S),dpMakeGame,dpProgress,dpLoad,dpSave,openPlan,openDaySetup,prepDay,llFromPlan,llFresh,llBook,llNext,llRecs,llUse,llHeld,llTick,llPlanErrors,llSuggest,llLoadPlan,openLL,openRides,openPicks,LIVE,liveIngest,liveFor,curveAt,orlandoNow,livePoll,G,go,flyTo,setFollow,RIDE_BY,PARKS,camera,controls,openRide,closeSheet,rawWait,waitAt,dayFactor,holiday,hoursFor,applyHours,accessOpen,lastClose,renderer,dijkstra,NI,NODES,RESORTS,RIDES,LINES};
+window.WDW={llOdds,llObs,llObsAdd,llCalFor,CONF,confRun,confOpts,confCompare,confCardHTML,openLLEnter,endDay,resBuild,resHTML,resShow,resLoad,resLatest,RUN,runSave,runLoad,runClear,runResume,runState,runBox,runFind,AUTO,RT,autoCheck,autoReasons,autoReplan,autoDiff,rtRodeIt,rtAt,rtNow,openWhere,dpGameOpts,camera,controls,RF,rfCompact,rfStore,rfLoad,rfResid,rfCalibrate,rfEstimate,rfBacktest,rfUpdateToday,rfApplyDay,rfMul,rfCal,openRF,rfAfterUpdate,rfNoteUpdate,rfTick,rfBannerHTML,liveMatch,stRun,stHTML,stCalib,stModelDay,dpParseTP,dpApplyImport,scene,setGfx,LIGHT,sunDir,fwShows,fwSim:(n,dt)=>{for(let i=0;i<n;i++)updateFireworks(dt)},holdTime:t=>{G.holdT=t==null?null:t*60;if(t!=null)G.t=t*60},dpRun,dpRunDay,dpLegs,dpAllMust,getDPS:()=>DPS,dpStartOpts:S=>dpStartOpts(S),dpMakeGame,dpProgress,dpLoad,dpSave,openPlan,openDaySetup,prepDay,llFromPlan,llFresh,llBook,llNext,llRecs,llUse,llHeld,llTick,llPlanErrors,llSuggest,llLoadPlan,openLL,openRides,openPicks,LIVE,liveIngest,liveFor,curveAt,orlandoNow,livePoll,G,go,flyTo,setFollow,RIDE_BY,PARKS,camera,controls,openRide,closeSheet,rawWait,waitAt,dayFactor,holiday,hoursFor,applyHours,accessOpen,lastClose,renderer,dijkstra,NI,NODES,RESORTS,RIDES,LINES};
 requestAnimationFrame(frame);
 })();
 </script>
