@@ -133,7 +133,7 @@ textarea{box-sizing:border-box;width:100%;background:var(--chip);color:var(--tex
 .tl .m{font-size:12px;color:var(--muted);margin-top:2px;line-height:1.4}
 .tl .bk{font-size:12px;color:var(--ll);margin-top:3px;font-weight:600}
 .tl.done{opacity:.45}.tl.nx{background:rgba(255,201,77,.09);border-radius:10px}
-.tl.ex .tt{color:var(--muted)}.tl.meal .tt{color:var(--good)}
+.tl.ex .tt{color:var(--muted)}.tl.meal .tt{color:var(--good)}.tl.hop .tt{color:#5bc0ff}
 .tpx{color:#ff8fa3;font-weight:600}
 .tag.rp{background:rgba(255,201,77,.18);color:var(--gold)}.tag.sb{background:rgba(255,255,255,.08);color:var(--muted)}
 .toast.dp{border-color:rgba(255,201,77,.6);pointer-events:auto;cursor:pointer}.toast.dp::before{content:'🗺';}
@@ -925,7 +925,7 @@ function dpLLFrom(L){return{mp:L.mp,prem:L.premier,tapped:!!L.tapped,
   booked:Object.fromEntries(L.passes.filter(p=>p.st!=='cancelled').map(p=>[p.rid,1])),premUsed:Object.assign({},L.premUsed),
   mep:L.passes.filter(p=>p.st==='mep').map(p=>p.mepOpts.slice())}}
 function dpCtx(o){const pk=o.pk,M=dpMatrix(pk),park=RIDES.filter(r=>r.pk===pk),bit={};park.forEach((r,i)=>bit[r.id]=1<<i);
-  const ctx={pk,M,bit,park,must:o.must.filter(id=>RIDE_BY[id]&&RIDE_BY[id].pk===pk),keep:!!o.keep,lunch:!!o.lunch,lunchDone:!!o.lunchDone,tp:o.tp||{},blkAfter:{},extras:!!o.extras,t0:o.t,end:dpParkEnd(pk),startD:{},book:(o.book||[]).map(k=>typeof k==='string'?{rid:k}:k).filter(k=>RIDE_BY[k.rid]&&RIDE_BY[k.rid].pk===pk),walkK:o.cal?o.cal.walk:1,llAdj:o.cal?o.cal.ll:null,grace:o.grace||DP_GRACE,dur:o.cal&&o.cal.dur||null,pw:o.cal&&o.cal.pw||null};
+  const ctx={pk,M,bit,park,must:o.must.filter(id=>RIDE_BY[id]&&RIDE_BY[id].pk===pk),keep:!!o.keep,lunch:!!o.lunch,lunchDone:!!o.lunchDone,tp:o.tp||{},blkAfter:{},extras:!!o.extras,t0:o.t,end:o.until!=null?Math.min(dpParkEnd(pk),o.until):dpParkEnd(pk),until:o.until!=null&&o.until<dpParkEnd(pk)?o.until:null,later:o.later||null,startD:{},book:(o.book||[]).map(k=>typeof k==='string'?{rid:k}:k).filter(k=>RIDE_BY[k.rid]&&RIDE_BY[k.rid].pk===pk),walkK:o.cal?o.cal.walk:1,llAdj:o.cal?o.cal.ll:null,grace:o.grace||DP_GRACE,dur:o.cal&&o.cal.dur||null,pw:o.cal&&o.cal.pw||null};
   ctx.timed=[];for(const b of o.blocks||[]){if(!o.keep&&b.meal&&b.at){ctx.timed.push(b);continue}const k=b.after&&!(o.done||[]).includes(b.after)?b.after:'_start';(ctx.blkAfter[k]=ctx.blkAfter[k]||[]).push(b)}
   const D=dijkstra(o.node,o.t/60);park.forEach(r=>ctx.startD[r.id]=D.dist[NI[r.nodeId]]);
   // lowest standby from each 15-min bucket to close (for the search heuristic)
@@ -933,9 +933,10 @@ function dpCtx(o){const pk=o.pk,M=dpMatrix(pk),park=RIDES.filter(r=>r.pk===pk),b
   for(const r of park){const a=new Array(nb).fill(99);let m=99;for(let i=nb-1;i>=0;i--){const t=(ctx.b0+i)*15;if(t>=accessOpen(pk)&&parkOpen(pk,t))m=Math.min(m,dpWait(r,t));else if(t<accessOpen(pk))m=Math.min(m,dpWait(r,accessOpen(pk)));a[i]=m}ctx.suf[r.id]=a}
   // last minute you can still join a standby line ("in line by close")
   ctx.lj=null;for(let t=Math.ceil(ctx.end);t>=Math.floor(o.t);t--)if(parkOpen(pk,t)){ctx.lj=t+1;break}
+  if(ctx.until!=null&&ctx.lj!=null)ctx.lj=Math.min(ctx.lj,ctx.until);
   // pacing: preset, evening start, favourite must-do to save for the evening
   ctx.paceK=o.keep?'fast':dpPaceOf(o);ctx.pace=DP_PACE[ctx.paceK];ctx.eve=Math.max(16*60,(ctx.lj||ctx.end)-150);ctx.fav=null;
-  if(ctx.pace&&o.t<ctx.eve-30){let bv=0;for(const id of ctx.must){const r=RIDE_BY[id];if(r.kind==='show'||(o.done||[]).includes(id))continue;const v=r.avg*(r.thrill+4);if(v>bv){bv=v;ctx.fav=id}}}
+  if(ctx.pace&&o.t<ctx.eve-30&&ctx.eve<ctx.end-30){let bv=0;for(const id of ctx.must){const r=RIDE_BY[id];if(r.kind==='show'||(o.done||[]).includes(id))continue;const v=r.avg*(r.thrill+4);if(v>bv){bv=v;ctx.fav=id}}}
   return ctx}
 function dpRoot(ctx,o,ll){ll=Object.assign({},ll);let done=0;for(const id of o.done||[])if(ctx.bit[id])done|=ctx.bit[id];
   const S={t:o.t,at:null,done,ll,lunch:ctx.lunchDone||!ctx.lunch,n:0,par:null,step:null,str:0,pen:0};
@@ -961,9 +962,9 @@ function dpRet(ctx,r,t,k){const sh=ctx.llAdj&&ctx.llAdj[r.id]||0;let ret=llNext(
   return ret>PARKS[r.pk].close*60-LL_WIN?null:ret}
 function dpBook(ctx,S,t,pool){const L=S.ll,out=[];if(!L.mp)return out;const ord=ctx.book.length?ctx.book.filter(k=>pool.includes(k.rid)):null;
   for(let g=0;g<3;g++){const held=L.held.filter(p=>p.type==='mp');if(held.length>=3)break;let best=null,bs=ord?-1e9:9;
-    for(const k of ord||pool){if(ord&&best)break;const id=ord?k.rid:k;const r=RIDE_BY[id];if(r.llType!=='mp'||L.booked[id]||(L.prem===r.pk&&!L.premUsed[id]))continue;
+    for(const k of ord||(ctx.later&&L.tapped?pool.concat(ctx.later.ids):pool)){if(ord&&best)break;const id=ord?k.rid:k;const r=RIDE_BY[id];if(r.llType!=='mp'||L.booked[id]||(L.prem===r.pk&&!L.premUsed[id]))continue;
       if(!L.tapped){if(r.pk!==L.mp)continue;if(r.tier===1&&held.some(p=>RIDE_BY[p.rid].tier===1))continue}
-      const ret=dpRet(ctx,r,t,ord?k:null);if(ret==null)continue;const save=dpWait(r,Math.min(ret+30,PARKS[r.pk].close*60-1))-DP_LLQ;if(save>bs){bs=save;best={r,ret}}}
+      const ret=dpRet(ctx,r,t,ord?k:null);if(ret==null||(r.pk!==ctx.pk&&ctx.later&&ret<ctx.later.from)||(r.pk===ctx.pk&&ctx.until!=null&&ret>ctx.until-20))continue;const save=dpWait(r,Math.min(ret+30,PARKS[r.pk].close*60-1))-DP_LLQ;if(save>bs){bs=save;best={r,ret}}}
     if(!best)break;L.held=L.held.concat([{rid:best.r.id,start:best.ret,end:best.ret+LL_WIN,type:'mp'}]);L.booked=Object.assign({},L.booked,{[best.r.id]:1});out.push({rid:best.r.id,ret:best.ret,at:t})}
   return out}
 function dpExpand(ctx,S,r,useLL,pool){
@@ -981,6 +982,7 @@ function dpExpand(ctx,S,r,useLL,pool){
     wait=dpWait(r,q0)}
   let down=0;if(DPX){const up=DPX.up(r,q0);if(up>q0){down=up-q0;wait+=down}}
   let end=q0+wait+(ctx.dur&&ctx.dur[r.id]!=null?ctx.dur[r.id]:r.dur);
+  if(ctx.until!=null&&end>ctx.until)return null; // plan end / hop time: off the ride by then
   // passes whose window has passed expire (their ride stays used for the day)
   ll.held=ll.held.filter(p=>p.end+ctx.grace>=end);
   // comfort cost (pacing): stretch of standing in long lines since the last break
@@ -1032,7 +1034,7 @@ function dpPack(ctx,S,W){let best=dpBeam(ctx,S,W);let fin=null;
   const mustSteps=steps.filter(s=>s.k==='ride'&&s.must);const doneIds=new Set(mustSteps.map(s=>s.rid));
   const res={steps,nMust:ctx.must.length,nDone:mustSteps.length,endMust:mustSteps.length?mustSteps[mustSteps.length-1].end:ctx.t0,end:fin.t,
     missed:ctx.must.filter(id=>!doneIds.has(id)),ll:best.ll,pen:Math.round(best.pen||0)};
-  Object.defineProperty(res,'_best',{value:best,enumerable:false});res.pace=dpPaceStats(ctx,steps);return res}
+  Object.defineProperty(res,'_best',{value:best,enumerable:false});Object.defineProperty(res,'_fin',{value:fin,enumerable:false});res.pace=dpPaceStats(ctx,steps);return res}
 // how the must-dos feel: total standby, longest stretch in line without a real break, favourite saved for the evening
 function dpPaceStats(ctx,steps){let str=0,longest=0,standby=0,fav=null;
   for(const s of steps){if(s.k!=='ride'||s.extra)continue;const stand=(s.how==='standby'||s.how==='rope')&&s.wait>=DP_LONG;if(s.rest)str=0;
@@ -1043,7 +1045,7 @@ function dpPaceStats(ctx,steps){let str=0,longest=0,standby=0,fav=null;
 const dpScore=p=>p.nDone*10000-p.endMust-(p.pen||0);
 // Multi Pass pre-book suggestion: the most valuable Group 1 + two Group 2 must-dos (any 3 at AK),
 // tried in every order and several staggered start times; also plain day-of booking. Best plan wins.
-function dpSuggest(ctx,o,base){const pk=ctx.pk,P=PARKS[pk],open=P.open*60,last=P.close*60-LL_WIN;
+function dpSuggest(ctx,o,base){const pk=ctx.pk,P=PARKS[pk],open=P.open*60,last=Math.min(P.close*60,ctx.end)-LL_WIN;
   const peak=r=>{let m=0;for(let h=P.open;h<P.close;h++)m=Math.max(m,dpWait(r,h*60+30));return m*(r.thrill+4)};
   const cand=ctx.must.map(id=>RIDE_BY[id]).filter(r=>r.llType==='mp'&&!(o.done||[]).includes(r.id)).sort((a,b)=>peak(b)-peak(a));
   let pick=pk==='AK'?cand.slice(0,3):[cand.find(r=>r.tier===1),...cand.filter(r=>r.tier===2).slice(0,2)].filter(Boolean);
@@ -1067,8 +1069,45 @@ function dpRun(o){DPW={};const t0=performance.now();const ctx=dpCtx(o);const bas
     else if(gain<=0&&fast.endMust<=res.endMust){if(fast._ll)rootLL=fast._ll;fast.pace.mode=ctx.paceK;fast.pace.favId=ctx.fav;fast.fast={nDone:fast.nDone,endMust:fast.endMust,standby:fast.pace.standby,longest:fast.pace.longest};res=fast}
     else res.fast={nDone:fast.nDone,endMust:fast.endMust,standby:fast.pace.standby,longest:fast.pace.longest,favQ0:ctx.fav?(fast.steps.find(s=>s.rid===ctx.fav)||{}).q0:null}}
   if(res.missed.length&&!o.noCmp&&!o.noWhy)try{res.why=dpWhy(ctx,o,res,rootLL)}catch(e){res.why={}}
-  if(!o.noCmp&&o.ll!=='none'&&ctx.must.some(id=>RIDE_BY[id].ll)&&(o.ll==='suggest'||base.mp||base.prem||base.held.length)){const nl=Object.assign({},ctx,{extras:false});res.noLL=dpPack(nl,dpRoot(nl,o,dpLLFrom(llFresh())),48)}
-  res.pk=o.pk;res.mode=o.ll;res.t0=o.t;res.ms=Math.round(performance.now()-t0);return res}
+  if(!o.noCmp&&!o.noLLCmp&&o.ll!=='none'&&ctx.must.some(id=>RIDE_BY[id].ll)&&(o.ll==='suggest'||base.mp||base.prem||base.held.length)){const nl=Object.assign({},ctx,{extras:false});res.noLL=dpPack(nl,dpRoot(nl,o,dpLLFrom(llFresh())),48)}
+  res.pk=o.pk;res.mode=o.ll;res.t0=o.t;if(ctx.until!=null)res.until=ctx.until;res.ms=Math.round(performance.now()-t0);return res}
+// ---- Park hopping (roadmap row 26). A day can span parks: S.legs = later parks [{pk,must,hopAt,blocks,tp,book,keep,gate,imported}],
+// leg 0 is S itself. hopAt = minute to leave the previous park, or null = right after its must-dos. S.end = minute the day ends
+// (off the last ride by then), or null = park close. Each leg is planned by dpRun up to its leave time; travel to the next park's gate
+// comes from the resort route graph (buses, monorail, Skyliner, boats, walkways). Lightning Lane state carries over (held passes,
+// tap-in), and once tapped in, open Multi Pass slots may take the next park's must-dos for returns after the planned arrival.
+// Disney World rule (since Jan 2024): with a Park Hopper you can hop any time after tapping into your first park.
+const DP_HOP_MAX=3;
+function dpLegs(S){const out=[S];for(const l of (S&&S.legs)||[]){if(!l||!PARKS[l.pk])continue;if(out.length>DP_HOP_MAX)break;out.push(l)}return out}
+function dpAllMust(S){return S?dpLegs(S).flatMap(l=>(l.must||[]).filter(id=>RIDE_BY[id]&&RIDE_BY[id].pk===l.pk)):[]}
+function dpGateNode(l){return NI[l.gate||l.pk+':front']}
+function dpHopTravel(node,t,l){const D=dijkstra(node,t/60);return D.dist[dpGateNode(l)]}
+function dpLastNode(res,node){for(let i=res.steps.length-1;i>=0;i--){const s=res.steps[i];if(s.k==='ride')return NI[RIDE_BY[s.rid].nodeId]}return node}
+function dpParksLabel(res){return res&&res.legs?res.legs.map(l=>PARKS[l.pk].short).join(' → '):PARKS[res.pk].short}
+// the hop a ride step waits on: a hop step after the last ride before it
+function dpHopBefore(steps,i){for(let j=i-1;j>=0;j--){const s=steps[j];if(s.k==='hop')return s;if(s.k==='ride')return null}return null}
+function dpRunDay(o){const legs=dpLegs(o);
+  if(legs.length<2)return dpRun(Object.assign({},o,{until:o.end!=null?o.end:null}));
+  const t0=performance.now();let node=o.node,t=o.t,LLs=o.LLs||dpLLFrom(o.L||llFresh()),lunchDone=!!o.lunchDone;const parts=[],hops=[];
+  for(let i=0;i<legs.length;i++){const l=legs[i],nx=legs[i+1],last=!nx;
+    const until=!last&&nx.hopAt!=null?(o.end!=null?Math.min(nx.hopAt,o.end):nx.hopAt):(o.end!=null?o.end:null);
+    const lo=Object.assign({},o,{pk:l.pk,must:(l.must||[]).filter(id=>RIDE_BY[id]&&RIDE_BY[id].pk===l.pk&&!(o.done||[]).includes(id)),blocks:i?(l.blocks||[]):(o.blocks||[]),tp:l.tp||{},book:l.book||null,keep:!!l.keep,
+      node,t,LLs,L:null,lunchDone,until,ll:i&&o.ll==='suggest'?'mine':o.ll,extras:!!o.extras&&(last||nx.hopAt!=null),noLLCmp:true,legs:null,later:null});
+    if(nx&&o.ll!=='none'){const ids=(nx.must||[]).filter(id=>RIDE_BY[id]&&RIDE_BY[id].llType==='mp'&&RIDE_BY[id].pk===nx.pk&&!(o.done||[]).includes(id));
+      if(ids.length){let est=nx.hopAt;if(est==null)est=dpRun(Object.assign({},lo,{noWhy:true,pace:'fast'})).end;est=Math.max(est,t);lo.later={ids,from:est+dpHopTravel(dpGateNode(l),est,nx)+10}}}
+    const res=dpRun(lo);parts.push(res);const fin=res._fin;if(fin&&fin.ll)LLs=fin.ll;
+    if(res.steps.some(s=>s.meal||(s.blocks||[]).some(b=>b.meal)))lunchDone=true;
+    if(last)break;
+    const leave=Math.max(res.end,nx.hopAt!=null?nx.hopAt:0,t),from=dpLastNode(res,node),tr=dpHopTravel(from,leave,nx);
+    if(!isFinite(tr))throw new Error('No route from '+PARKS[l.pk].name+' to '+PARKS[nx.pk].name);
+    const arr=leave+tr;hops.push({k:'hop',from:l.pk,to:nx.pk,leave,arr,travel:Math.round(tr),idle:Math.max(0,Math.round(leave-res.end)),target:nx.hopAt!=null?nx.hopAt:null,books:[],blocks:[]});
+    node=dpGateNode(nx);t=arr}
+  const steps=[];parts.forEach((r,i)=>{if(i)steps.push(Object.assign(hops[i-1],{leg:i}));r.steps.forEach(s=>{s.leg=i;steps.push(s)})});
+  const sum=k=>parts.reduce((a,r)=>a+r[k],0),wm=parts.filter(r=>r.nDone);
+  const res={steps,nMust:sum('nMust'),nDone:sum('nDone'),endMust:wm.length?wm[wm.length-1].endMust:o.t,end:parts[parts.length-1].end,missed:parts.flatMap(r=>r.missed),
+    why:Object.assign({},...parts.map(r=>r.why||{})),ll:parts[parts.length-1].ll,pen:0,pace:null,pk:legs[0].pk,mode:o.ll,t0:o.t,
+    legs:parts.map((r,i)=>({pk:legs[i].pk,nMust:r.nMust,nDone:r.nDone,endMust:r.endMust,end:r.end,missed:r.missed,until:r.until!=null?r.until:null,pace:r.pace,paceFallback:r.paceFallback||null})),hops:hops.slice()};
+  if(parts[0].pre)res.pre=parts[0].pre;{const lu=parts[parts.length-1].until;if(lu!=null)res.until=lu}res.ms=Math.round(performance.now()-t0);return res}
 // Why each dropped must-do won't fit (roadmap row 59): down for the day, can't reach the line before the last entry,
 // or the time it needs after the other must-dos vs the time left; plus what you'd have to skip to fit it and the
 // latest time to head straight there. Times are minutes of the day; "last entry" = last minute to join a standby line.
@@ -1077,11 +1116,11 @@ function dpWhy(ctx,o,res,rootLL){const out={},lj=ctx.lj,t0=ctx.t0,best=res._best
     w.leaveBy=lj!=null&&isFinite(walk)?Math.floor((lj-walk-1)/5)*5:null;if(w.leaveBy!=null&&w.leaveBy<t0)w.leaveBy=null;
     if(lj==null||lj<=t0){w.short='park closed';w.text=`The park has no standby entry left today.`;continue}
     const up=DPX?DPX.up(r,t0):t0;if(up>=lj){w.short='down';w.text=`${r.short} is down and isn't expected back before ${fmtClock(lj)}.`;w.leaveBy=null;continue}
-    if(!isFinite(walk)||t0+walk>=lj){w.short=`${walk}m away, ${Math.max(0,Math.round(lj-t0))}m left`;w.text=`It's about ${walk} min from you and standby entry ends at ${fmtClock(lj)}, so you can't reach the line in time.`;continue}
+    if(!isFinite(walk)||t0+walk>=lj){w.short=`${walk}m away, ${Math.max(0,Math.round(lj-t0))}m left`;w.text=`It's about ${walk} min from you and ${ctx.until!=null?'you leave':'standby entry ends'} at ${fmtClock(lj)}, so you can't reach the line in time.`;continue}
     if(best){const arr=best.t+(best.at===id?0:dpTravel(ctx,best,r)),need=Math.round(arr-t0),have=Math.round(lj-t0);
       if(need>have){w.need=need;w.have=have;w.short=`needs ~${fmtDur(need)}, ${fmtDur(have)} left`;
-        w.text=`After your other ${others} must-do${others===1?'':'s'} it needs ~${fmtDur(need)} to reach the line; you have ${fmtDur(have)} (last entry ${fmtClock(lj)}).`}}
-    if(!w.text){w.short='timing';w.text=`No order gets it in line by ${fmtClock(lj)} without missing a Lightning Lane window, meal or show in the plan.`}
+        w.text=`After your other ${others} must-do${others===1?'':'s'} it needs ~${fmtDur(need)} to reach the line; you have ${fmtDur(have)} (${ctx.until!=null?'leaving':'last entry'} ${fmtClock(lj)}).`}}
+    if(!w.text){w.short='timing';w.text=`No order gets it ${ctx.until!=null?'done':'in line'} by ${fmtClock(lj)} without missing a Lightning Lane window, meal or show in the plan.`}
     // what it would take: best plan that must include this ride
     const cr=Object.assign({},ctx,{req:ctx.bit[id]}),b2=dpBeam(cr,dpRoot(cr,o,rootLL),18);
     if(b2.done&ctx.bit[id]){const done=new Set(dpSteps(b2).filter(s=>s.k==='ride').map(s=>s.rid));const skip=res.steps.filter(s=>s.k==='ride'&&s.must&&!done.has(s.rid)).map(s=>s.rid);
@@ -3546,24 +3585,49 @@ function dpPaceHTML(res){const P=res.pace;if(!P||!res.nMust)return '';const nm=D
 function dpWhyHTML(res){if(!res.missed.length)return '';const W=res.why||{},inGame=!!(G.started&&G.plan&&G.plan.res===res);
   return res.missed.map(id=>{const w=W[id]||{},r=RIDE_BY[id];return `<div class="why">⚠ <b>${r.short}</b> won't fit${w.text?': '+w.text:'.'}${w.leaveBy!=null&&!w.skip?` Latest to head straight there: ${fmtClock(w.leaveBy)}.`:''}</div>`}).join('')+
     (inGame&&AUTO.on&&!res.missed.every(id=>W[id]&&(W[id].short==='down'||W[id].short==='park closed'))?`<div class="why m">Kept as a stretch goal: if waits drop, the plan brings ${res.missed.length>1?'them':'it'} back by itself.</div>`:'')}
+// which park of a multi-park plan the editor is on (S.legI: 0 = S itself, i = S.legs[i-1])
+function dpLegE(S){const i=S.legI|0;return i&&S.legs&&S.legs[i-1]?S.legs[i-1]:S}
+function dpTimeOpts(cur,label){const open=Math.min(...['MK','EP','HS','AK'].map(k=>PARKS[k].open*60)),to=Math.ceil(lastClose()/15)*15;let h=`<option value=""${cur==null?' selected':''}>${label}</option>`,had=cur==null;
+  for(let m=Math.max(6*60,open);m<=to;m+=15){if(!had&&cur<m){h+=`<option value="${cur}" selected>${fmtClock(cur)}</option>`;had=true}h+=`<option value="${m}"${cur===m?' selected':''}>${fmtClock(m)}</option>`;if(cur===m)had=true}
+  if(!had)h+=`<option value="${cur}" selected>${fmtClock(cur)}</option>`;return h}
+function dpLegsHTML(S,E){const legs=dpLegs(S),li=E===S?0:S.legI|0;
+  const tabs=legs.map((l,i)=>{const n=(l.must||[]).filter(id=>RIDE_BY[id]&&RIDE_BY[id].pk===l.pk).length;return `<button type="button" data-leg="${i}" aria-pressed="${i===li}">${legs.length>1?(i+1)+' · ':''}${PARKS[l.pk].short}${n?` <small>${n}</small>`:''}</button>`}).join('')+(legs.length<=DP_HOP_MAX?'<button type="button" data-leg="add">＋ Hop</button>':'');
+  const fc=legs.length>1?legs.slice(1).map((l,i)=>`${PARKS[legs[i].pk].short} → ${PARKS[l.pk].short} ${l.hopAt!=null?'at '+fmtClock(l.hopAt):'after the must-dos'}`).join(' · ')+'. Tap a park to edit it.':'Tap ＋ Hop to add another park today (Park Hopper ticket).';
+  let h=`<div class="fld"><label>Parks today</label><div class="seg" data-legs>${tabs}</div><div class="fc">${fc}</div></div>`;
+  if(E!==S){const prev=legs[li-1],same=prev.pk===E.pk;
+    h+=`<div class="fld"><label>Hop to ${PARKS[E.pk].short} · leave ${PARKS[prev.pk].short} at</label><select id="dpHopAt" class="sel">${dpTimeOpts(E.hopAt==null?null:E.hopAt,`After the ${PARKS[prev.pk].short} must-dos`)}</select>
+    <div class="fc">${same?'<span style="color:var(--warn)">Same park as before: pick another park.</span> ':''}The planner fits ${PARKS[prev.pk].short}'s must-dos before this time and adds the trip over. Disney World lets you hop any time after tapping into your first park.</div>
+    <div class="row" style="margin-top:6px"><button type="button" class="btn sm" data-legdel>Remove ${PARKS[E.pk].short} from today</button></div></div>`}
+  return h}
 function dpEditorHTML(S,L,inGame){
+  const E=dpLegE(S),leg0=E===S;
   const seg=(k,opts,cur)=>`<div class="seg" data-dk="${k}">${opts.map(([v,t])=>`<button type="button" data-v="${v}" aria-pressed="${cur===v}">${t}</button>`).join('')}</div>`;
-  const n=S.must.filter(id=>RIDE_BY[id]&&RIDE_BY[id].pk===S.pk).length;
-  const chips=dpParkRides(S.pk).map(r=>`<button type="button" class="chip" data-must="${r.id}" aria-pressed="${S.must.includes(r.id)}">${r.short}<small>${r.kind==='show'?'show':'~'+r.avg+'m'}</small></button>`).join('');
+  const n=E.must.filter(id=>RIDE_BY[id]&&RIDE_BY[id].pk===E.pk).length;
+  const chips=dpParkRides(E.pk).map(r=>`<button type="button" class="chip" data-must="${r.id}" aria-pressed="${E.must.includes(r.id)}">${r.short}<small>${r.kind==='show'?'show':'~'+r.avg+'m'}</small></button>`).join('');
   const llOpts=inGame?[['mine','My passes'],['none','Standby only']]:[['mine','My passes'],['suggest','Suggest'],['none','Standby only']];
-  return `<div class="fld"><label>Park</label>${seg('pk',['MK','EP','HS','AK'].map(k=>[k,PARKS[k].short]),S.pk)}</div>
-  <div class="fld"><label>Must-dos · ${n} picked</label><div class="chips">${chips}</div><div class="row" style="gap:6px"><button class="btn sm" type="button" data-dq="head">Top 5 headliners</button><button class="btn sm" type="button" data-dq="clr">Clear</button></div><div class="fc">${S.keep?'Order: '+S.must.filter(id=>RIDE_BY[id].pk===S.pk).map((id,i)=>`${i+1} ${RIDE_BY[id].short}`).join(' · '):'Typical whole-day standby shown. Pick in any order; the planner finds the best one.'}</div>
-  <details class="lld"${S.imported?' open':''}><summary>Import a plan</summary><p class="note">Choose a TouringPlans print PDF (touringplans.com/plans/…/print.pdf, saved to Files), or paste its text or any list of rides. Steps keep your order; times, Lightning Lanes and replans adjust to the day.</p><label class="btn sm" style="display:inline-flex;margin-bottom:6px">📄 Choose PDF<input type="file" id="dpFile" accept="application/pdf,.pdf,text/plain,.txt" hidden></label><textarea id="dpPaste" rows="4" placeholder="…or paste: 1. Seven Dwarfs Mine Train&#10;2. Peter Pan's Flight"></textarea><div class="row" style="margin-top:6px"><button type="button" class="btn sm" data-dimp>Import pasted text</button></div><div class="fc" id="dpImpMsg">${S.imported||''}</div></details></div>
+  return `${dpLegsHTML(S,E)}<div class="fld"><label>${leg0?'Park':'Park '+((S.legI|0)+1)}</label>${seg('pk',['MK','EP','HS','AK'].map(k=>[k,PARKS[k].short]),E.pk)}</div>
+  <div class="fld"><label>Must-dos${leg0?'':' in '+PARKS[E.pk].short} · ${n} picked</label><div class="chips">${chips}</div><div class="row" style="gap:6px"><button class="btn sm" type="button" data-dq="head">Top 5 headliners</button><button class="btn sm" type="button" data-dq="clr">Clear</button></div><div class="fc">${E.keep?'Order: '+E.must.filter(id=>RIDE_BY[id].pk===E.pk).map((id,i)=>`${i+1} ${RIDE_BY[id].short}`).join(' · '):'Typical whole-day standby shown. Pick in any order; the planner finds the best one.'}</div>
+  <details class="lld"${E.imported?' open':''}><summary>Import a plan${leg0?'':' for '+PARKS[E.pk].short}</summary><p class="note">${leg0?'':'TouringPlans plans one park at a time: import each park\'s plan on its own tab. Its start time sets the hop time, and its Lightning Lanes are booked during the day. '}Choose a TouringPlans print PDF (touringplans.com/plans/…/print.pdf, saved to Files), or paste its text or any list of rides. Steps keep your order; times, Lightning Lanes and replans adjust to the day.</p><label class="btn sm" style="display:inline-flex;margin-bottom:6px">📄 Choose PDF<input type="file" id="dpFile" accept="application/pdf,.pdf,text/plain,.txt" hidden></label><textarea id="dpPaste" rows="4" placeholder="…or paste: 1. Seven Dwarfs Mine Train&#10;2. Peter Pan's Flight"></textarea><div class="row" style="margin-top:6px"><button type="button" class="btn sm" data-dimp>Import pasted text</button></div><div class="fc" id="dpImpMsg">${E.imported||''}</div></details></div>
+  ${leg0?'':`<div class="fld"><label>Options</label><div class="row" style="gap:6px;flex-wrap:wrap"><button type="button" class="btn sm tog" data-dt="keep" aria-pressed="${!!E.keep}">Keep my order</button></div><div class="fc">Lightning Lane, pace, lunch, free time and the plan's end time are set on the first park's tab.</div></div>`}${leg0?`
   <div class="fld"><label>Lightning Lane</label>${seg('ll',llOpts,S.ll)}<div class="fc">${dpLLNote(S,L,inGame)}</div></div>
   <div class="fld"><label>Pace</label>${seg('pace',[['fast','Fastest'],['bal','Balanced'],['relax','Relaxed']],dpPaceOf(S))}<div class="fc">${S.keep?'Keep my order is on, so pacing doesn\'t reorder anything.':DP_PACE_NOTE[dpPaceOf(S)]}</div></div>
-  <div class="fld"><label>Options</label><div class="row" style="gap:6px;flex-wrap:wrap"><button type="button" class="btn sm tog" data-dt="lunch" aria-pressed="${!!S.lunch}">Lunch break · 45 min</button><button type="button" class="btn sm tog" data-dt="extras" aria-pressed="${!!S.extras}">Fill free time</button><button type="button" class="btn sm tog" data-dt="keep" aria-pressed="${!!S.keep}">Keep my order</button></div></div>`}
+  <div class="fld"><label>Options</label><div class="row" style="gap:6px;flex-wrap:wrap"><button type="button" class="btn sm tog" data-dt="lunch" aria-pressed="${!!S.lunch}">Lunch break · 45 min</button><button type="button" class="btn sm tog" data-dt="extras" aria-pressed="${!!S.extras}">Fill free time</button><button type="button" class="btn sm tog" data-dt="keep" aria-pressed="${!!S.keep}">Keep my order</button></div></div>
+  <div class="fld"><label>Plan ends</label><select id="dpEnd" class="sel">${dpTimeOpts(S.end==null?null:S.end,'At park close')}</select><div class="fc">Off your last ride by this time${S.legs&&S.legs.length?' (in the last park)':''}, e.g. to leave early for dinner. Free time ideas stop then too.</div></div>`:''}`}
 function dpBindEditor(root,S,changed,inGame){
-  root.querySelectorAll('.seg[data-dk] button').forEach(b=>b.onclick=()=>{const k=b.parentNode.dataset.dk,v=b.dataset.v;if(S[k]===v)return;S[k]=v;if(k==='pk'){S.must=S.must.filter(id=>RIDE_BY[id].pk===v);S.blocks=[];S.tp={};S.arrive=null;S.llImport=null;S.book=null;S.gate=null;S.tpw=null;S.tpd=null;S.tpWalks=null;S.imported=''}changed()});
-  root.querySelectorAll('[data-must]').forEach(b=>b.onclick=()=>{const id=b.dataset.must;S.must=S.must.includes(id)?S.must.filter(x=>x!==id):S.must.concat(id);changed()});
-  root.querySelectorAll('[data-dq]').forEach(b=>b.onclick=()=>{S.must=b.dataset.dq==='clr'?[]:dpParkRides(S.pk).filter(r=>r.kind!=='show').slice(0,5).map(r=>r.id);changed()});
-  root.querySelectorAll('[data-dt]').forEach(b=>b.onclick=()=>{S[b.dataset.dt]=!S[b.dataset.dt];changed()});
+  const E=dpLegE(S),leg0=E===S;
+  root.querySelectorAll('.seg[data-dk] button').forEach(b=>b.onclick=()=>{const k=b.parentNode.dataset.dk,v=b.dataset.v,T=k==='pk'?E:S;if(T[k]===v)return;T[k]=v;if(k==='pk'){T.must=T.must.filter(id=>RIDE_BY[id].pk===v);T.blocks=[];T.tp={};T.arrive=null;T.llImport=null;T.llSp=null;T.book=null;T.gate=null;T.tpw=null;T.tpd=null;T.tpWalks=null;T.imported=''}changed()});
+  root.querySelectorAll('[data-must]').forEach(b=>b.onclick=()=>{const id=b.dataset.must;E.must=E.must.includes(id)?E.must.filter(x=>x!==id):E.must.concat(id);changed()});
+  root.querySelectorAll('[data-dq]').forEach(b=>b.onclick=()=>{E.must=b.dataset.dq==='clr'?[]:dpParkRides(E.pk).filter(r=>r.kind!=='show').slice(0,5).map(r=>r.id);changed()});
+  root.querySelectorAll('[data-dt]').forEach(b=>b.onclick=()=>{const k=b.dataset.dt,T=k==='keep'?E:S;T[k]=!T[k];changed()});
+  root.querySelectorAll('[data-leg]').forEach(b=>b.onclick=()=>{const v=b.dataset.leg;
+    if(v==='add'){const legs=dpLegs(S),used=legs.map(l=>l.pk),pk=['MK','EP','HS','AK'].find(k=>!used.includes(k))||'EP';S.legs=(S.legs||[]).concat({pk,must:[],hopAt:null,keep:false,blocks:[],tp:{}});S.legI=S.legs.length}
+    else{if((S.legI|0)===+v)return;S.legI=+v}changed()});
+  const ld=root.querySelector('[data-legdel]');if(ld)ld.onclick=()=>{S.legs=S.legs.filter(l=>l!==E);S.legI=0;if(!S.legs.length)delete S.legs;changed()};
+  const ha=root.querySelector('#dpHopAt');if(ha)ha.onchange=()=>{E.hopAt=ha.value===''?null:+ha.value;changed()};
+  const en=root.querySelector('#dpEnd');if(en)en.onchange=()=>{S.end=en.value===''?null:+en.value;changed()};
   const msg=t=>{const e=root.querySelector('#dpImpMsg');if(e)e.textContent=t};
-  const apply=txt=>{if(!dpApplyImport(S,txt)){msg('No rides found in that plan.');return}
+  const apply=txt=>{if(!dpApplyImport(E,txt)){msg('No rides found in that plan.');return}
+    if(!leg0){dpLegImport(S,E);changed();return}
     if(!inGame&&S.tpDate&&S.tpDate!==inDate.value){inDate.value=S.tpDate;showForecast();llSumUpdate()}if(!inGame)dpTimeButton(S,true);if(inGame){S.arrive=null}changed()};
   const im=root.querySelector('[data-dimp]');if(im)im.onclick=()=>apply(root.querySelector('#dpPaste').value);
   const fi=root.querySelector('#dpFile');if(fi)fi.onchange=async()=>{const f=fi.files[0];if(!f)return;msg('Reading '+f.name+'…');
@@ -3579,6 +3643,8 @@ function dpTimelineHTML(res,prog){const n=res.nMust,parts=[];
   const miss=res.missed.map(id=>RIDE_BY[id].short).join(', ');
   let sum=res.nDone===n?`All ${n} must-do${n===1?'':'s'} done by <b>${fmtClock(res.endMust)}</b>.`:`${res.nDone} of ${n} must-dos fit, done by <b>${fmtClock(res.endMust)}</b>. Won't fit: ${miss}.`;
   sum+=dpPaceHTML(res);
+  if(res.legs)sum+='<br>'+res.legs.map((l,i)=>{const h=res.hops[i-1];return (h?`🚝 ${fmtClock(h.leave)} → `:'')+`<b>${PARKS[l.pk].short}</b> ${l.nMust?`${l.nDone}/${l.nMust}${l.nDone?' by '+fmtClock(l.endMust):''}`:'free time'}`}).join(' · ');
+  if(res.until!=null)sum+=`<br>Plan ends at ${fmtClock(res.until)}: off your last ride by then.`;
   if(res.noLL){const a=res.noLL;sum+=`<br>Standby only: ${a.nDone===n?'all done':a.nDone+' of '+n} by ${fmtClock(a.endMust)}${a.nDone===res.nDone&&a.endMust-res.endMust>=10?` · Lightning Lane saves about ${fmtDur(a.endMust-res.endMust)}`:''}.`}
   if(res.pre&&res.pre.length)sum+=`<br><b>Suggested Multi Pass pre-books</b> (≈$${llPrice(LL_MP_PRICE[res.pk],G.pf[res.pk])}/person): ${res.pre.map(p=>`${RIDE_BY[p.rid].short} ${fmtClock(p.start)}`).join(' · ')}.`;
   else if(res.mode==='suggest')sum+='<br>No pre-books help this list; plain day-of booking is just as good.';
@@ -3587,6 +3653,8 @@ function dpTimelineHTML(res,prog){const n=res.nMust,parts=[];
   let extraHdr=false;
   res.steps.forEach((s,i)=>{
     const blk=s=>(s.blocks||[]).forEach(b=>parts.push(`<div class="tl meal ${G.plan&&G.plan.blkDone&&G.plan.blkDone[b.id]&&prog?'done':''}"><span class="tt">${fmtClock(b.start).replace(/ [AP]M/,'')}<small>${fmtClock(b.start).slice(-2)}</small></span><div><div class="n">${b.meal?'🍽':'📍'} ${b.name}</div><div class="m">${b.missed?`<span style="color:var(--warn)">⚠ no showtime left you can reach</span>`:`${b.walk?`walk ~${b.walk}m · `:''}${b.dur} min${b.show&&b.at?` · show at ${fmtClock(b.at)}`:b.at?` · booked for ${fmtClock(b.at)}`:''}${b.late>15?` <span style="color:var(--warn)">(${b.late}m late for the reservation)</span>`:b.late>0?` (${b.late}m late)`:''} · held as fixed time · done ${fmtClock(b.end)}`}${b.tp!=null?` · <span class="tpx">TP ${fmtClock(b.tp)}</span>`:''}</div></div></div>`));
+    if(s.k==='hop'){const dn=prog&&prog.next>i;parts.push(`<div class="tl hop ${dn?'done':''}"><span class="tt">${fmtClock(s.leave).replace(/ [AP]M/,'')}<small>${fmtClock(s.leave).slice(-2)}</small></span><div><div class="n">🚝 Park hop · ${PARKS[s.from].short} → ${PARKS[s.to].name}</div><div class="m">${s.idle>=10?`free time in ${PARKS[s.from].short} ${fmtDur(s.idle)} · `:''}leave ${fmtClock(s.leave)}${s.target!=null?' (your hop time)':' (after the must-dos)'} · ~${s.travel} min to the gate · there ${fmtClock(s.arr)}</div></div></div>`);return}
+    if(s.k==='start'&&res.legs){const L=res.legs[s.leg]||{};extraHdr=false;parts.push(`<h3>${PARKS[L.pk].name} <small>${L.nMust?`${L.nDone} of ${L.nMust} must-do${L.nMust===1?'':'s'}${L.nDone?' by '+fmtClock(L.endMust):''}`:'no must-dos'}${res.hops&&res.hops[s.leg]?` · leave ${fmtClock(res.hops[s.leg].leave)}`:''}</small></h3>`)}
     if(s.k==='start'){if(s.books.length)parts.push(`<div class="tl"><span class="tt">${fmtClock(s.t).replace(/ [AP]M/,'')}</span><div><div class="n">Start${res.mode==='suggest'?' · after your pre-books':''}</div>${bk(s)}</div></div>`);blk(s);return}
     if(s.extra&&!extraHdr){extraHdr=true;const fv=res.steps.slice(i).find(x=>x.k==='ride'&&x.must&&x.fav);parts.push(`<h3>Free time ideas <small>${fv?'before ⭐ '+RIDE_BY[fv.rid].short+' this evening':'after your must-dos'}</small></h3>`)}
     const r=RIDE_BY[s.rid],h=DP_HOW[s.how],cls=[prog&&prog.done[i]?'done':'',prog&&prog.next===i?'nx':'',s.extra?'ex':''].join(' ');
@@ -3651,6 +3719,15 @@ function dpApplyImport(S,txt){const tp=dpParseTP(txt);
       imported:`Imported TouringPlans plan: ${PARKS[tp.pk].short}${tp.date?' on '+tp.date:''}${tp.arrive!=null?', starting '+fmtClock(tp.arrive):''}. ${tp.must.length} rides in order${nb?`, ${nb} other stop${nb===1?'':'s'} held as fixed time (${tp.blocks.map(b=>b.name).join(', ')})`:''}${nl?`, ${nl} pre-booked Lightning Lane${nl===1?'':'s'} (${tp.ll.picks.concat(tp.ll.sp).map(k=>RIDE_BY[k.rid].short+' '+fmtClock(k.start)).join(', ')})`:''}${tp.ll.day.length?`, then books ${tp.ll.day.map(k=>RIDE_BY[k.rid].short).join(', ')} during the day in that order`:''}${tp.gate?', entering at International Gateway':''}.`});return true}
   const res=dpParsePlan(txt);if(!res||!res.must.length)return false;
   Object.assign(S,{pk:res.pk,must:res.must,keep:true,blocks:[],tp:{},arrive:null,llImport:null,book:null,gate:null,tpw:null,tpd:null,tpWalks:null,imported:`Imported ${res.must.length} rides in ${PARKS[res.pk].short}${res.other.length?` (skipped ${res.other.map(id=>RIDE_BY[id].short).join(', ')} in other parks)`:''}.`});return true}
+// a single-park plan imported into a later park of a multi-park day: its Lightning Lanes become in-day bookings (pre-booking
+// is one park only), Single Passes go to the LL plan, block ids get a per-park prefix, and its start time sets the hop time
+function dpLegImport(S,E){const i=(S.legs||[]).indexOf(E)+1,pre=E.llImport,prev=dpLegs(S)[i-1];
+  E.book=[].concat(pre?pre.picks.map(k=>({rid:k.rid,ret:k.start,at:null})):[],E.book||[]);E.llSp=pre&&pre.sp.length?pre.sp.slice():null;delete E.llImport;
+  E.blocks=(E.blocks||[]).map(b=>Object.assign({},b,{id:'L'+i+b.id}));let note='';
+  if(E.arrive!=null&&prev){const tr=dpHopTravel(dpGateNode(prev),E.arrive-30,E);if(isFinite(tr)){E.hopAt=Math.max(0,Math.floor((E.arrive-tr)/5)*5);note=` Hop time set to leave ${PARKS[prev.pk].short} at ${fmtClock(E.hopAt)} (about ${Math.round(tr)} min to the ${PARKS[E.pk].short} gate).`}}
+  if(E.tpDate&&S.tpDate&&E.tpDate!==S.tpDate)note+=` Note: this plan is for ${E.tpDate}, the day's first plan is for ${S.tpDate}.`;
+  E.imported=(E.imported||'')+note+(pre&&pre.picks.length?' Its Multi Pass picks are booked during the day here (pre-booking covers one park only).':'');
+  delete E.ll;delete E.lunch;delete E.arrive}
 // start-time button for plans with a set arrival: leave the hotel early enough to be at the gate then
 function dpLeaveFor(S){if(S.arrive==null)return null;const D=dijkstra(NI['R:'+selH.value],S.arrive/60);const tr=D.dist[NI[S.gate||S.pk+':front']];return isFinite(tr)?Math.floor((S.arrive-tr-3)/5)*5:null}
 function dpTimeButton(S,select){const seg=$('#segTime');let b=seg.querySelector('[data-plan]');const leave=S&&S.must&&S.must.length?dpLeaveFor(S):null;
@@ -3659,18 +3736,20 @@ function dpTimeButton(S,select){const seg=$('#segTime');let b=seg.querySelector(
   b.dataset.v=leave;b.textContent=`Plan · at ${PARKS[S.pk].short} ${fmtClock(S.arrive).replace(':00','').replace(' ','')}`;
   if(select){seg.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed','false'));b.setAttribute('aria-pressed','true')}}
 // ---- start screen
+function dpLegSp(S,pl){const sps=dpLegs(S).slice(1).flatMap(l=>l.llSp||[]);if(!sps.length)return pl;pl=Object.assign({},pl);pl.sp=(pl.sp||[]).filter(k=>!sps.some(x=>x.rid===k.rid)).concat(sps).slice(0,2);return pl}
 function dpSetupDate(){return inDate.value||ymd(new Date())}
 function dpStartOpts(S){const date=dpSetupDate(),mult=+$('#segCrowd [aria-pressed="true"]').dataset.v;prepDay(date,mult,selH.value);
   let pl=llLoadPlan(date);if(S.llImport){pl=Object.assign({},pl);if(S.llImport.picks.length){pl.mp=S.pk;pl.picks=S.llImport.picks}if(S.llImport.sp.length)pl.sp=S.llImport.sp}
+  pl=dpLegSp(S,pl);
   return Object.assign({},S,{node:NI['R:'+selH.value],t:+$('#segTime [aria-pressed="true"]').dataset.v,L:llFromPlan(pl),done:[]})}
-function daySumUpdate(){const S=dpLoad(dpSetupDate());try{dpTimeButton(S,false)}catch(e){}$('#daySum').innerHTML=S&&S.must&&S.must.length?`${PARKS[S.pk].name} · ${S.must.length} must-do${S.must.length===1?'':'s'}: ${S.must.map(id=>RIDE_BY[id].short).join(', ')}`:'No plan yet. Pick your must-dos and get the best order.'}
+function daySumUpdate(){const S=dpLoad(dpSetupDate());try{dpTimeButton(S,false)}catch(e){}const nm=dpAllMust(S).length;$('#daySum').innerHTML=nm?dpLegs(S).map((l,i)=>`${i?`🚝 ${l.hopAt!=null?fmtClock(l.hopAt):'then'} → `:''}${PARKS[l.pk][i||S.legs&&S.legs.length?'short':'name']} · ${(l.must||[]).length} must-do${(l.must||[]).length===1?'':'s'}: ${(l.must||[]).map(id=>RIDE_BY[id].short).join(', ')||'free time'}`).join('<br>')+(S.end!=null?`<br>Ends ${fmtClock(S.end)}`:''):'No plan yet. Pick your must-dos and get the best order.'}
 function openDaySetup(){const date=dpSetupDate();DPS=dpLoad(date)||dpDefaults((llLoadPlan(date).mp)||'MK');DPR=null;DPST=null;dpStartOpts(DPS);renderDaySetup();$('#daysetup').hidden=false;$('#daysetup').scrollTop=0}
-function renderDaySetup(busyMsg){const S=DPS,date=dpSetupDate(),d=parseDay(date)||new Date(),n=S.must.length;let pl0=llLoadPlan(date);if(S.llImport){pl0=Object.assign({},pl0,S.llImport.picks.length?{mp:S.pk,picks:S.llImport.picks}:{},S.llImport.sp.length?{sp:S.llImport.sp}:{})}const L=llFromPlan(pl0);
+function renderDaySetup(busyMsg){const S=DPS,date=dpSetupDate(),d=parseDay(date)||new Date(),n=dpAllMust(S).length;let pl0=llLoadPlan(date);if(S.llImport){pl0=Object.assign({},pl0,S.llImport.picks.length?{mp:S.pk,picks:S.llImport.picks}:{},S.llImport.sp.length?{sp:S.llImport.sp}:{})}pl0=dpLegSp(S,pl0);const L=llFromPlan(pl0);
   $('#daysetIn').innerHTML=`<h1 style="font-size:28px">Plan my <span>day</span></h1><p class="sub">Pick your must-dos for ${d.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})}. The planner tries every order, mixing rope drop, standby and Lightning Lane, starting from ${RESORTS.find(h=>h.id===selH.value).name} at ${fmtClock(+$('#segTime [aria-pressed="true"]').dataset.v)}.</p>
   ${dpEditorHTML(S,L,false)}
   <button class="btn pri" id="dpMake" type="button" ${n?'':'disabled'} style="width:100%;margin-bottom:12px">${busyMsg||(DPR?'Plan again':'Make my plan')}</button>
   <div id="dpOut">${DPR?dpTimelineHTML(DPR,null)+`<p class="note">Waits are typical for this date and crowd setting${liveActive()?' (live-adjusted)':''}. In the game, tap Plan to follow it step by step and replan any time.</p>`:''}</div>
-  ${n?`<button class="btn" id="dpStress" type="button" style="width:100%;margin-bottom:8px">🧪 Late-start stress test</button><div id="dpStOut">${DPST?stHTML(DPST):''}</div>`:''}
+  ${n?`<button class="btn" id="dpStress" type="button" style="width:100%;margin-bottom:8px">🧪 Late-start stress test</button><div id="dpStOut">${DPST?stHTML(DPST):''}</div>${S.legs&&S.legs.length?`<p class="note">The stress test covers ${PARKS[S.pk].short} (the first park) only.</p>`:''}`:''}
   ${S.llImport?'<p class="note">Use this plan also saves the imported Lightning Lanes as your plan for this date (replacing Multi Pass picks and Single Passes there).</p>':''}
   ${DPR&&DPR.pre&&DPR.pre.length?'<p class="note">Use this plan saves these Multi Pass pre-books as your Lightning Lane plan for this date (replacing any Multi Pass picks there).</p>':''}
   <div class="row"><button class="btn" id="dpCancel" type="button">Cancel</button><button class="btn pri" id="dpUse" type="button" ${n?'':'disabled'}>Use this plan</button></div>`;
@@ -3678,10 +3757,11 @@ function renderDaySetup(busyMsg){const S=DPS,date=dpSetupDate(),d=parseDay(date)
   const sb=$('#dpStress');if(sb)sb.onclick=async()=>{sb.disabled=true;sb.textContent='Stress testing…';
     try{const mult=+$('#segCrowd [aria-pressed="true"]').dataset.v;DPST=await stRun(S,{date:dpSetupDate(),mult,hotel:selH.value,onProgress:(a,b)=>{sb.textContent=`Stress testing… ${Math.round(a/b*100)}%`}})}catch(e){showErr(e)}
     dpStartOpts(S);renderDaySetup();const o=$('#dpStOut');if(o)o.scrollIntoView({behavior:'smooth',block:'start'})};
-  $('#dpMake').onclick=()=>{renderDaySetup('Planning…');setTimeout(()=>{try{DPR=dpRun(dpStartOpts(S))}catch(e){showErr(e)}renderDaySetup();const o=$('#dpOut');if(o)o.scrollIntoView({behavior:'smooth',block:'start'})},30)};
+  $('#dpMake').onclick=()=>{renderDaySetup('Planning…');setTimeout(()=>{try{DPR=dpRunDay(dpStartOpts(S))}catch(e){showErr(e)}renderDaySetup();const o=$('#dpOut');if(o)o.scrollIntoView({behavior:'smooth',block:'start'})},30)};
   $('#dpCancel').onclick=()=>{$('#daysetup').hidden=true};
   $('#dpUse').onclick=()=>{const out=Object.assign({},S);
     if(S.llImport){const pl=llLoadPlan(date);if(S.llImport.picks.length){pl.mp=S.pk;pl.picks=S.llImport.picks.slice()}if(S.llImport.sp.length)pl.sp=S.llImport.sp.slice();llSavePlan(date,pl);delete out.llImport;delete S.llImport;llSumUpdate()}
+    if(dpLegs(S).slice(1).some(l=>l.llSp&&l.llSp.length)){llSavePlan(date,dpLegSp(S,llLoadPlan(date)));llSumUpdate()}
     if(S.ll==='suggest'&&DPR&&DPR.pre){const pl=llLoadPlan(date);pl.mp=S.pk;pl.picks=DPR.pre.slice();llSavePlan(date,pl);out.ll='mine';llSumUpdate()}
     else if(S.ll==='suggest')out.ll='mine';
     dpSave(date,out);$('#daysetup').hidden=true;daySumUpdate()}}
@@ -3696,10 +3776,14 @@ function dpGameOpts(S,x){let node=G.node,t=G.t;const done=[...new Set(G.ridden)]
       else rem+=Math.max(0,(s.dur||0)-(s.el||0))}
     t=G.t+rem;if(tgt){node=NI[tgt.nodeId];done.push(tgt.id);const q=G.segs.find(s=>s.k==='queue');
       if(q&&q.ll&&!q.started&&q.use&&q.use.kind==='pass'){LLs.held=LLs.held.filter(p=>p.rid!==tgt.id);if(q.use.p.type==='mp')LLs.tapped=true}}}
-  const bd=(G.plan&&G.plan.blkDone)||{};
-  return Object.assign({},S,{must:(S.must||[]).filter(id=>!done.includes(id)),blocks:(S.blocks||[]).filter(b=>!bd[b.id]),node,t,LLs,done,lunchDone:!!(G.plan&&G.plan.lunchAt)||t>14*60})}
-function dpMakeGame(S,x){const old=G.plan,lunchAt=old?old.lunchAt:null,blkDone=old&&old.blkDone||{};const o=dpGameOpts(S,x);let res;DPX=dpGameDPX();try{res=dpRun(o)}finally{DPX=null;DPW={}}
-  G.plan={settings:Object.assign({},S),res,ridIdx:G.ridden.length,lunchAt,blkDone,made:G.t,notes:old&&old.notes||[],base:autoBase(res,o)};dpSave(G.date,G.plan.settings);runDirty();return res}
+  const bd=(G.plan&&G.plan.blkDone)||{},legs=dpLegs(S);let B=S,li=0;
+  if(legs.length>1){li=dpLegAt(S,node);const L=legs[li];B=Object.assign({},S,{pk:L.pk,must:L.must||[],blocks:L.blocks||[],tp:L.tp||{},book:L.book||null,keep:!!L.keep,gate:L.gate||null,legs:legs.slice(li+1)})}
+  return Object.assign({},B,{must:(B.must||[]).filter(id=>!done.includes(id)),blocks:(B.blocks||[]).filter(b=>!bd[b.id]),node,t,LLs,done,legI:li,lunchDone:!!(G.plan&&G.plan.lunchAt)||t>14*60})}
+// which park of a multi-park plan we're in: the first leg (from the current one on) whose park we're in or just outside; else the current one
+function dpLegAt(S,node){const legs=dpLegs(S),min=Math.min(G.plan&&G.plan.legI||0,legs.length-1),n=NODES[node]||{},pk=n.park||n.outside;
+  for(let i=min;i<legs.length;i++)if(legs[i].pk===pk)return i;return min}
+function dpMakeGame(S,x){const old=G.plan,lunchAt=old?old.lunchAt:null,blkDone=old&&old.blkDone||{};const o=dpGameOpts(S,x);let res;DPX=dpGameDPX();try{res=dpRunDay(o)}finally{DPX=null;DPW={}}
+  G.plan={settings:Object.assign({},S),res,legI:o.legI||0,ridIdx:G.ridden.length,lunchAt,blkDone,made:G.t,notes:old&&old.notes||[],base:autoBase(res,o)};dpSave(G.date,G.plan.settings);runDirty();return res}
 function dpToast(text){const el=document.createElement('div');el.className='toast dp';el.innerHTML=`<span>${text}</span>`;el.onclick=()=>{if(G.started&&!G.over)openPlan()};
   const box=$('#toasts');box.appendChild(el);while(box.children.length>3)box.firstChild.remove();setTimeout(()=>el.remove(),6000)}
 function dpStepLabel(s){const r=RIDE_BY[s.rid];return `${r.short} · ${DP_HOW[s.how][0].replace('⚡ ','⚡')}`}
@@ -3711,26 +3795,27 @@ function openPlan(){
   if(!G.plan||DPV.edit){const S=DPV.S||(G.plan?Object.assign({},G.plan.settings):(dpLoad(G.date)||dpDefaults(currentPark())));if(S.ll==='suggest')S.ll='mine';DPV.S=S;
     openSheet(`<div class="sh">${G.plan?'<button class="x" aria-label="Back" style="font-size:15px" data-back>‹</button>':''}<h2>Plan my day</h2><span class="paused">Clock paused</span><button class="x" aria-label="Close">×</button></div><div class="sb">
     <p class="note">Plans the rest of today from where you are (${fmtClock(G.t)}).</p>${dpEditorHTML(S,G.LL,true)}
-    <button class="btn pri" id="dpGo" style="width:100%" ${S.must.length?'':'disabled'}>Make plan from here</button></div>`);
+    <button class="btn pri" id="dpGo" style="width:100%" ${dpAllMust(S).length?'':'disabled'}>Make plan from here</button></div>`);
     dpBindEditor(sheetIn,S,openPlan,true);const bk=sheetIn.querySelector('[data-back]');if(bk)bk.onclick=()=>{DPV.edit=false;DPV.S=null;openPlan()};
-    $('#dpGo').onclick=()=>{try{dpMakeGame(S)}catch(e){showErr(e)}DPV.edit=false;DPV.S=null;openPlan()};return}
+    $('#dpGo').onclick=()=>{try{if(G.plan)G.plan.legI=0;dpMakeGame(S)}catch(e){showErr(e)}DPV.edit=false;DPV.S=null;openPlan()};return}
   if(PV.on){pvCloseEditor();pvRefresh(true);$('#pv').scrollTop=0;return}
-  const v=planViewHTML();openSheet(`<div class="sh"><h2>Your day plan · ${PARKS[G.plan.res.pk].short}</h2><span class="paused">Clock paused</span><button class="x" aria-label="Close">×</button></div><div class="sb">${v.top}${v.rest}</div>`);planBind(sheetIn,v)}
+  const v=planViewHTML();openSheet(`<div class="sh"><h2>Your day plan · ${dpParksLabel(G.plan.res)}</h2><span class="paused">Clock paused</span><button class="x" aria-label="Close">×</button></div><div class="sb">${v.top}${v.rest}</div>`);planBind(sheetIn,v)}
 // the plan's "what's next" block (top) and timeline (rest); shared by the Plan sheet and the plan-only view (row 56)
 function planViewHTML(){
   const P=G.plan,pr=dpProgress(),s=pr.step,books=dpPendingBooks(pr);let status='',btns='';
   if(pr.blk){const b=pr.blk,dur=Math.round(Math.max(b.walk+b.dur,b.at?b.at-(b.meal?15:0)+b.dur-G.t:0));status=`<b>Next:</b> ${b.name}${b.at?` (booked ${fmtClock(b.at)})`:''} · about ${fmtDur(dur)} including the walk${b.at&&b.at>G.t+b.walk?' and waiting for your time':''}. The sim holds this as time; it doesn't walk you there.`;btns+=`<button class="btn pri" id="dpBlk">Start · ${b.name.length>26?b.name.slice(0,24)+'…':b.name} · ${fmtDur(dur)}</button>`}
   else if(pr.meal){status=`<b>Lunch break</b> is next in your plan (${DP_LUNCH} min).`;btns+=`<button class="btn pri" id="dpLunch">Take lunch · ${DP_LUNCH} min</button>`}
-  if(s){const r=RIDE_BY[s.rid],late=Math.round(G.t-s.leave),u=llUse(r),wantLL=s.how!=='rope'&&s.how!=='standby',canLL=wantLL&&!!u;
-    if(!pr.meal&&!pr.blk)status=`<b>Next:</b> ${r.name} · ${DP_HOW[s.how][0]} · get in line ~${fmtClock(s.q0)}`;
+  if(s){const hop=dpHopBefore(P.res.steps,pr.next),hp=!!hop&&currentPark()!==hop.to,lv=hp?hop.leave:s.leave;
+    const r=RIDE_BY[s.rid],late=Math.round(G.t-lv),u=llUse(r),wantLL=s.how!=='rope'&&s.how!=='standby',canLL=wantLL&&!!u;
+    if(!pr.meal&&!pr.blk)status=hp?`🚝 <b>Park hop to ${PARKS[hop.to].name}</b> · leave ${fmtClock(hop.leave)}${hop.target!=null?' (your hop time)':''}, at the gate ~${fmtClock(hop.arr)}<br><b>First there:</b> ${r.name} · ${DP_HOW[s.how][0]} · get in line ~${fmtClock(s.q0)}`:`<b>Next:</b> ${r.name} · ${DP_HOW[s.how][0]} · get in line ~${fmtClock(s.q0)}`;
     const brk=s.rest&&late<-2&&-late<=s.rest+8&&!pr.meal&&!pr.blk,fr=s.free>=10&&late<-2&&!pr.meal&&!pr.blk;
     if(fr)status+=`<br>🎈 Free time until ${fmtClock(s.leave)}: your plan saves ${r.short} for the evening. Ride anything you like; it replans around you.`;
-    status+=fr?'':late>10?`<br><span style="color:var(--warn)">About ${fmtDur(late)} behind plan${late>20?'. Replan to reshuffle the rest':''}.</span>`:brk?`<br>☕ Your plan has a ${s.rest}-min break before this line: snack or shade, then leave by ${fmtClock(s.leave)}.`:late<-10&&!pr.meal?`<br>${fmtDur(-late)} ahead of plan. Leave by ${fmtClock(s.leave)} or start early.`:'';
+    status+=fr?'':late>10?`<br><span style="color:var(--warn)">About ${fmtDur(late)} behind plan${late>20?'. Replan to reshuffle the rest':''}.</span>`:brk?`<br>☕ Your plan has a ${s.rest}-min break before this line: snack or shade, then leave by ${fmtClock(s.leave)}.`:late<-10&&!pr.meal&&hop&&!hp&&G.t<hop.arr?`<br>Hopping early: about ${fmtDur(Math.max(0,hop.leave-G.t))} ahead of the planned hop. The plan updates when you get there.`:late<-10&&!pr.meal?(hp?`<br>Free time in ${PARKS[hop.from].short} until ${fmtClock(hop.leave)}. Tap Go to hop now instead.`:`<br>${fmtDur(-late)} ahead of plan. Leave by ${fmtClock(s.leave)} or start early.`):'';
     if(rideState(r,G.t)==='down')status+=`<br><span style="color:var(--bad)">${r.short} is down right now. Wait it out or Replan.</span>`;
     if(wantLL&&!u)status+=`<br><span style="color:var(--warn)">You don't hold that Lightning Lane, so you'd use standby.</span>`;
     const busyNow=!!G.segs&&!effectiveStart().can;let early=null;if(canLL&&u.kind==='pass'){const pl=planTo(r,true);if(pl.arr<u.p.start-LL_EARLY-20)early=u.p.start-LL_EARLY-pl.eta-10}
     const tgt=G.segs&&G.segs.length?G.segs[G.segs.length-1].ride:null,cs=G.segs&&G.segs[G.seg];
-    if(pr.blk)status+=`<br>Then: ${r.name}.`;btns+=tgt&&tgt.id===r.id?`<button class="btn" id="dpNext" disabled>${cs&&cs.k==='queue'?(cs.ll?'In the Lightning Lane':'In line'):cs&&cs.k==='onride'?'Riding':'On your way'} · ${r.short}${G.real&&cs&&(cs.k==='queue'||cs.k==='onride')?' · tap ✓ when off':''}</button>`:early!=null?`<button class="btn ll" id="dpNext" disabled>${r.short} window ${fmtClock(u.p.start)} · leave by ${fmtClock(early)}</button>`:`<button class="btn ${canLL?'ll':pr.meal?'':'pri'}" id="dpNext" ${busyNow?'disabled':''}>Go · ${r.short} ${canLL?'with Lightning Lane':'standby'}</button>`;
+    if(pr.blk)status+=`<br>Then: ${r.name}.`;btns+=tgt&&tgt.id===r.id?`<button class="btn" id="dpNext" disabled>${cs&&cs.k==='queue'?(cs.ll?'In the Lightning Lane':'In line'):cs&&cs.k==='onride'?'Riding':'On your way'} · ${r.short}${G.real&&cs&&(cs.k==='queue'||cs.k==='onride')?' · tap ✓ when off':''}</button>`:early!=null?`<button class="btn ll" id="dpNext" disabled>${r.short} window ${fmtClock(u.p.start)} · leave by ${fmtClock(early)}</button>`:`<button class="btn ${canLL?'ll':pr.meal?'':'pri'}" id="dpNext" ${busyNow?'disabled':''}>Go · ${hp?'hop to '+PARKS[hop.to].short+' · ':''}${r.short} ${canLL?'with Lightning Lane':'standby'}</button>`;
     if(early!=null)status+=`<br>Too early for that window. Do something nearby until ${fmtClock(early)}, or Replan.`}
   else if(!pr.meal)status=P.res.nMust?'<b>All planned rides done.</b> Replan to fill the rest of the day.':'';
   const bkH=books.map(({r,b})=>{const c=llCanBook(r,G.t);return `<button class="btn ll" data-bk="${r.id}" ${c.ok?'':'disabled'}>Book ${r.short} · ${c.ok?'returns '+fmtClock(c.ret):c.why}</button>`}).join('');
@@ -3803,23 +3888,24 @@ function autoBase(res){const down={};for(const r of RIDES)if(rideState(r,G.t)===
 function autoCur(){const segs=G.segs&&G.segs.length?G.segs:null;return segs?segs[segs.length-1].ride||null:null}
 function autoReasons(){const P=G.plan;if(!P||!P.base)return[];const pr=dpProgress(),rs=[],cur=autoCur();const q=G.segs&&G.segs.find(s=>s.k==='queue'),inLine=!!(q&&q.started);
   const rem=[];P.res.steps.forEach((s,i)=>{if(s.k==='ride'&&!pr.done[i]&&!(cur&&s.rid===cur.id))rem.push(s)});
+  if(dpLegs(P.settings).length>1){const la=dpLegAt(P.settings,G.node);if(la>(P.legI||0))rs.push({k:'hop',text:`You're at ${PARKS[dpLegs(P.settings)[la].pk].name}`})}
   if(cur&&!inLine&&rideState(cur,G.t)==='down'&&!P.base.down[cur.id])rs.push({k:'down',cur:true,text:`${cur.short} just went down`});
   for(const s of rem.slice(0,4)){if(s.q0>G.t+180)break;const r=RIDE_BY[s.rid];if(rideState(r,G.t)==='down'&&!P.base.down[r.id]){rs.push({k:'down',text:`${r.short} went down`});break}}
-  for(const id in P.base.down){const r=RIDE_BY[id];if(rideState(r,G.t)!=='down'&&!G.ridden.includes(id)&&(P.settings.must.includes(id)||rem.some(s=>s.rid===id))){rs.push({k:'up',text:`${r.short} is back up`});break}}
-  const nx=rem[0];if(nx&&!rs.length){const o=dpGameOpts(P.settings),late=Math.round(o.t-nx.leave);
+  for(const id in P.base.down){const r=RIDE_BY[id];if(rideState(r,G.t)!=='down'&&!G.ridden.includes(id)&&(dpAllMust(P.settings).includes(id)||rem.some(s=>s.rid===id))){rs.push({k:'up',text:`${r.short} is back up`});break}}
+  const nx=rem[0];if(nx&&!rs.length){const o=dpGameOpts(P.settings),hb=dpHopBefore(P.res.steps,P.res.steps.indexOf(nx)),hp=hb&&currentPark()!==hb.to,late=Math.round(o.t-(hp?hb.leave:nx.leave));
     if(late>=AUTO_LATE)rs.push({k:'behind',text:`You're ${fmtDur(late)} behind`});
-    else if(late<=-AUTO_AHEAD-(nx.rest||0)&&!nx.free&&nx.how==='standby'&&!pr.meal&&!pr.blk&&!G.segs)rs.push({k:'ahead',text:`You're ${fmtDur(-late)} ahead`})}
+    else if(late<=-AUTO_AHEAD-(nx.rest||0)&&!nx.free&&!(hp&&hb.target!=null)&&nx.how==='standby'&&!pr.meal&&!pr.blk&&!G.segs)rs.push({k:'ahead',text:`You're ${fmtDur(-late)} ahead`})}
   const e=RF.est[P.res.pk];if(e&&e.date===G.date&&e.units>=4){const was=P.base.lvl!=null?P.base.lvl:e.lvl0;if(Math.abs(e.lvl-was)>=1)rs.push({k:'crowd',text:`Crowd read now ${e.lvl} (${P.base.lvl!=null?'was':'forecast'} ${was})`})}
   if(liveActive()){let n=0;for(const s of rem){if(s.q0>G.t+180||n>=3)break;if(s.how!=='standby'||s.down)continue;n++;const r=RIDE_BY[s.rid];if(rideState(r,G.t)==='down')continue;
     const w=rawWait(r,Math.max(G.t,s.q0));if(Math.abs(w-s.wait)>=Math.max(AUTO_DRIFT,0.4*s.wait)){rs.push({k:'drift',text:`${r.short} is ${w} min now (plan ${s.wait})`});break}}}
   // stretch goals (row 59): a dropped must-do comes back when a quiet dry run shows it fits now (checked every AUTO_STRETCH game min)
   if(!rs.length&&P.res.missed.length&&G.t-(P.stretchT||P.made)>=AUTO_STRETCH){P.stretchT=G.t;const back=autoStretch();if(back.length)rs.push({k:'fits',text:'Waits dropped'})}
   return rs}
-function autoStretch(){const P=G.plan,o=Object.assign(dpGameOpts(P.settings),{noWhy:true});let res;DPX=dpGameDPX();try{res=dpRun(o)}catch(e){return[]}finally{DPX=null;DPW={}}
+function autoStretch(){const P=G.plan,o=Object.assign(dpGameOpts(P.settings),{noWhy:true});let res;DPX=dpGameDPX();try{res=dpRunDay(o)}catch(e){return[]}finally{DPX=null;DPW={}}
   const was=P.res.missed.filter(id=>!G.ridden.includes(id));return res.missed.length<was.length?was.filter(id=>!res.missed.includes(id)):[]}
 function autoCheck(src){if(!AUTO.on||!G.plan||!G.started||G.over||RT.catching||(typeof DPV!=='undefined'&&DPV.edit))return;
   if(src==='tick'&&Date.now()-AUTO.lastReal<1000)return;let rs;try{rs=autoReasons()}catch(e){return}if(!rs.length)return;
-  const urgent=rs.some(r=>r.k==='down'||r.k==='up');if(!urgent&&G.t-AUTO.last<AUTO_COOL)return;autoReplan(rs)}
+  const urgent=rs.some(r=>r.k==='down'||r.k==='up'||r.k==='hop');if(!urgent&&G.t-AUTO.last<AUTO_COOL)return;autoReplan(rs)}
 function autoKick(text){if(!AUTO.on||!G.plan||G.over)return;let rs=[];try{rs=autoReasons()}catch(e){}autoReplan([{k:'sync',text}].concat(rs.filter(r=>r.k!=='behind'&&r.k!=='ahead')))}
 function autoReplan(rs,manual){const P=G.plan;if(!P)return null;const pr=dpProgress(),dropCur=rs.some(r=>r.cur),cur=autoCur();
   const old={res:P.res,rem:P.res.steps.filter((s,i)=>s.k==='ride'&&!pr.done[i]&&!(cur&&!dropCur&&s.rid===cur.id))};
@@ -3862,7 +3948,7 @@ function startDay(){
   const mult=+$('#segCrowd [aria-pressed="true"]').dataset.v;prepDay(inDate.value,mult,selH.value);G.real=real;RT.at=0;G.t=real?rtNow():+$('#segTime [aria-pressed="true"]').dataset.v;if(real&&G.t>=lastClose()-5){G.real=false;toast('Every park has closed for today. Pick Rope drop or Sleep in to play the day instead.');return}livePoll(!!real);
   rtStartUI();Object.assign(G,{ridden:[],mood:72,score:0,stats:{wait:0,transit:0,walk:0,ride:0},segs:null,seg:0,started:true,over:false,trip:null,tripEnd:null,plan:null});DPV={edit:false};G.LL=llFromPlan(llLoadPlan(G.date));llClock=0;
   RIDES.forEach(r=>r.downUntil=0);G.node=NI['R:'+selH.value];placePlayer();
-  {const ds=dpLoad(G.date);if(ds&&ds.must&&ds.must.length){if(ds.ll==='suggest')ds.ll='mine';try{const res=dpMakeGame(ds);setTimeout(()=>dpToast(`Day plan ready · ${res.nDone} of ${res.nMust} must-dos by ${fmtClock(res.endMust)} · tap Plan`),2200)}catch(e){showErr(e)}}}
+  {const ds=dpLoad(G.date);if(ds&&dpAllMust(ds).length){if(ds.ll==='suggest')ds.ll='mine';try{const res=dpMakeGame(ds);setTimeout(()=>dpToast(`Day plan ready · ${res.nDone} of ${res.nMust} must-dos by ${fmtClock(res.endMust)} · tap Plan`),2200)}catch(e){showErr(e)}}}
   AG.forEach(g=>g.on=false);stepAgents(0.01,true);rebuildQueues();refreshPins();hudT=-1;
   $('#start').hidden=true;$('#top').hidden=false;$('#bottom').hidden=false;me.visible=true;setFollow(true);
   const n=NODES[G.node];flyTo(n.x,n.z,520,1300);
@@ -3895,7 +3981,7 @@ function runTrip(){const segs=G.segs;if(!segs||!segs.length)return null;const s=
 function runState(){const P=G.plan,down={};for(const r of RIDES)if(r.downUntil)down[r.id]=r.downUntil;
   return{v:RUN.v,saved:Date.now(),date:G.date,real:!!G.real,t:G.t,mult:G.pfMult||1,hotel:selH.value,speed:G.speed,node:G.node,
     ridden:G.ridden,mood:G.mood,score:G.score,stats:G.stats,LL:G.LL,down,autoLast:AUTO.last,trip:runTrip(),
-    plan:P?{settings:P.settings,res:P.res,ridIdx:P.ridIdx,lunchAt:P.lunchAt,blkDone:P.blkDone||{},made:P.made,notes:P.notes||[],base:P.base}:null}}
+    plan:P?{settings:P.settings,res:P.res,legI:P.legI||0,ridIdx:P.ridIdx,lunchAt:P.lunchAt,blkDone:P.blkDone||{},made:P.made,notes:P.notes||[],base:P.base}:null}}
 function runSave(){if(!G.started||G.over||!G.date)return false;RUN.last=Date.now();RUN.dirty=false;
   try{localStorage.setItem(RUN_KEY(G.date),JSON.stringify(runState()));return true}catch(e){return false}}
 // called every frame: save when something changed, or every 5 s of real time (= every game minute at 1×, ~1 h at 15×)
@@ -3977,7 +4063,7 @@ function pvRefresh(force){if(!PV.on||!G.started||G.over)return;const now=perform
     G.LL.passes.map(p=>p.rid+p.st+p.start).join(),LIVE.got,Math.floor(G.t/(G.real?1:5)),DPV.clr,AUTO.on,pk,G.LL.tapped].join('|');
   PV.last=now;if(!force&&sig===PV.sig)return;PV.sig=sig;
   const el=$('#pvIn'),sc=$('#pv').scrollTop;let html,v=null;
-  if(G.plan){v=planViewHTML();html=`<div class="pvh"><h2>Your plan · ${PARKS[G.plan.res.pk].short}</h2><span>${G.real?'● Real time':fmtClock(G.t)}</span></div>${pvLLHTML()}${v.top}${pvWaitsHTML(pk)}<h3>Plan</h3>${v.rest}`}
+  if(G.plan){v=planViewHTML();html=`<div class="pvh"><h2>Your plan · ${dpParksLabel(G.plan.res)}</h2><span>${G.real?'● Real time':fmtClock(G.t)}</span></div>${pvLLHTML()}${v.top}${pvWaitsHTML(pk)}<h3>Plan</h3>${v.rest}`}
   else html=`<div class="pvh"><h2>No plan yet</h2><span>${G.real?'● Real time':fmtClock(G.t)}</span></div>${pvLLHTML()}<p class="note">Pick your must-dos and the sim plans the rest of today from where you are.</p><div class="go"><button class="btn pri" id="pvMake">🗺 Plan my day from here</button></div>${pvWaitsHTML(pk)}`;
   el.innerHTML=html;$('#pv').scrollTop=sc;
   if(v)planBind(el,v);const mk=el.querySelector('#pvMake');if(mk)mk.onclick=()=>{DPV.edit=false;DPV.S=null;openPlan()};
@@ -4005,7 +4091,7 @@ function tick(now){const pv=PV.on;if(pv&&(G.real||!G.started||G.over)&&now-PV.ti
     camStep(now);controls.update();skyDome.position.copy(camera.position);renderFrame();updateLabels()}
   if(G.started){updateHUD();runTick();if(pv)pvRefresh(false)}
 }
-window.WDW={RUN,runSave,runLoad,runClear,runResume,runState,runBox,runFind,AUTO,RT,autoCheck,autoReasons,autoReplan,autoDiff,rtRodeIt,rtAt,rtNow,openWhere,dpGameOpts,camera,controls,RF,rfCompact,rfStore,rfLoad,rfResid,rfCalibrate,rfEstimate,rfBacktest,rfUpdateToday,rfApplyDay,rfMul,rfCal,openRF,rfAfterUpdate,rfNoteUpdate,rfTick,rfBannerHTML,liveMatch,stRun,stHTML,stCalib,stModelDay,dpParseTP,dpApplyImport,scene,setGfx,LIGHT,sunDir,fwShows,fwSim:(n,dt)=>{for(let i=0;i<n;i++)updateFireworks(dt)},holdTime:t=>{G.holdT=t==null?null:t*60;if(t!=null)G.t=t*60},dpRun,dpMakeGame,dpProgress,dpLoad,dpSave,openPlan,openDaySetup,prepDay,llFromPlan,llFresh,llBook,llNext,llRecs,llUse,llHeld,llTick,llPlanErrors,llSuggest,llLoadPlan,openLL,openRides,openPicks,LIVE,liveIngest,liveFor,curveAt,orlandoNow,livePoll,G,go,flyTo,setFollow,RIDE_BY,PARKS,camera,controls,openRide,closeSheet,rawWait,waitAt,dayFactor,holiday,hoursFor,applyHours,accessOpen,lastClose,renderer,dijkstra,NI,NODES,RESORTS,RIDES,LINES};
+window.WDW={RUN,runSave,runLoad,runClear,runResume,runState,runBox,runFind,AUTO,RT,autoCheck,autoReasons,autoReplan,autoDiff,rtRodeIt,rtAt,rtNow,openWhere,dpGameOpts,camera,controls,RF,rfCompact,rfStore,rfLoad,rfResid,rfCalibrate,rfEstimate,rfBacktest,rfUpdateToday,rfApplyDay,rfMul,rfCal,openRF,rfAfterUpdate,rfNoteUpdate,rfTick,rfBannerHTML,liveMatch,stRun,stHTML,stCalib,stModelDay,dpParseTP,dpApplyImport,scene,setGfx,LIGHT,sunDir,fwShows,fwSim:(n,dt)=>{for(let i=0;i<n;i++)updateFireworks(dt)},holdTime:t=>{G.holdT=t==null?null:t*60;if(t!=null)G.t=t*60},dpRun,dpRunDay,dpLegs,dpAllMust,getDPS:()=>DPS,dpStartOpts:S=>dpStartOpts(S),dpMakeGame,dpProgress,dpLoad,dpSave,openPlan,openDaySetup,prepDay,llFromPlan,llFresh,llBook,llNext,llRecs,llUse,llHeld,llTick,llPlanErrors,llSuggest,llLoadPlan,openLL,openRides,openPicks,LIVE,liveIngest,liveFor,curveAt,orlandoNow,livePoll,G,go,flyTo,setFollow,RIDE_BY,PARKS,camera,controls,openRide,closeSheet,rawWait,waitAt,dayFactor,holiday,hoursFor,applyHours,accessOpen,lastClose,renderer,dijkstra,NI,NODES,RESORTS,RIDES,LINES};
 requestAnimationFrame(frame);
 })();
 </script>
