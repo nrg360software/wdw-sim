@@ -103,6 +103,7 @@ button:focus-visible,select:focus-visible{outline:2px solid var(--gold);outline-
 .stp .sl{font-size:14px;min-width:0}.stp .sx{grid-column:2;font-size:12px;color:var(--muted)}
 .stp .sbt{grid-row:1 / span 2;grid-column:3;display:flex;gap:6px}
 .stp.done .si,.stp.done .sl{opacity:.55}.stp.cur .sl{font-weight:700;color:var(--gold)}.stp.cur .si{color:var(--gold)}
+.flash{animation:flash .9s ease}@keyframes flash{0%{background:rgba(255,200,60,.35)}100%{background:transparent}}
 .nowpv{font-size:12.5px;color:var(--muted);line-height:1.55}
 .wbtn{border:1px solid rgba(255,255,255,.4)!important;background:rgba(255,255,255,.14)!important;color:var(--text)!important}
 .ri.wr{cursor:pointer}.ri.wr:active{background:rgba(255,255,255,.06)}
@@ -3880,7 +3881,9 @@ function openPlan(){
     <button class="btn pri" id="dpGo" style="width:100%" ${dpAllMust(S).length?'':'disabled'}>Make plan from here</button></div>`);
     dpBindEditor(sheetIn,S,openPlan,true);const bk=sheetIn.querySelector('[data-back]');if(bk)bk.onclick=()=>{DPV.edit=false;DPV.S=null;openPlan()};
     $('#dpGo').onclick=()=>{try{if(G.plan)G.plan.legI=0;dpMakeGame(S)}catch(e){showErr(e)}DPV.edit=false;DPV.S=null;openPlan()};return}
-  if(PV.on){pvCloseEditor();pvRefresh(true);$('#pv').scrollTop=0;return}
+  if(PV.on){if(!sheet.hidden)closeSheet();pvRefresh(true);const pv=$('#pv'),h=pv.querySelector('#pvPlanH');
+    const toTL=pv.scrollTop<40&&h,y=toTL?Math.max(0,h.offsetTop-8):0;try{pv.scrollTo({top:y,behavior:'smooth'})}catch(e){pv.scrollTop=y}
+    const f=toTL?h:pv.querySelector('.pvh');if(f){f.classList.remove('flash');void f.offsetWidth;f.classList.add('flash')}return}
   const v=planViewHTML();openSheet(`<div class="sh"><h2>Your day plan · ${dpParksLabel(G.plan.res)}</h2><span class="paused">Clock paused</span><button class="x" aria-label="Close">×</button></div><div class="sb">${v.top}${v.rest}</div>`);planBind(sheetIn,v)}
 // the plan's "what's next" block (top) and timeline (rest); shared by the Plan sheet and the plan-only view (row 56)
 function planViewHTML(){
@@ -3907,7 +3910,8 @@ function planViewHTML(){
   let bkH=books.map(({r,b})=>{const c=llCanBook(r,G.t);return `<button class="btn ll" data-bk="${r.id}" ${c.ok?'':'disabled'}>Book ${r.short} · ${c.ok?'returns '+fmtClock(c.ret):c.why}</button>`}).join('');
   // a free Multi Pass slot the plan didn't fill (its bookings sit on steps you may not follow, and it only books for must-dos
   // or ≥10 min savings): offer the best booking now, whatever you're doing
-  if(!books.some(x=>llCanBook(x.r,G.t).ok)&&G.LL.mp&&llCanBookAny(G.t)){const rec=llRecs(G.t).find(x=>x.save>=3);
+  if(!books.some(x=>llCanBook(x.r,G.t).ok)&&G.LL.mp&&llCanBookAny(G.t)){const pks=new Set([currentPark()]);(P.res.legs||[]).forEach((l,i)=>{if(i>=(P.legI||0))pks.add(l.pk)});
+    const rec=llRecs(G.t,true).find(x=>x.save>=3&&pks.has(x.r.pk)&&(x.away==null||x.ret>=G.t+x.away-5));
     if(rec)bkH+=`<button class="btn ll" data-bk="${rec.r.id}">⚡ Free slot · book ${rec.r.short} · returns ~${fmtClock(rec.ret)} (saves ~${fmtDur(rec.save)})</button>`}
   const top=`${nowCardHTML()}${autoNoteHTML()}${status?`<p class="note" style="color:var(--text)">${status}</p>`:''}
   <div class="go">${btns}${bkH}</div>${bkH?'<p class="note">Your plan books these as soon as you tap in. Return times shown are live.</p>':''}
@@ -4364,14 +4368,15 @@ function pvWaitsHTML(pk){const st=effectiveStart(),D=dijkstra(st.node,G.t/60),pl
   return `<h3>Waits now · ${P.short} <small>${live?'live':'typical for today'} · shortest first · ★ in your plan</small></h3><div class="pvw">${rows.map(x=>`<button class="pvc${plan.has(x.r.id)?' pl':''}${x.rid?' rd':''}" data-pvr="${x.r.id}"><span class="nm">${plan.has(x.r.id)?'★ ':''}${x.rid?'✓ ':''}${x.r.short}${x.p&&x.p.st==='active'?` <span class="pll">⚡${fmtClock(x.p.start).replace(/ [AP]M/,'')}</span>`:''}</span><span class="w ${x.c}">${x.txt}</span></button>`).join('')}</div>${live?'<p class="note" style="margin-top:6px">Live waits <a href="https://queue-times.com/" target="_blank" rel="noopener" style="color:var(--muted)">Powered by Queue-Times.com</a>.</p>':''}`}
 function pvLLHTML(){const act=G.LL.passes.filter(p=>p.st==='active'||p.st==='mep').sort((a,b)=>a.start-b.start);if(!act.length)return '';
   return `<div class="pvll">${act.map(p=>`<button class="pvlb" data-pvll="1">⚡ ${RIDE_BY[p.rid].short} · ${p.st==='mep'?'any MP ride':fmtClock(p.start).replace(/ [AP]M/,'')+'–'+fmtClock(p.end)}</button>`).join('')}</div>`}
-function pvRefresh(force){if(!PV.on||!G.started||G.over)return;const now=performance.now();
+function pvRefresh(force){try{pvRefresh0(force)}catch(e){PV.sig='';const m=String(e&&e.message||e);if(PV.err!==m){PV.err=m;toast('Plan view hiccup: '+m.slice(0,80));console.error(e)}}}
+function pvRefresh0(force){if(!PV.on||!G.started||G.over)return;const now=performance.now();
   if(!force&&(now-PV.last<2000||now-PV.touch<1500))return;
   const cur=G.segs&&G.segs[G.seg],pk=NODES[effectiveStart().node].park||(G.plan?G.plan.res.pk:currentPark());
   const sig=[G.plan?G.plan.made+':'+G.plan.notes.length+':'+Object.keys(G.plan.blkDone||{}).length+':'+G.plan.lunchAt:'-',G.ridden.length,G.seg,G.segs?G.segs.length:0,cur?cur.k+(cur.started?1:0)+(cur.hold?1:0)+(cur.act||''):'',G.node,
     G.LL.passes.map(p=>p.rid+p.st+p.start).join(),LIVE.got,Math.floor(G.t/(G.real?1:5)),DPV.clr,AUTO.on,pk,G.LL.tapped].join('|');
   PV.last=now;if(!force&&sig===PV.sig)return;PV.sig=sig;
   const el=$('#pvIn'),sc=$('#pv').scrollTop;let html,v=null;
-  if(G.plan){v=planViewHTML();html=`<div class="pvh"><h2>Your plan · ${dpParksLabel(G.plan.res)}</h2><span>${G.real?'● Real time':fmtClock(G.t)}</span></div>${pvLLHTML()}${v.top}${pvWaitsHTML(pk)}<h3>Plan</h3>${v.rest}`}
+  if(G.plan){v=planViewHTML();html=`<div class="pvh"><h2>Your plan · ${dpParksLabel(G.plan.res)}</h2><span>${G.real?'● Real time':fmtClock(G.t)}</span></div>${pvLLHTML()}${v.top}${pvWaitsHTML(pk)}<h3 id="pvPlanH">Plan</h3>${v.rest}`}
   else html=`<div class="pvh"><h2>No plan yet</h2><span>${G.real?'● Real time':fmtClock(G.t)}</span></div>${pvLLHTML()}${nowCardHTML()}<p class="note">Pick your must-dos and the sim plans the rest of today from where you are.</p><div class="go"><button class="btn pri" id="pvMake">🗺 Plan my day from here</button></div>${pvWaitsHTML(pk)}`;
   el.innerHTML=html;$('#pv').scrollTop=sc;
   if(v)planBind(el,v);else nowBind(el);const mk=el.querySelector('#pvMake');if(mk)mk.onclick=()=>{DPV.edit=false;DPV.S=null;openPlan()};
