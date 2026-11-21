@@ -173,6 +173,19 @@ select{background:var(--chip);color:var(--text);border:1px solid var(--line);bor
 .stats span{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:700}
 .endface{width:72px;height:72px;margin-bottom:8px}
 #ridden{font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:16px}
+/* Day results (rows 60-61) */
+.rs h3{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:16px 0 6px}
+.rs table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+.rs td,.rs th{padding:5px 4px;border-bottom:1px solid rgba(255,255,255,.08);text-align:right;vertical-align:top}
+.rs th{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.rs td:first-child,.rs th:first-child{text-align:left}
+.rs .rl{display:grid;grid-template-columns:1fr auto;gap:2px 8px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.08);font-size:13px}
+.rs .rl .a{font-weight:700}.rs .rl .a small{font-weight:600;color:var(--muted);margin-right:5px;font-variant-numeric:tabular-nums}
+.rs .rl .b{text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+.rs .rl .c{grid-column:1/-1;font-size:12px;color:var(--muted)}
+.rs .hw{display:inline-block;font-size:10.5px;font-weight:800;border-radius:6px;padding:1px 5px;margin-left:5px;background:rgba(255,255,255,.1);color:var(--text);vertical-align:1px}
+.rs .hw.ll{background:rgba(182,156,255,.2);color:var(--ll)}.rs .hw.rope{background:rgba(79,209,141,.18);color:var(--good)}
+.rs .up{color:var(--warn)}.rs .dn{color:var(--good)}.rs .note{font-size:12px;color:var(--muted);line-height:1.45;margin:6px 0 0}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 .st{border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:8px 10px;margin:6px 0;background:rgba(255,255,255,.03)}.st .n{font-weight:700;margin-bottom:2px}.st .m{font-size:12px;color:var(--muted);line-height:1.4}.st .m.sim{margin-top:3px;padding-top:3px;border-top:1px dashed rgba(255,255,255,.1)}.st .bad{color:var(--warn)}.st .ok{color:var(--good)}
 
@@ -247,6 +260,7 @@ body.pvmode #start,body.pvmode #end{background:var(--night)}
     <h1>WDW <span>Sim</span></h1>
     <p class="sub">Steer one guest through a crowded Walt Disney World day. Every minute in a line, on a bus or shoving through a packed land costs you mood. Great rides and smart Lightning Lane picks win it back.</p>
     <div id="resumeBox" hidden></div>
+    <div id="resBox" hidden></div>
     <div class="fld"><label for="selHotel">Your hotel</label><select id="selHotel"></select></div>
     <div class="fld"><label for="inDate">Park day</label><input type="date" id="inDate"><div class="fc" id="crowdFc"></div><div class="fc" id="rfFc"></div><div class="hrs" id="hoursFc"></div></div>
     <div class="fld"><label>Crowds</label><div class="seg" id="segCrowd"><button data-v="0.8">Lighter</button><button data-v="1" aria-pressed="true">As forecast</button><button data-v="1.2">Busier</button></div></div>
@@ -277,6 +291,7 @@ body.pvmode #start,body.pvmode #end{background:var(--night)}
     <p class="sub" id="endSub"></p>
     <div class="stats" id="endStats"></div>
     <div id="ridden"></div>
+    <div class="rs" id="endRes"></div>
     <button class="btn pri" id="bAgain" style="width:100%;padding:13px;font-size:16px">Play another day</button>
   </div>
 </div>
@@ -807,7 +822,7 @@ function llBuy(kind,pk){runDirty();const L=G.LL;if(kind==='mp'&&!L.mp){L.mp=pk;L
 // What you'd use at this ride: a booking, a Premier Pass use, or a Multiple Experience Pass
 function llUse(r){if(!r.ll)return null;const p=llPassFor(r);if(p)return{kind:'pass',p};if(G.LL.premier===r.pk&&!G.LL.premUsed[r.id])return{kind:'prem'};const m=llMepFor(r);if(m)return{kind:'mep',p:m};return null}
 function llUseOK(u,r,t){if(!u)return false;if(u.kind==='pass'){const w=llWinState(u.p,t);return w==='open'||w==='grace'}return parkOpenPublic(r.pk,t)}
-function llTap(u,r,t){runDirty();const L=G.LL;L.used++;if(u.kind==='prem'){L.premUsed[r.id]=1;return}if(u.kind==='mep'){u.p.st='mepused';u.p.usedAt=t;u.p.usedOn=r.id;return}
+function llTap(u,r,t){runDirty();const L=G.LL;L.used++;G.lastTap={rid:r.id,t,how:u.kind==='pass'?(u.p.type==='sp'?'sp':'ll'):u.kind,pid:u.p?u.p.id:null};if(u.kind==='prem'){L.premUsed[r.id]=1;return}if(u.kind==='mep'){u.p.st='mepused';u.p.usedAt=t;u.p.usedOn=r.id;return}
   u.p.st='used';u.p.usedAt=t;if(u.p.type==='mp'&&!L.tapped){L.tapped=true;setTimeout(()=>llToast('First tap-in done · you can now book Lightning Lanes in any park and any group, one at a time',null),1200)}}
 function llCanBookAny(t){if(!G.LL.mp||llHeld().length>=3)return false;return RIDES.some(r=>r.llType==='mp'&&llCanBook(r,t).ok)}
 // Booking recommendations: minutes saved at the return time × how much the ride is worth to you,
@@ -3122,14 +3137,15 @@ function startSeg(s){
         if(w==='late'){u.p.st='expired';s.abort=true;G.node=NI[r.nodeId];addMood(-6,`Your ${r.short} window has passed`);return}}
       else if(u&&!parkOpenPublic(r.pk,t)){s.abort=true;G.node=NI[r.nodeId];addMood(-4,'Lightning Lane only runs during regular park hours');return}
       llTap(u,r,t);s.dur=Math.round(pre+rnd(4,11));sayBubble(pre>0?'Waiting for my window':'Skipping the line!')}
-    else{s.dur=rawWait(r,t);if(st==='early'){s.dur=(accessOpen(r.pk)-t)+rawWait(r,accessOpen(r.pk));sayBubble(PARKS[r.pk].ee!=null?'Early Entry!':'Rope drop!')}else sayBubble(s.dur>=60?'This line…':'Into the queue')}}
-  if(s.k==='onride'){sayBubble(s.ride.thrill>=8?'Wheee!':'Ooh!')}
+    else{s.dur=rawWait(r,t);if(st==='early'){s.dur=(accessOpen(r.pk)-t)+rawWait(r,accessOpen(r.pk));sayBubble(PARKS[r.pk].ee!=null?'Early Entry!':'Rope drop!')}else sayBubble(s.dur>=60?'This line…':'Into the queue')}
+    try{resQueue(s,r,t,st)}catch(e){}}
+  if(s.k==='onride'){sayBubble(s.ride.thrill>=8?'Wheee!':'Ooh!');try{resOn(s)}catch(e){}}
 }
 function endSeg(s){
   if(s.k==='twait'&&s.dur>14)addMood(-3,`Waited ${Math.round(s.dur)} min for the ${MODE[s.line.mode].toLowerCase()}`);
   if(s.k==='transit'){G.node=s.toNode}
   if(s.k==='walk')G.node=s.bNode;
-  if(s.k==='onride'){const r=s.ride,cnt=G.ridden.filter(x=>x===r.id).length;let joy=6+r.thrill*1.4+rnd(-2,2);if(cnt)joy*=Math.pow(0.6,cnt);else joy+=3;if(G.trip&&G.trip.ll)joy+=2;
+  if(s.k==='onride'){try{resDone(s)}catch(e){}const r=s.ride,cnt=G.ridden.filter(x=>x===r.id).length;let joy=6+r.thrill*1.4+rnd(-2,2);if(cnt)joy*=Math.pow(0.6,cnt);else joy+=3;if(G.trip&&G.trip.ll)joy+=2;
     G.ridden.push(r.id);G.score+=Math.round(joy);G.node=NI[r.nodeId];
     const actual=G.trip?G.t-G.trip.start-r.dur:0;let msg=s.sync?`${r.short} counted`:`${r.short} done · ${fmtDur(actual)} to get on`;
     addMood(Math.round(joy),msg);
@@ -3801,7 +3817,7 @@ function dpGameOpts(S,x){let node=G.node,t=G.t;const done=[...new Set(G.ridden)]
 function dpLegAt(S,node){const legs=dpLegs(S),min=Math.min(G.plan&&G.plan.legI||0,legs.length-1),n=NODES[node]||{},pk=n.park||n.outside;
   for(let i=min;i<legs.length;i++)if(legs[i].pk===pk)return i;return min}
 function dpMakeGame(S,x){const old=G.plan,lunchAt=old?old.lunchAt:null,blkDone=old&&old.blkDone||{};const o=dpGameOpts(S,x);let res;DPX=dpGameDPX();try{res=dpRunDay(o)}finally{DPX=null;DPW={}}
-  G.plan={settings:Object.assign({},S),res,legI:o.legI||0,ridIdx:G.ridden.length,lunchAt,blkDone,made:G.t,notes:old&&old.notes||[],base:autoBase(res,o)};dpSave(G.date,G.plan.settings);runDirty();return res}
+  G.plan={settings:Object.assign({},S),res,legI:o.legI||0,ridIdx:G.ridden.length,lunchAt,blkDone,made:G.t,notes:old&&old.notes||[],base:autoBase(res,o)};if(!G.planFirst)try{G.planFirst=resPlanSnap(G.plan)}catch(e){}dpSave(G.date,G.plan.settings);runDirty();return res}
 function dpToast(text){const el=document.createElement('div');el.className='toast dp';el.innerHTML=`<span>${text}</span>`;el.onclick=()=>{if(G.started&&!G.over)openPlan()};
   const box=$('#toasts');box.appendChild(el);while(box.children.length>3)box.firstChild.remove();setTimeout(()=>el.remove(),6000)}
 function dpStepLabel(s){const r=RIDE_BY[s.rid];return `${r.short} · ${DP_HOW[s.how][0].replace('⚡ ','⚡')}`}
@@ -3977,7 +3993,7 @@ $('#bMap').onclick=()=>{setFollow(false);flyTo(150,330,5000,1200)};
 function startDay(){
   const real=!!$('#segTime [data-now][aria-pressed="true"]');if(real&&!rtPrepStart())return;
   const mult=+$('#segCrowd [aria-pressed="true"]').dataset.v;prepDay(inDate.value,mult,selH.value);G.real=real;RT.at=0;G.t=real?rtNow():+$('#segTime [aria-pressed="true"]').dataset.v;if(real&&G.t>=lastClose()-5){G.real=false;toast('Every park has closed for today. Pick Rope drop or Sleep in to play the day instead.');return}livePoll(!!real);
-  rtStartUI();Object.assign(G,{ridden:[],mood:72,score:0,stats:{wait:0,transit:0,walk:0,ride:0},segs:null,seg:0,started:true,over:false,trip:null,tripEnd:null,plan:null});DPV={edit:false};G.LL=llFromPlan(llLoadPlan(G.date));llClock=0;
+  rtStartUI();Object.assign(G,{ridden:[],mood:72,score:0,stats:{wait:0,transit:0,walk:0,ride:0},segs:null,seg:0,started:true,over:false,trip:null,tripEnd:null,plan:null,log:[],planFirst:null,lastTap:null});DPV={edit:false};G.LL=llFromPlan(llLoadPlan(G.date));llClock=0;
   RIDES.forEach(r=>r.downUntil=0);G.node=NI['R:'+selH.value];placePlayer();
   {const ds=dpLoad(G.date);if(ds&&dpAllMust(ds).length){if(ds.ll==='suggest')ds.ll='mine';try{const res=dpMakeGame(ds);setTimeout(()=>dpToast(`Day plan ready · ${res.nDone} of ${res.nMust} must-dos by ${fmtClock(res.endMust)} · tap Plan`),2200)}catch(e){showErr(e)}}}
   AG.forEach(g=>g.on=false);stepAgents(0.01,true);rebuildQueues();refreshPins();hudT=-1;
@@ -3986,11 +4002,95 @@ function startDay(){
   setTimeout(()=>toast(G.real?'Real-time day: the clock follows Orlando time. Already in a park? Tap 📍 I\'m at…':G.plan?'Tap Plan to follow your day plan':'Tap Rides, Plan or Top picks to choose where to go first'),1400);
   runDirty();runSave();runBox();
   const nb=G.LL.passes.length;setTimeout(()=>llToast(nb?`You have ${nb} Lightning Lane${nb===1?'':'s'} booked · tap ⚡ to see or change them`:G.LL.mp?'Multi Pass ready · tap ⚡ to book rides':'No Lightning Lanes yet · tap ⚡ to buy or book'),3200)}
-function endDay(){G.over=true;closeSheet();runClear(G.date);const m=Math.round(G.mood);
+// ================= DAY RESULTS (roadmap rows 60–61) =================
+// A per-ride log kept with the run: when you got in line (q0), how (rope / standby / ll / sp / prem / mep), the posted
+// standby wait at that moment (sb), the actual time in line (wait, from queue start to boarding; on a real-time day from
+// queue start to ✓ Rode it minus the ride time) and what the plan in force at that moment predicted for this ride (pl).
+// At the end of the day resBuild() turns it into plan-vs-actual totals and Lightning Lane savings vs standby; the result is
+// stored in localStorage wdwsim.result.<date> (last 6 kept) so the start screen can show it again.
+const RES_KEY=d=>'wdwsim.result.'+d,RES_LLT=7;
+const RES_HOW={rope:'Rope drop',standby:'Standby',ll:'Multi Pass',sp:'Single Pass',prem:'Premier',mep:'MEP'};
+const resIsLL=h=>h==='ll'||h==='sp'||h==='prem'||h==='mep';
+function resPlanFor(r){const P=G.plan;if(!P||!P.res||!P.res.steps)return null;const n=G.ridden.slice(P.ridIdx||0).filter(x=>x===r.id).length;
+  const st=P.res.steps.filter(x=>x.k==='ride'&&x.rid===r.id)[n];return st?{q0:Math.round(st.q0),wait:Math.round(st.wait),how:st.how,leave:Math.round(st.leave||st.q0)}:null}
+function resPlanSnap(P){const rs=P.res.steps.filter(x=>x.k==='ride');
+  return{made:Math.round(P.made),nMust:P.res.nMust,nDone:P.res.nDone,endMust:Math.round(P.res.endMust||0),end:Math.round(P.res.end||0),
+    wait:Math.round(rs.reduce((a,x)=>a+(x.wait||0),0)),rides:rs.map(x=>x.rid),must:dpAllMust(P.settings),
+    nLL:rs.filter(x=>resIsLL(x.how)).length}}
+function resQueue(s,r,t,st){if(!G.log)G.log=[];const L=G.log,last=L[L.length-1];if(last&&!last.done){last.done=true;last.left=true;last.end=Math.round(t)}
+  const u=s.use,how=s.ll&&u?(u.kind==='pass'?(u.p.type==='sp'?'sp':'ll'):u.kind):st==='early'?'rope':'standby';
+  const e={rid:r.id,pk:r.pk,q0:Math.round(t),how,sb:Math.round(s.ll?rawWait(r,t):s.dur),est:Math.round(s.dur)};
+  if(u&&u.p){e.pid=u.p.id;const pre=u.kind==='pass'?u.p.start-LL_EARLY-t:0;if(pre>0)e.pre=Math.round(pre)}const pl=resPlanFor(r);if(pl)e.pl=pl;L.push(e);s.log=e;runDirty()}
+function resOn(s){const L=G.log||[],e=L[L.length-1];if(e&&!e.done&&e.rid===s.ride.id&&e.on==null)e.on=Math.round(G.t)}
+function resDone(s){if(!G.log)G.log=[];const r=s.ride,L=G.log,t=G.t;let e=L[L.length-1];
+  if(!(e&&!e.done&&e.rid===r.id)){if(e&&!e.done){e.done=true;e.left=true;e.end=Math.round(t)}
+    // counted with ✓ Rode it without a queue in the sim: time in line unknown
+    const tp=G.lastTap&&G.lastTap.rid===r.id&&t-G.lastTap.t<=r.dur+90?G.lastTap:null,on=t-r.dur;
+    e={rid:r.id,pk:r.pk,q0:null,how:tp?tp.how:'standby',sb:Math.round(rawWait(r,Math.max(0,on))),synced:true};if(tp&&tp.pid!=null)e.pid=tp.pid;
+    const pl=resPlanFor(r);if(pl)e.pl=pl;L.push(e)}
+  const on=e.on!=null?e.on:t-r.dur;if(e.q0!=null)e.wait=Math.max(0,Math.round(on-e.q0));if(s.sync)e.synced=true;e.on=Math.round(on);e.end=Math.round(t);e.done=true;runDirty()}
+function resBuild(){const log=(G.log||[]).map(e=>Object.assign({},e)),last=log[log.length-1];if(last&&!last.done){last.left=true;last.done=true}
+  const rides=log.filter(e=>!e.left),pf=G.planFirst||null,mustNow=G.plan?dpAllMust(G.plan.settings):pf?pf.must:[];
+  const must=[...new Set([...(pf?pf.must:[]),...mustNow])],seen=new Set(),known=rides.filter(e=>e.wait!=null);
+  let mustEnd=0;for(const e of rides)if(must.includes(e.rid)&&!seen.has(e.rid)){seen.add(e.rid);mustEnd=Math.max(mustEnd,e.end||0)}
+  // Lightning Lane savings: standby at the moment you tapped in minus your time in the Lightning Lane
+  const ll=rides.filter(e=>resIsLL(e.how)).map(e=>{const t=e.wait!=null?Math.max(0,e.wait-(e.pre||0)):RES_LLT;return{rid:e.rid,how:e.how,at:e.q0!=null?e.q0:e.on,sb:e.sb,ll:t,pre:e.pre||0,est:e.wait==null,saved:Math.max(0,e.sb-t)}});
+  const usedPid=new Set(rides.filter(e=>e.pid!=null).map(e=>e.pid));
+  const unused=(G.LL&&G.LL.passes||[]).filter(p=>(p.st==='expired'||p.st==='active'||p.st==='mep')&&!usedPid.has(p.id)).map(p=>{const r=RIDE_BY[p.rid];
+    if(p.st==='mep'){const best=(p.mepOpts||[]).map(id=>RIDE_BY[id]).filter(Boolean).reduce((a,x)=>Math.max(a,rawWait(x,Math.min(G.t,p.end))),0);return{rid:p.rid,type:'mep',start:p.start,end:p.end,would:Math.max(0,best-RES_LLT)}}
+    const mid=Math.min(p.start+30,dpParkEnd(r.pk)-30);return{rid:p.rid,type:p.type,start:p.start,end:p.end,would:Math.max(0,rawWait(r,mid)-RES_LLT),st:p.st}});
+  const saved=ll.reduce((a,x)=>a+x.saved,0),spent=G.LL?G.LL.spent||0:0;
+  return{v:1,date:G.date,real:!!G.real,at:Date.now(),endT:Math.round(G.t),mood:Math.round(G.mood),score:G.score,log,
+    act:{rides:rides.length,must:must.length,mustDone:seen.size,mustEnd,wait:known.reduce((a,e)=>a+e.wait,0),nKnown:known.length,
+      added:pf?[...new Set(rides.map(e=>e.rid).filter(id=>!pf.rides.includes(id)))]:[],dropped:pf?[...new Set(pf.rides.filter(id=>!rides.some(e=>e.rid===id)))]:[],
+      nLL:ll.length,posted:known.reduce((a,e)=>a+(resIsLL(e.how)?0:e.sb),0),postedN:known.filter(e=>!resIsLL(e.how)).length,actStd:known.reduce((a,e)=>a+(resIsLL(e.how)?0:e.wait),0)},
+    plan:pf,ll:{list:ll,saved,spent,unused,lost:unused.reduce((a,x)=>a+x.would,0)}}}
+function resStore(R){try{localStorage.setItem(RES_KEY(R.date),JSON.stringify(R));const ks=[];for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith('wdwsim.result.'))ks.push(k)}
+  ks.sort().reverse().slice(6).forEach(k=>localStorage.removeItem(k))}catch(e){}}
+function resLoad(d){try{const o=JSON.parse(localStorage.getItem(RES_KEY(d))||'null');return o&&o.v===1?o:null}catch(e){return null}}
+function resLatest(){let best=null;try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(!k||!k.startsWith('wdwsim.result.'))continue;const o=resLoad(k.slice(14));if(o&&(!best||o.at>best.at))best=o}}catch(e){}return best}
+function resDiff(a,b){if(a==null||b==null)return'';const d=Math.round(a-b);return !d?'':`<span class="${d>0?'up':'dn'}"> ${d>0?'+':'−'}${fmtDur(Math.abs(d))}</span>`}
+function resHTML(R){const A=R.act,P=R.plan,L=R.ll,nm=id=>RIDE_BY[id]?RIDE_BY[id].short:id;let h='';
+  if(!R.log.length&&!L.unused.length)return'';
+  // plan vs actual
+  const row=(k,pv,av)=>`<tr><td>${k}</td>${P?`<td>${pv}</td>`:''}<td>${av}</td></tr>`;
+  h+=P?`<h3>Plan vs actual</h3><table><tr><th></th><th>Plan</th><th>Actual</th></tr>`:`<h3>Day totals</h3><table>`;
+  if(A.must)h+=row('Must-dos',P?P.nDone+' of '+P.nMust:'—',`${A.mustDone} of ${A.must}`);
+  if(P||A.mustEnd)h+=row('Must-dos done by',P&&P.endMust?fmtClock(P.endMust):'—',A.mustDone?fmtClock(A.mustEnd)+(P&&P.endMust&&A.mustDone>=P.nDone?resDiff(A.mustEnd,P.endMust):''):'—');
+  h+=row('Rides & shows',P?P.rides.length:'—',A.rides);
+  h+=row('Time in line',P?fmtDur(P.wait):'—',`${fmtDur(A.wait)}${A.nKnown<A.rides?'<br><small style="color:var(--muted)">'+(A.rides-A.nKnown)+' not timed</small>':''}`);
+  h+=row('Lightning Lanes',P?P.nLL:'—',A.nLL)+`</table>`;
+  if(P){const bits=[];if(A.added.length)bits.push(`<b>Added:</b> ${A.added.map(nm).join(', ')}`);if(A.dropped.length)bits.push(`<b>Dropped:</b> ${A.dropped.map(nm).join(', ')}`);
+    h+=`<p class="note">Plan made ${fmtClock(P.made)}${R.planNote||''}.${bits.length?' '+bits.join(' · '):' You rode exactly the planned rides.'}</p>`}
+  if(A.postedN){const d=A.actStd-A.posted;h+=`<p class="note">Standby lines: ${fmtDur(A.actStd)} actual vs ${fmtDur(A.posted)} posted when you joined${d?` (${d>0?'longer':'shorter'} by ${fmtDur(Math.abs(d))})`:''}.${R.real?'':' In a simulated day the actual wait is the posted one; on a real-time day ✓ Rode it times the real line.'}</p>`}
+  // Lightning Lane savings
+  if(L.list.length||L.unused.length){h+=`<h3>Lightning Lane savings</h3>`;
+    if(L.list.length){h+=`<table><tr><th>Ride</th><th>Standby</th><th>LL</th><th>Saved</th></tr>`+L.list.map(x=>`<tr><td>${nm(x.rid)}<span class="hw ll">${RES_HOW[x.how]}</span></td><td>${fmtDur(x.sb)}</td><td>${x.est?'≈':''}${fmtDur(x.ll)}${x.pre?'<br><small style="color:var(--muted)">+'+fmtDur(x.pre)+' early</small>':''}</td><td><b>${fmtDur(x.saved)}</b></td></tr>`).join('')+
+      `<tr><td><b>Total</b></td><td></td><td></td><td><b>${fmtDur(L.saved)}</b></td></tr></table>`;
+      h+=`<p class="note">${L.spent?`≈$${L.spent} per person on Lightning Lanes → ${L.saved>0?`≈$${(L.spent/(L.saved/60)).toFixed(0)} per hour saved (${(L.saved/L.spent).toFixed(1)} min per $)`:'no time saved'}.`:'No Lightning Lane spend recorded (Premier or Multi Pass not bought in the game).'} Standby = the posted wait when you tapped in; time spent waiting for a window to open isn't counted against the Lightning Lane.</p>`}
+    if(L.unused.length)h+=`<p class="note" style="color:var(--warn)"><b>Unused:</b> ${L.unused.map(x=>`${x.type==='mep'?'Multiple Experience Pass (from '+nm(x.rid)+')':nm(x.rid)+' '+fmtClock(x.start)+'–'+fmtClock(x.end)} · would have saved ≈${fmtDur(x.would)}`).join('; ')}. ${L.lost?`That's ≈${fmtDur(L.lost)} of standby left on the table.`:''}</p>`}
+  // ride log
+  if(R.log.length){h+=`<h3>Your day, ride by ride</h3>`;
+    h+=R.log.map(e=>{const pl=e.pl,how=`<span class="hw ${resIsLL(e.how)?'ll':e.how==='rope'?'rope':''}">${RES_HOW[e.how]||e.how}</span>`;
+      const t=e.q0!=null?e.q0:e.on,main=e.left?'left line':e.wait!=null?fmtDur(e.wait):'—';
+      const c=[];if(e.left)c.push('got out of line');else if(e.wait==null)c.push('counted with ✓ Rode it');
+      if(!resIsLL(e.how))c.push(`posted ${fmtDur(e.sb)}`);else c.push(`standby was ${fmtDur(e.sb)}${e.pre?`, ${fmtDur(e.pre)} of it waiting for your window`:''}`);
+      if(pl)c.push(`plan: ${fmtClock(pl.q0)}, ${fmtDur(pl.wait)}${pl.how!==e.how?' '+(RES_HOW[pl.how]||pl.how).toLowerCase():''}${e.wait!=null&&!e.left?resDiff(e.wait,pl.wait):''}`);else c.push('not in the plan');
+      return`<div class="rl"><div class="a"><small>${t!=null?fmtClock(t):''}</small>${nm(e.rid)}${how}</div><div class="b">${main}</div><div class="c">${c.join(' · ')}</div></div>`}).join('')}
+  return h}
+// start screen: the last finished day's results, until a new day starts
+function resBox(){const box=$('#resBox');if(!box)return;const R=G.started&&!G.over?null:resLatest();if(!R||!R.log.length){box.hidden=true;box.innerHTML='';return}
+  const d=parseDay(R.date);box.hidden=false;box.innerHTML=`<button class="btn sm" id="bRes" style="width:100%;margin:0 0 10px;padding:10px">📊 Results: ${d.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})} · ${R.act.rides} ride${R.act.rides===1?'':'s'}${R.ll.saved?' · LL saved '+fmtDur(R.ll.saved):''}</button>`;
+  $('#bRes').onclick=()=>resShow(R)}
+function resShow(R){$('#endFace').innerHTML=faceSVG(R.mood);$('#endTitle').textContent='Day results';
+  $('#endSub').textContent=`${parseDay(R.date).toLocaleDateString(undefined,{weekday:'long',month:'short',day:'numeric'})}${R.real?' · real time':''} · finished ${fmtClock(R.endT)} at ${R.mood}/100.`;
+  $('#endStats').innerHTML='';$('#ridden').textContent='';$('#endRes').innerHTML=resHTML(R);$('#bAgain').textContent='Back';$('#start').hidden=true;$('#end').hidden=false;$('#end').scrollTop=0}
+function endDay(){G.over=true;closeSheet();$('#bAgain').textContent='Play another day';runClear(G.date);const m=Math.round(G.mood);
   $('#endFace').innerHTML=faceSVG(m);$('#endTitle').textContent=m>=70?'What a day':m>=45?'Day’s done':'Rough day';
   $('#endSub').textContent=`Your guest finished the day ${moodWord(m).toLowerCase()} at ${m}/100 after ${G.ridden.length} ride${G.ridden.length===1?'':'s'}.`;
   const S=G.stats;$('#endStats').innerHTML=`<div><b>${G.score}</b><span>Magic points</span></div><div><b>${G.ridden.length}</b><span>Rides & shows</span></div><div><b>${fmtDur(S.wait)}</b><span>Waiting</span></div><div><b>${fmtDur(S.transit+S.walk)}</b><span>Getting around</span></div><div><b>${G.LL.used}</b><span>Lightning Lanes used</span></div><div><b>≈$${G.LL.spent}</b><span>Spent on LL per person</span></div>`;
   $('#ridden').textContent=G.ridden.length?'Rode: '+G.ridden.map(id=>RIDE_BY[id].short).join(', '):'No rides today. Next time try rope drop.';
+  let R=null;try{R=resBuild();resStore(R)}catch(e){showErr(e)}$('#endRes').innerHTML=R?resHTML(R):'';if(R&&R.log.length)$('#ridden').textContent='';
   $('#end').hidden=false}
 
 // ================= SAVE & RESUME (roadmap row 55) =================
@@ -4011,7 +4111,7 @@ function runTrip(){const segs=G.segs;if(!segs||!segs.length)return null;const s=
   else o.k='travel';return o}
 function runState(){const P=G.plan,down={};for(const r of RIDES)if(r.downUntil)down[r.id]=r.downUntil;
   return{v:RUN.v,saved:Date.now(),date:G.date,real:!!G.real,t:G.t,mult:G.pfMult||1,hotel:selH.value,speed:G.speed,node:G.node,
-    ridden:G.ridden,mood:G.mood,score:G.score,stats:G.stats,LL:G.LL,down,autoLast:AUTO.last,trip:runTrip(),
+    ridden:G.ridden,mood:G.mood,score:G.score,stats:G.stats,LL:G.LL,down,autoLast:AUTO.last,trip:runTrip(),log:G.log||[],planFirst:G.planFirst||null,
     plan:P?{settings:P.settings,res:P.res,legI:P.legI||0,ridIdx:P.ridIdx,lunchAt:P.lunchAt,blkDone:P.blkDone||{},made:P.made,notes:P.notes||[],base:P.base}:null}}
 function runSave(){if(!G.started||G.over||!G.date)return false;RUN.last=Date.now();RUN.dirty=false;
   try{localStorage.setItem(RUN_KEY(G.date),JSON.stringify(runState()));return true}catch(e){return false}}
@@ -4027,7 +4127,7 @@ function runOK(o){return o&&(!o.real||o.date===orlandoNow().date)}
 function runFind(){const a=runLoad(inDate.value);if(runOK(a))return a;let best=null;
   try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(!k||!k.startsWith('wdwsim.run.'))continue;const o=runLoad(k.slice(11));if(runOK(o)&&(!best||o.saved>best.saved))best=o}}catch(e){}return best}
 function runAgo(ms){const m=Math.round(ms/60000);return m<1?'just now':m<60?m+' min ago':m<1440?Math.round(m/60)+' h ago':Math.round(m/1440)+' d ago'}
-function runBox(){const box=$('#resumeBox');if(!box)return;const o=G.started&&!G.over?null:runFind();if(!o){box.hidden=true;box.innerHTML='';return}
+function runBox(){try{resBox()}catch(e){}const box=$('#resumeBox');if(!box)return;const o=G.started&&!G.over?null:runFind();if(!o){box.hidden=true;box.innerHTML='';return}
   const d=parseDay(o.date),pk=o.plan&&o.plan.res?PARKS[o.plan.res.pk].short:null,n=o.ridden.length;
   box.hidden=false;box.innerHTML=`<div class="callout" style="margin:0 0 10px;border-color:rgba(79,209,141,.55);background:rgba(79,209,141,.1)">
     <div style="font-weight:700;margin-bottom:3px">Saved day: ${d.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})}${o.real?' · real time':''}</div>
@@ -4039,7 +4139,7 @@ function runResume(o){const r0=o.trip&&RIDE_BY[o.trip.rid];
   inDate.value=o.date;if(RESORTS.some(h=>h.id===o.hotel))selH.value=o.hotel;
   document.querySelectorAll('#segCrowd button').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.v===o.mult?'true':'false'));showForecast();llSumUpdate();daySumUpdate();
   prepDay(o.date,o.mult,o.hotel);G.real=!!o.real;RT.at=0;G.t=o.t;livePoll(!!G.real);rtStartUI();
-  Object.assign(G,{ridden:o.ridden.slice(),mood:o.mood,score:o.score,stats:Object.assign({wait:0,transit:0,walk:0,ride:0},o.stats),segs:null,seg:0,started:true,over:false,trip:null,tripEnd:null,plan:null});
+  Object.assign(G,{ridden:o.ridden.slice(),mood:o.mood,score:o.score,stats:Object.assign({wait:0,transit:0,walk:0,ride:0},o.stats),segs:null,seg:0,started:true,over:false,trip:null,tripEnd:null,plan:null,log:(o.log||[]).map(e=>Object.assign({},e)),planFirst:o.planFirst||null,lastTap:null});
   DPV={edit:false};G.LL=Object.assign(llFresh(),o.LL);llClock=0;
   RIDES.forEach(r=>r.downUntil=o.down&&o.down[r.id]||0);G.node=NODES[o.node]?o.node:NI['R:'+selH.value];
   if(o.plan&&o.plan.res){G.plan=Object.assign({},o.plan,{settings:Object.assign({},o.plan.settings),notes:o.plan.notes||[],blkDone:o.plan.blkDone||{}})}
@@ -4122,7 +4222,7 @@ function tick(now){const pv=PV.on;if(pv&&(G.real||!G.started||G.over)&&now-PV.ti
     camStep(now);controls.update();skyDome.position.copy(camera.position);renderFrame();updateLabels()}
   if(G.started){updateHUD();runTick();if(pv)pvRefresh(false)}
 }
-window.WDW={RUN,runSave,runLoad,runClear,runResume,runState,runBox,runFind,AUTO,RT,autoCheck,autoReasons,autoReplan,autoDiff,rtRodeIt,rtAt,rtNow,openWhere,dpGameOpts,camera,controls,RF,rfCompact,rfStore,rfLoad,rfResid,rfCalibrate,rfEstimate,rfBacktest,rfUpdateToday,rfApplyDay,rfMul,rfCal,openRF,rfAfterUpdate,rfNoteUpdate,rfTick,rfBannerHTML,liveMatch,stRun,stHTML,stCalib,stModelDay,dpParseTP,dpApplyImport,scene,setGfx,LIGHT,sunDir,fwShows,fwSim:(n,dt)=>{for(let i=0;i<n;i++)updateFireworks(dt)},holdTime:t=>{G.holdT=t==null?null:t*60;if(t!=null)G.t=t*60},dpRun,dpRunDay,dpLegs,dpAllMust,getDPS:()=>DPS,dpStartOpts:S=>dpStartOpts(S),dpMakeGame,dpProgress,dpLoad,dpSave,openPlan,openDaySetup,prepDay,llFromPlan,llFresh,llBook,llNext,llRecs,llUse,llHeld,llTick,llPlanErrors,llSuggest,llLoadPlan,openLL,openRides,openPicks,LIVE,liveIngest,liveFor,curveAt,orlandoNow,livePoll,G,go,flyTo,setFollow,RIDE_BY,PARKS,camera,controls,openRide,closeSheet,rawWait,waitAt,dayFactor,holiday,hoursFor,applyHours,accessOpen,lastClose,renderer,dijkstra,NI,NODES,RESORTS,RIDES,LINES};
+window.WDW={endDay,resBuild,resHTML,resShow,resLoad,resLatest,RUN,runSave,runLoad,runClear,runResume,runState,runBox,runFind,AUTO,RT,autoCheck,autoReasons,autoReplan,autoDiff,rtRodeIt,rtAt,rtNow,openWhere,dpGameOpts,camera,controls,RF,rfCompact,rfStore,rfLoad,rfResid,rfCalibrate,rfEstimate,rfBacktest,rfUpdateToday,rfApplyDay,rfMul,rfCal,openRF,rfAfterUpdate,rfNoteUpdate,rfTick,rfBannerHTML,liveMatch,stRun,stHTML,stCalib,stModelDay,dpParseTP,dpApplyImport,scene,setGfx,LIGHT,sunDir,fwShows,fwSim:(n,dt)=>{for(let i=0;i<n;i++)updateFireworks(dt)},holdTime:t=>{G.holdT=t==null?null:t*60;if(t!=null)G.t=t*60},dpRun,dpRunDay,dpLegs,dpAllMust,getDPS:()=>DPS,dpStartOpts:S=>dpStartOpts(S),dpMakeGame,dpProgress,dpLoad,dpSave,openPlan,openDaySetup,prepDay,llFromPlan,llFresh,llBook,llNext,llRecs,llUse,llHeld,llTick,llPlanErrors,llSuggest,llLoadPlan,openLL,openRides,openPicks,LIVE,liveIngest,liveFor,curveAt,orlandoNow,livePoll,G,go,flyTo,setFollow,RIDE_BY,PARKS,camera,controls,openRide,closeSheet,rawWait,waitAt,dayFactor,holiday,hoursFor,applyHours,accessOpen,lastClose,renderer,dijkstra,NI,NODES,RESORTS,RIDES,LINES};
 requestAnimationFrame(frame);
 })();
 </script>
