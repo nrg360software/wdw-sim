@@ -94,6 +94,18 @@ button:focus-visible,select:focus-visible{outline:2px solid var(--gold);outline-
 .list{display:flex;flex-direction:column}
 .ri{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:11px 2px;border-bottom:1px solid rgba(255,255,255,.07);text-align:left;background:none;border-left:0;border-right:0;border-top:0;width:100%}
 .ri .n{font-weight:700;font-size:14.5px;min-width:0}
+.nowc{border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin:6px 0 10px;background:rgba(255,255,255,.05)}
+.nowc .nh{font-weight:700;font-size:14.5px;margin-bottom:4px}
+.nowc .nb{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.nowc .nb .btn{flex:1 1 auto}
+.stp{display:grid;grid-template-columns:20px 1fr auto;gap:1px 8px;align-items:center;padding:6px 0;border-top:1px solid rgba(255,255,255,.06)}
+.stp .si{text-align:center;font-size:13px;color:var(--muted);grid-row:1 / span 2}
+.stp .sl{font-size:14px;min-width:0}.stp .sx{grid-column:2;font-size:12px;color:var(--muted)}
+.stp .sbt{grid-row:1 / span 2;grid-column:3;display:flex;gap:6px}
+.stp.done .si,.stp.done .sl{opacity:.55}.stp.cur .sl{font-weight:700;color:var(--gold)}.stp.cur .si{color:var(--gold)}
+.nowpv{font-size:12.5px;color:var(--muted);line-height:1.55}
+.wbtn{border:1px solid rgba(255,255,255,.4)!important;background:rgba(255,255,255,.14)!important;color:var(--text)!important}
+.ri.wr{cursor:pointer}.ri.wr:active{background:rgba(255,255,255,.06)}
 .ri .m{font-size:12px;color:var(--muted);grid-column:1;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .ri .w{grid-row:1 / span 2;grid-column:2;align-self:center;font-size:14px;padding:4px 9px;min-width:44px}
 .tag{font-size:10.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;border-radius:6px;padding:1px 6px}
@@ -233,11 +245,12 @@ body.pvmode #start,body.pvmode #end{background:var(--night)}
       <button class="btn pri" id="bRides">Rides</button>
       <button class="btn" id="bPlan">Plan</button>
       <button class="btn" id="bPicks">Top picks</button>
-      <button class="btn" id="bBreak">Snack</button>
+      <button class="btn" id="bBreak">Eat · shop</button>
     </div>
     <div class="row" id="rtRow" hidden>
-      <button class="btn sm" id="rtDone">✓ Rode it</button>
-      <button class="btn sm" id="rtMore">+5 min in line</button>
+      <button class="btn sm pri" id="rtDone" style="flex:1">✓ Rode it</button>
+      <button class="btn sm" id="rtRode" style="display:none">✓ Rode it</button>
+      <button class="btn sm" id="rtSteps">Steps</button>
       <button class="btn sm" id="rtWhere">📍 I'm at…</button>
     </div>
     <div class="row" style="justify-content:space-between">
@@ -3127,7 +3140,7 @@ function buildSegs(plan,r,useLL){
       else segs.push({k:'transit',line:e.line,pts:e.pts.slice(),dur,toNode:e.to})}}
   segs.push({k:'queue',ride:r,ll:useLL});segs.push({k:'onride',ride:r,dur:r.dur});
   segs.forEach(s=>{s.el=0;s.started=false});return segs}
-function sampleWait(L){const b=busy(G.t/60);switch(L.mode){
+function sampleWait(L){const b=busy(G.t/60);if(G.real)return L.mode==='bus'?Math.round(0.82*(2+L.headway)/2+0.18*26):L.mode==='skyliner'?2+3*b:Math.round((1+L.headway)/2+2*b);switch(L.mode){
   case 'skyliner':return rnd(0.5,2.5)+(Math.random()<0.25*b?rnd(3,12):0);
   case 'monorail':return rnd(1,L.headway)+(Math.random()<0.2*b?rnd(4,14):0);
   case 'bus':return Math.random()<0.18?rnd(18,34):rnd(2,L.headway);
@@ -3137,7 +3150,7 @@ function go(r,useLL){
   const use=useLL?llUse(r):null;if(useLL&&!use)return;useLL=!!use;
   if(plan.st.leaveLine){addMood(-3,'Gave up on that line')}
   G.segs=buildSegs(plan,r,useLL);G.seg=0;G.tripEnd=NI[r.nodeId];if(use)G.segs.find(x=>x.k==='queue').use=use;
-  G.trip={start:G.t,est:plan.eta,ride:r,ll:useLL};showTrip(G.segs);closeSheet();setFollow(true);
+  G.trip={start:G.t,est:plan.eta,ride:r,ll:useLL,from:plan.st.node};showTrip(G.segs);closeSheet();setFollow(true);
   toast(`Heading to ${r.name}${useLL?' with Lightning Lane':''} · about ${fmtDur(plan.eta)} to get there`)}
 let tripLine=null;const tripMat=new THREE.MeshBasicMaterial({color:0xffcf3d,transparent:true,opacity:0.62,depthTest:false,depthWrite:false,side:THREE.DoubleSide});
 function showTrip(segs){if(tripLine){scene.remove(tripLine);tripLine.geometry.dispose();tripLine=null}if(!segs)return;const rb=new Rib();
@@ -3150,6 +3163,8 @@ function startSeg(s){
   if(s.k==='transit'){sayBubble(s.line.mode==='skyliner'?'What a view!':s.line.mode==='monorail'?'Monorail!':s.line.mode==='bus'?'Squeezed in':'All aboard')}
   if(s.k==='gate')sayBubble('Bag check');
   if(s.k==='queue'){const r=s.ride,t=G.t,st=rideState(r,t);
+    if(s.force){if(s.ll&&s.use){try{if(s.use.kind!=='pass'||s.use.p.st==='active')llTap(s.use,r,t)}catch(e){}s.dur=Math.round(rnd(4,11))}
+      else s.dur=st==='open'?rawWait(r,t):Math.max(5,rawWait(r,Math.max(t,accessOpen(r.pk))));sayBubble('In line');try{resQueue(s,r,t,st)}catch(e){}return}
     if(st==='closed'){s.abort=true;G.node=NI[r.nodeId];addMood(-12,`${PARKS[r.pk].name} is closed for the night`);return}
     if(st==='down'){s.abort=true;G.node=NI[r.nodeId];const u=s.use;if(u&&u.kind==='pass'&&u.p.st==='active'&&llWinState(u.p,t)!=='early'){u.p.st='mep';u.p.mepOpts=RIDES.filter(x=>x.pk===r.pk&&x.llType==='mp'&&x!==r).map(x=>x.id);setTimeout(()=>llToast(`You got a Multiple Experience Pass for another ${PARKS[r.pk].short} Lightning Lane today`),900)}addMood(-10,`${r.name} is temporarily down!`);sayBubble('Noooo');return}
     if(s.ll){const u=s.use;let pre=0;
@@ -3163,7 +3178,7 @@ function startSeg(s){
     try{resQueue(s,r,t,st)}catch(e){}}
   if(s.k==='onride'){sayBubble(s.ride.thrill>=8?'Wheee!':'Ooh!');try{resOn(s)}catch(e){}}
 }
-function endSeg(s){
+function endSeg(s){s.t1=G.t;
   if(s.k==='twait'&&s.dur>14)addMood(-3,`Waited ${Math.round(s.dur)} min for the ${MODE[s.line.mode].toLowerCase()}`);
   if(s.k==='transit'){G.node=s.toNode}
   if(s.k==='walk')G.node=s.bNode;
@@ -3172,7 +3187,7 @@ function endSeg(s){
     const actual=G.trip?G.t-G.trip.start-r.dur:0;let msg=s.sync?`${r.short} counted`:`${r.short} done · ${fmtDur(actual)} to get on`;
     addMood(Math.round(joy),msg);
     G.trip=null;G.tripEnd=null;runDirty();if(G.plan)setTimeout(dpNudge,1700)}
-  if(s.k==='snack'){toast('Recharged with a snack')}
+  if(s.k==='snack'){const A=s.act&&ACT[s.act];toast(A?`${A.ic} ${s.name||A.n} done`:'Recharged with a snack')}
   G.seg++;if(G.seg>=G.segs.length){G.segs=null}}
 function moodRate(s,dt){const h=G.t/60,heat=h>=12&&h<16?0.06:0;let r=0;
   switch(s?s.k:'idle'){
@@ -3187,9 +3202,9 @@ function moodRate(s,dt){const h=G.t/60,heat=h>=12&&h<16?0.06:0;let r=0;
   G.mood=clamp(G.mood+r*dt,0,100)}
 function stepPlayer(dt){let guard=0;
   while(dt>1e-6&&G.segs&&G.seg<G.segs.length&&guard++<30){const s=G.segs[G.seg];
-    if(!s.started){s.started=true;startSeg(s);if(s.abort){G.segs=null;G.trip=null;G.tripEnd=null;break}}
+    if(!s.started){s.started=true;s.t0=G.t;startSeg(s);if(s.abort){G.segs=null;G.trip=null;G.tripEnd=null;break}}
     if(s.k==='walk'){const sp=(s.inPark?WALK_PARK:WALK_OUT)*(1-0.45*G.density)*(G.mood<15?0.75:1);const need=(s.len-s.done)/sp,use=Math.min(dt,need);s.done+=use*sp;dt-=use;moodRate(s,use);if(s.done>=s.len-1e-4)endSeg(s)}
-    else if(rtHolds(s)&&s.el>=s.dur-1e-4){if(s.base==null)s.base=s.dur;s.hold=true;const use=Math.min(dt,s.base+RT_HOLD-s.el);s.el+=use;s.dur=s.el;dt-=use;moodRate(s,use);if(s.el>=s.base+RT_HOLD-1e-4)endSeg(s)}
+    else if(rtHolds(s)&&s.el>=s.dur-1e-4){if(s.base==null)s.base=s.dur;s.hold=true;const cap=rtHoldCap(s),use=Math.min(dt,s.base+cap-s.el);s.el+=use;s.dur=s.el;dt-=use;moodRate(s,use);if(s.el>=s.base+cap-1e-4)endSeg(s)}
     else{const use=Math.min(dt,s.dur-s.el);s.el+=use;dt-=use;moodRate(s,use);if(s.el>=s.dur-1e-4&&!rtHolds(s))endSeg(s)}}
   if(!G.segs&&dt>0)moodRate(null,dt);
   placePlayer()}
@@ -3429,16 +3444,16 @@ function updateHUD(){
   else{const tgt=G.segs[G.segs.length-1].ride;
     switch(s.k){case 'walk':txt=`Walking${s.inPark?` · ${G.density>0.66?'packed':G.density>0.33?'busy':'open'} paths`:''} → ${tgt.short}`;break;
       case 'gate':txt='Bag check & tapstiles';eta=fmtDur(s.dur-s.el)+' left';break;
-      case 'twait':txt=`Waiting for the ${MODE[s.line.mode].toLowerCase()}`;eta=`${fmtDur(s.el)} so far`;break;
+      case 'twait':txt=`Waiting for the ${MODE[s.line.mode].toLowerCase()}`;eta=`${fmtDur(s.el)} so far${s.hold?' · tap ✓ when on':''}`;break;
       case 'transit':txt=`${MODE[s.line.mode]} → ${NODES[s.toNode].label}`;eta=fmtDur(s.dur-s.el)+' left';break;
       case 'queue':txt=s.ll?`Lightning Lane · ${tgt.short}`:`Standby line · ${tgt.short}`;eta=s.hold?`${fmtDur(s.el-s.base)} over · tap ✓ when off`:fmtDur(s.dur-s.el)+' left';break;
       case 'onride':txt=`Riding ${tgt.short}!`;eta=fmtDur(s.dur-s.el);break;
-      case 'snack':txt=s.name||'Snack break';eta=fmtDur(s.dur-s.el)+' left';break}}
+      case 'snack':{const A=s.act&&ACT[s.act];txt=A?`${A.ic} ${s.name||A.n}`:s.name||'Snack break';eta=G.real&&A?`${fmtDur(s.el)} so far · tap ✓ when done`:fmtDur(s.dur-s.el)+' left';break}}}
   $('#statusT').textContent=txt;$('#statusE').textContent=eta;
   let pf=0;if(G.segs){const sg=G.segs[G.seg];let f=0;if(sg)f=sg.k==='walk'?sg.done/sg.len:(sg.dur?sg.el/sg.dur:0);pf=(G.seg+clamp(f,0,1))/G.segs.length}
   $('#progI').style.width=(pf*100).toFixed(1)+'%';
   if(G.bubble&&performance.now()<G.bubble.until){meBubble.hidden=false;meBubble.textContent=G.bubble.t}else meBubble.hidden=true;
-  $('#bBreak').disabled=!!G.segs;rtHud(s)}
+  $('#bBreak').disabled=!G.real&&!!G.segs;rtHud(s)}
 
 // ================= SHEETS =================
 const sheet=$('#sheet'),sheetIn=$('#sheetIn');let sheetTab=null,wasSpeed=1;
@@ -3894,17 +3909,17 @@ function planViewHTML(){
   // or ≥10 min savings): offer the best booking now, whatever you're doing
   if(!books.some(x=>llCanBook(x.r,G.t).ok)&&G.LL.mp&&llCanBookAny(G.t)){const rec=llRecs(G.t).find(x=>x.save>=3);
     if(rec)bkH+=`<button class="btn ll" data-bk="${rec.r.id}">⚡ Free slot · book ${rec.r.short} · returns ~${fmtClock(rec.ret)} (saves ~${fmtDur(rec.save)})</button>`}
-  const top=`${autoNoteHTML()}${status?`<p class="note" style="color:var(--text)">${status}</p>`:''}
+  const top=`${nowCardHTML()}${autoNoteHTML()}${status?`<p class="note" style="color:var(--text)">${status}</p>`:''}
   <div class="go">${btns}${bkH}</div>${bkH?'<p class="note">Your plan books these as soon as you tap in. Return times shown are live.</p>':''}
   <div class="row" style="margin:10px 0 4px;flex-wrap:wrap"><button class="btn sm" id="dpRe">Replan from here</button><button class="btn sm" id="dpEdit">Change must-dos</button><button class="btn sm" id="dpClr">${DPV.clr?'Tap again to clear':'Clear plan'}</button><button class="btn sm tog" id="dpAuto" aria-pressed="${AUTO.on}">Auto-adjust ${AUTO.on?'on':'off'}</button></div>`;
   const rest=`${dpTimelineHTML(P.res,pr)}
   <p class="note">Made at ${fmtClock(P.made)} from typical waits${liveActive()?' and live waits':''}. ${AUTO.on?'Auto-adjust replans by itself when you fall behind, a ride goes down, the crowd read shifts or live waits drift.':'Breakdowns and slow buses will push it around; replan when you fall behind.'}</p>`;
   return {top,rest,pr,s}}
-function planBind(root,v){const pr=v.pr,s=v.s,q=x=>root.querySelector(x);
+function planBind(root,v){const pr=v.pr,s=v.s,q=x=>root.querySelector(x);nowBind(root);
   q('#dpAuto').onclick=()=>{AUTO.on=!AUTO.on;try{localStorage.setItem('wdwsim.auto',AUTO.on?'1':'0')}catch(e){}planRefresh();if(AUTO.on)autoCheck('toggle')};
   const nx=q('#dpNext');if(nx)nx.onclick=()=>{const r=RIDE_BY[s.rid],wantLL=s.how!=='rope'&&s.how!=='standby';go(r,wantLL&&!!llUse(r))};
-  const bb=q('#dpBlk');if(bb)bb.onclick=()=>{if(G.segs&&!effectiveStart().can){toast('Finish this ride first');return}const b=pr.blk,dur=Math.max(b.walk+b.dur,b.at?b.at-(b.meal?15:0)+b.dur-G.t:0);G.plan.blkDone[b.id]=1;if(b.meal)G.plan.lunchAt=G.t;G.segs=[{k:'snack',dur:Math.round(dur),el:0,started:false,name:b.name}];G.seg=0;sayBubble(b.meal?'Food!':'Off we go');planDone()};
-  const lu=q('#dpLunch');if(lu)lu.onclick=()=>{if(G.segs&&!effectiveStart().can){toast('Finish this ride first');return}G.plan.lunchAt=G.t;G.segs=[{k:'snack',dur:DP_LUNCH,el:0,started:false}];G.seg=0;sayBubble('Lunch!');planDone()};
+  const bb=q('#dpBlk');if(bb)bb.onclick=()=>{if(G.segs&&!effectiveStart().can){toast('Finish this ride first');return}const b=pr.blk,dur=Math.max(b.walk+b.dur,b.at?b.at-(b.meal?15:0)+b.dur-G.t:0);G.plan.blkDone[b.id]=1;if(b.meal)G.plan.lunchAt=G.t;G.segs=[{k:'snack',dur:Math.round(dur),el:0,started:false,name:b.name,act:b.meal?'dine':undefined}];G.seg=0;sayBubble(b.meal?'Food!':'Off we go');planDone()};
+  const lu=q('#dpLunch');if(lu)lu.onclick=()=>{if(G.segs&&!effectiveStart().can){toast('Finish this ride first');return}G.plan.lunchAt=G.t;G.segs=[{k:'snack',dur:DP_LUNCH,el:0,started:false,act:'dine',name:'Lunch'}];G.seg=0;sayBubble('Lunch!');planDone()};
   root.querySelectorAll('[data-bk]').forEach(b=>b.onclick=()=>{const r=RIDE_BY[b.dataset.bk];if(G.real){openLLEnter(r);return}const res=llBook(r,G.t);toast(res.ok?`Booked ${r.short} · ${fmtClock(res.p.start)}–${fmtClock(res.p.end)}`:res.why);planRefresh()});
   q('#dpRe').onclick=()=>{autoReplan([{k:'manual',text:'You replanned'}],true);toast('Plan updated from here');planRefresh()};
   q('#dpEdit').onclick=()=>{DPV.edit=true;DPV.S=null;openPlan()};
@@ -3921,7 +3936,10 @@ function planRefresh(){if(PV.on)pvRefresh(true);else openPlan()}
 const RT_HOLD=60,DP_DOWN_GUESS=40,AUTO_LATE=15,AUTO_AHEAD=25,AUTO_DRIFT=15,AUTO_COOL=10,AUTO_STRETCH=10;
 const RT={at:0,base:0,t0:0,catching:false,lbl:''};
 function rtNow(){const now=Date.now();if(!RT.at||now-RT.at>60000||now<RT.at){const o=orlandoNow();let m=o.min+(new Date(now).getSeconds()+now%1000/1000)/60;if(G.date&&o.date>G.date)m+=1440;RT.t0=m;RT.base=now;RT.at=now}return RT.t0+(now-RT.base)/60000}
-function rtHolds(s){return G.real&&s.k==='queue'&&s.el<(s.base!=null?s.base:s.dur)+RT_HOLD-1e-4}
+// on a real day these don't end on their own when the estimate runs out: a line (until ✓ Rode it), a bus stop (until ✓ On the
+// bus) and eating / shopping / a break (until ✓ Done), each up to a cap after which the sim assumes you moved on
+function rtHoldCap(s){if(s.k==='queue')return RT_HOLD;if(s.k==='twait')return RT_HOLD_STOP;if(s.k==='snack'&&s.act&&ACT[s.act])return ACT[s.act].hold;return -1}
+function rtHolds(s){if(!G.real)return false;const c=rtHoldCap(s);return c>=0&&s.el<(s.base!=null?s.base:s.dur)+c-1e-4}
 function rtAdvance(){let dt=rtNow()-G.t;if(dt<=0)return;const sz=dt>20?2:0.5;RT.catching=dt>6;let n=0;
   try{while(dt>1e-6&&n++<500){const st=Math.min(dt,sz);G.t+=st;stepPlayer(st);stepAgents(st);periodic(st);dt-=st;if(G.over)break}}finally{if(RT.catching){RT.catching=false;if(!G.over)autoCheck('catchup')}}}
 function rtStartUI(){$('#speedSeg').style.display=G.real?'none':'';$('#rtPill').hidden=!G.real;$('#rtRow').hidden=!G.real}
@@ -3930,8 +3948,8 @@ function rtStartLabel(){const b=$('#segTime [data-now]');if(!b)return;const o=or
 function rtPick(){const o=orlandoNow();if(inDate.value!==o.date){inDate.value=o.date;showForecast();llSumUpdate();daySumUpdate()}rtStartLabel()}
 function rtPrepStart(){rtPick();return true}
 let rtHudK='';
-function rtHud(s){if(!G.real)return;const tgt=G.segs&&G.segs.length?G.segs[G.segs.length-1].ride:null,k=(tgt?tgt.id:'')+'|'+(s&&s.k==='queue'&&!s.ll?1:0);if(k===rtHudK)return;rtHudK=k;
-  $('#rtDone').textContent=tgt?`✓ Rode ${tgt.short}`:'✓ Rode it';$('#rtMore').style.display=s&&s.k==='queue'&&!s.ll?'':'none'}
+function rtHud(s){if(!G.real)return;const p=stepPrimary(),inQ=!!(s&&s.k==='queue'),k=(p?p.label:'')+'|'+inQ;if(k===rtHudK)return;rtHudK=k;
+  $('#rtDone').textContent=p?p.label:'✓ Rode it';$('#rtRode').style.display=inQ?'':'none'}
 // count a ride as done right now (you tell the sim you got off it)
 function rtCount(r,viaTrip){const s={k:'onride',ride:r,dur:r.dur,el:r.dur,started:true,sync:true};if(!viaTrip){G.segs=[s];G.seg=0;G.trip=null}else{G.seg=G.segs.indexOf(viaTrip);viaTrip.started=true;viaTrip.el=viaTrip.dur;viaTrip.sync=true}endSeg(viaTrip||s);G.segs=null;G.trip=null;G.tripEnd=null;showTrip(null);placePlayer();rtHudK=''}
 function rtTapLL(r){const u=llUse(r);if(u&&u.kind==='pass'){const w=llWinState(u.p,G.t);if(w==='open'||w==='grace'){llTap(u,r,G.t);return true}}return false}
@@ -3942,18 +3960,118 @@ function rtRodeRide(r){const segs=G.segs;if(segs&&segs[segs.length-1].ride===r){
 function rtAt(key,label){const n=NI[key];if(n==null)return;if(G.segs&&G.segs.some(s=>s.k==='queue'&&s.started&&!s.ll))addMood(-3,'Gave up on that line');G.segs=null;G.trip=null;G.tripEnd=null;G.node=n;showTrip(null);placePlayer();rtHudK='';
   closeSheet();setFollow(true);flyTo(NODES[n].x,NODES[n].z,420,900);toast(`You're at ${label}`);autoKick(`You're at ${label}`)}
 let whereTab=null;
-function openWhere(){whereTab=whereTab||currentPark();const pk=whereTab,hotel=RESORTS.find(h=>h.id===selH.value);
+function openWhere(tab){if(tab)whereTab=tab;whereTab=whereTab||currentPark();const pk=whereTab,hotel=RESORTS.find(h=>h.id===selH.value);
   const tabs=Object.keys(PARKS).map(k=>`<button data-wt="${k}" aria-pressed="${k===pk}">${PARKS[k].short}</button>`).join('');
-  const row=(name,meta,btns)=>`<div class="ri"><span class="n">${name}</span><span class="m">${meta}</span><span class="w" style="display:flex;gap:6px;padding:0;min-width:0">${btns}</span></div>`;
+  // tapping a row = "I'm here"; Rode it counts the ride as well
+  const row=(name,meta,key,label,rid)=>`<div class="ri wr" data-wh="${key}" data-wl="${label}"><span class="n">${name}</span><span class="m">${meta}</span><span class="w" style="display:flex;gap:6px;padding:0;min-width:0">${rid?`<button class="btn sm pri" data-wr="${rid}">Rode it</button>`:''}<button class="btn sm wbtn" data-wh="${key}" data-wl="${label}">I'm here</button></span></div>`;
   const rides=RIDES.filter(r=>r.pk===pk).sort((a,b)=>a.name.localeCompare(b.name));
+  const cur=NODES[G.node],s=G.segs&&G.segs[G.seg];
   openSheet(`<div class="sh"><h2>Where are you?</h2><span class="paused">Clock paused</span><button class="x" aria-label="Close">×</button></div><div class="tabs">${tabs}</div><div class="sb">
-  <p class="note">Keep the sim in step with your real day. <b>Rode it</b> counts the ride and puts you at its exit; <b>Here</b> just moves you. ${G.plan?'Your plan adjusts from there.':''}</p>
-  <div class="list">${row(PARKS[pk].name+' entrance','',`<button class="btn sm" data-wh="${pk}:front" data-wl="${PARKS[pk].short} entrance">Here</button>`)}
-  ${rides.map(r=>row(r.name,G.ridden.includes(r.id)?'<span class="tag rd">Ridden</span>':'',`<button class="btn sm" data-wr="${r.id}">Rode it</button><button class="btn sm" data-wh="${r.nodeId}" data-wl="${r.short}">Here</button>`)).join('')}
-  ${row('My hotel · '+hotel.name,'',`<button class="btn sm" data-wh="R:${hotel.id}" data-wl="${hotel.name}">Here</button>`)}</div></div>`);
+  <p class="note">Sim has you ${s?'on the way to '+(G.segs[G.segs.length-1].ride?G.segs[G.segs.length-1].ride.short:'…'):'at <b>'+(cur.ride?cur.ride.short:cur.label)+'</b>'}. Tap where you really are: <b>I'm here</b> moves you (and ends the current trip); <b>Rode it</b> also counts the ride. ${G.plan?'Your plan adjusts from there.':''}</p>
+  <div class="list">${row(PARKS[pk].name+' entrance','Bus / monorail stop, outside bag check',pk+':front',PARKS[pk].short+' entrance')}
+  ${rides.map(r=>row(r.name,G.ridden.includes(r.id)?'<span class="tag rd">Ridden</span>':'',r.nodeId,r.short,r.id)).join('')}
+  ${row('My hotel · '+hotel.name,'Including its bus stop','R:'+hotel.id,hotel.name)}</div></div>`);
   sheetIn.querySelectorAll('[data-wt]').forEach(b=>b.onclick=()=>{whereTab=b.dataset.wt;openWhere()});
-  sheetIn.querySelectorAll('[data-wh]').forEach(b=>b.onclick=()=>rtAt(b.dataset.wh,b.dataset.wl));
-  sheetIn.querySelectorAll('[data-wr]').forEach(b=>b.onclick=()=>{const r=RIDE_BY[b.dataset.wr];closeSheet();rtRodeRide(r)})}
+  sheetIn.querySelectorAll('[data-wh]').forEach(b=>b.onclick=e=>{e.stopPropagation();rtAt(b.dataset.wh,b.dataset.wl);stepsRefresh()});
+  sheetIn.querySelectorAll('[data-wr]').forEach(b=>b.onclick=e=>{e.stopPropagation();const r=RIDE_BY[b.dataset.wr];closeSheet();rtRodeRide(r);stepsRefresh()})}
+
+// ================= DAY STEPS (step tracking, Nov 21) =================
+// The current trip as steps you can confirm: walk to the stop, wait, on the bus, bag check, in the park, in line, on the ride,
+// rode it. Confirming a later step implies the earlier ones (Rode it implies you got in line and on the ride); on a real day
+// the bus stop, the line and eating / shopping hold until you confirm (up to a cap), everything else runs on estimates.
+// Plus eating, snacks, shopping and breaks with a start and a finish (snack segs with act).
+const RT_HOLD_STOP=20;
+const ACT={dine:{n:'Dining',ic:'🍽',dur:45,hold:75,done:'Done eating'},snack:{n:'Snack',ic:'🍦',dur:15,hold:30,done:'Done with snack'},
+  shop:{n:'Shopping',ic:'🛍',dur:20,hold:45,done:'Done shopping'},rest:{n:'Break',ic:'☕',dur:15,hold:45,done:'Break over'}};
+function segEst(s){if(s.k==='walk')return (s.len-(s.done||0))/(s.inPark?WALK_PARK:WALK_OUT);if(s.k==='queue'&&!s.started)return s.ll?7:rawWait(s.ride,G.t);
+  if(s.k==='twait'&&!s.started)return s.line&&s.line.headway?Math.round(s.line.headway/2+2):8;return Math.max(0,(s.dur||0)-(s.el||0))}
+function tripSteps(segs){segs=segs||G.segs;if(!segs||!segs.length)return[];const out=[];
+  segs.forEach((s,i)=>{const last=out[out.length-1];if(s.k==='walk'&&last&&last.k==='walk')last.i1=i;else out.push({k:s.k,i0:i,i1:i})});
+  const md=x=>MODE[x.line.mode].toLowerCase();
+  out.forEach((st,j)=>{const s=segs[st.i0],nx=segs[st.i1+1],pv=j?segs[out[j-1].i1]:null;
+    if(st.k==='walk'){st.label=nx&&nx.k==='twait'?`Walk to the ${md(nx)} stop`:nx&&nx.k==='gate'?`Walk to ${PARKS[nx.park]?PARKS[nx.park].short+' ':''}bag check`:nx&&nx.ride?`Walk to ${nx.ride.short}`:'Walk';
+      st.reach=!pv?'On my way':pv.k==='transit'?`Off the ${md(pv)}`:pv.k==='gate'?'In the park':pv.k==='onride'?'Off the ride':'Walking';st.ic='🚶'}
+    else if(st.k==='twait'){st.label=`Wait for the ${md(s)}`;st.reach=`At the ${md(s)} stop`;st.ic='🚏'}
+    else if(st.k==='transit'){st.label=`${MODE[s.line.mode]} to ${NODES[s.toNode].label}`;st.reach=`On the ${md(s)}`;st.ic=s.line.mode==='bus'?'🚌':s.line.mode==='monorail'?'🚝':s.line.mode==='skyliner'?'🚡':'⛴'}
+    else if(st.k==='gate'){st.label=`Bag check & tap in${PARKS[s.park]?' · '+PARKS[s.park].short:''}`;st.reach='At bag check';st.ic='🎟'}
+    else if(st.k==='queue'){st.label=s.ll?`Lightning Lane · ${s.ride.short}`:`Standby line · ${s.ride.short}`;st.reach=s.ll?'In the LL line':'In line';st.ic=s.ll?'⚡':'⏳'}
+    else if(st.k==='onride'){st.label=`Ride ${s.ride.short}`;st.reach='On the ride';st.ic='🎢'}
+    else{const A=s.act&&ACT[s.act];st.label=A?s.name||A.n:s.name||'Break';st.reach='Started';st.ic=A?A.ic:'☕'}
+    let m=0;for(let i=st.i0;i<=st.i1;i++)m+=segEst(segs[i]);st.est=m});
+  return out}
+function stepCur(st){return st.findIndex(x=>G.seg>=x.i0&&G.seg<=x.i1)}
+// the dock's main button: confirm the next step (or finish what you're doing)
+function stepPrimary(){const segs=G.segs;if(!segs)return{label:'✓ Rode it',fn:()=>openWhere(currentPark())};
+  const s=segs[G.seg];if(!s)return null;if(s.k==='snack'){const A=s.act&&ACT[s.act];return{label:'✓ '+(A?A.done:'Done'),fn:actDone}}
+  const st=tripSteps(),c=stepCur(st);if(c<0)return null;if(c>=st.length-1)return{label:'✓ Rode it',fn:rtRodeIt};
+  return{label:'✓ '+st[c+1].reach,fn:()=>stepJump(c+1)}}
+// you say you've reached step j: everything before it is done now; going back (real day, before a line) restarts from there
+function stepJump(j){const segs=G.segs;if(!segs)return;const st=tripSteps(),c=stepCur(st);if(c<0)return;
+  if(j>=st.length){rtRodeIt();return}if(j===c)return;if(j<c){stepBack(j,st,c);return}
+  const target=st[j].i0;let guard=0;
+  while(G.segs&&G.seg<target&&guard++<60){const s=G.segs[G.seg];if(s.d0==null&&s.dur!=null)s.d0=s.dur;
+    if(!s.started){s.started=true;s.t0=G.t;if(s.k==='queue'){s.force=true;startSeg(s)}}
+    if(s.k==='walk')s.done=s.len;else s.dur=s.el||0;endSeg(s)}
+  const t=G.segs&&G.segs[G.seg];if(t&&t.k==='queue')t.force=true;
+  rtHudK='';placePlayer();runDirty();toast('✓ '+st[j].reach);setTimeout(()=>{if(G.started&&!G.over)autoCheck('step')},50)}
+function stepBack(j,st,c){const segs=G.segs,i0=st[j].i0;
+  for(let i=i0;i<=G.seg;i++)if(segs[i].k==='queue'&&segs[i].started){toast("You're already in line: leave it with I'm at…");return}
+  for(let i=i0;i<=G.seg&&i<segs.length;i++){const s=segs[i];if(s.d0!=null)s.dur=s.d0;s.started=false;s.el=0;s.done=0;s.hold=false;delete s.base;delete s.t1}
+  const s=segs[i0];s.started=true;if(s.t0==null)s.t0=G.t;
+  if(s.k==='twait')s.el=s.dur;else if(s.k==='transit')s.el=Math.max(0,s.dur-3);
+  let n=G.trip&&G.trip.from!=null?G.trip.from:G.node;for(let i=0;i<i0;i++){const x=segs[i];if(x.k==='walk')n=x.bNode;else if(x.k==='transit')n=x.toNode}
+  G.node=n;G.seg=i0;rtHudK='';placePlayer();runDirty();toast('Back to: '+st[j].label);setTimeout(()=>{if(G.started&&!G.over)autoCheck('step')},50)}
+function rtPlus5(){const s=G.segs&&G.segs[G.seg];if(!s||s.k!=='queue')return;if(s.base!=null)s.base+=5;s.dur=Math.max(s.dur,s.el)+5;s.hold=false;toast('Line +5 min');setTimeout(()=>autoCheck('line'),50)}
+// eating, snacks, shopping, breaks
+function openDoing(){if(!G.started||G.over)return;const s=G.segs&&G.segs[G.seg];
+  if(s&&s.k==='snack'){actDone();stepsRefresh();return}
+  if(!G.real&&G.segs&&!effectiveStart().can){toast('Finish this ride first');return}
+  const pr=G.plan&&dpProgress(),meal=pr&&pr.blk&&pr.blk.meal?pr.blk.name:pr&&pr.meal?'Lunch':null;
+  const b=(k,sub)=>{const A=ACT[k];return `<button class="ri" data-act="${k}"><span class="n">${A.ic} ${k==='dine'&&meal?meal+' (in your plan)':A.n}</span><span class="m">${sub}</span><span class="w">${G.real?'Start':'~'+fmtDur(k==='dine'&&pr&&pr.meal&&!(pr.blk&&pr.blk.meal)?DP_LUNCH:A.dur)}</span></button>`};
+  openSheet(`<div class="sh"><h2>Eat, shop or take a break</h2><span class="paused">Clock paused</span><button class="x" aria-label="Close">×</button></div><div class="sb">
+  <p class="note">${G.real?'Tap when you start; tap <b>✓ Done</b> when you finish (or the sim assumes you moved on after a while).':'The guest stops for about this long.'} ${G.segs?'This ends your current trip'+(s&&s.k==='onride'?' and counts the ride':'')+'.':''}</p>
+  <div class="list">${b('dine','Table or quick service')}${b('snack','Treat, drink')}${b('shop','Stores, merch')}${b('rest','Rest, restroom, shade')}</div></div>`);
+  sheetIn.querySelectorAll('[data-act]').forEach(x=>x.onclick=()=>{actStart(x.dataset.act);stepsRefresh()})}
+function actStart(k){const A=ACT[k];if(!A)return;const segs=G.segs,s=segs&&segs[G.seg];
+  if(segs){if(s&&s.k==='onride'&&s.started){rtCount(s.ride,s)}
+    else if(s&&s.k==='snack'){s.dur=s.el;endSeg(s);G.segs=null}
+    else{if(s&&s.k==='transit')G.node=s.toNode;else if(s&&s.k==='walk'&&s.done>s.len/2)G.node=s.bNode;
+      if(s&&s.k==='queue'&&s.started&&!s.ll)addMood(-3,'Gave up on that line');G.segs=null;G.trip=null;G.tripEnd=null;showTrip(null)}}
+  let name=A.n,dur=A.dur;
+  if(k==='dine'&&G.plan){const pr=dpProgress();if(pr&&pr.blk&&pr.blk.meal){G.plan.blkDone[pr.blk.id]=1;G.plan.lunchAt=G.t;name=pr.blk.name;dur=pr.blk.dur||dur}else if(pr&&pr.meal){G.plan.lunchAt=G.t;name='Lunch';dur=DP_LUNCH}
+    // a real meal after mid-morning replaces the plan's lunch break (the replan when you finish drops it)
+    else if(G.plan.settings.lunch&&!G.plan.lunchAt&&G.t>=630){G.plan.lunchAt=G.t;G.plan.lunchFromAct=1}}
+  G.segs=[{k:'snack',act:k,name,dur,el:0,started:false}];G.seg=0;sayBubble(A.ic+' '+name);closeSheet();placePlayer();rtHudK='';runDirty();toast(`${A.ic} ${name} started`)}
+function actDone(){const s=G.segs&&G.segs[G.seg];if(!s||s.k!=='snack')return;s.dur=s.el;endSeg(s);rtHudK='';runDirty();
+  const lf=G.plan&&G.plan.lunchFromAct;if(lf)G.plan.lunchFromAct=0;setTimeout(()=>{if(!G.started||G.over)return;if(lf)autoKick('You had lunch');else autoCheck('step')},50)}
+// what you're doing now + the trip's steps, for the plan view, the Plan sheet and the Steps sheet
+function nowCardHTML(){if(!G.started||G.over)return '';const segs=G.segs,s=segs&&segs[G.seg],R=G.real;
+  if(!segs){const n=NODES[G.node];return `<div class="nowc"><div class="nh">📍 At ${n.ride?n.ride.name:n.label}</div>${nowPreviewHTML()}${R?`<div class="nb"><button class="btn sm wbtn" data-now="where">📍 I'm somewhere else</button><button class="btn sm wbtn" data-now="doing">🍽 Eat · shop · break</button></div>`:''}</div>`}
+  if(s&&s.k==='snack'){const A=s.act&&ACT[s.act];return `<div class="nowc"><div class="nh">${A?A.ic:'☕'} ${s.name||(A?A.n:'Snack break')} · ${R&&A?fmtDur(s.el)+' so far':fmtDur(Math.max(0,s.dur-s.el))+' left'}</div>${R&&A?`<p class="note" style="margin:0">Started ${fmtClock(s.t0!=null?s.t0:G.t)}. The sim keeps you here until you tap Done (at most ~${fmtDur(s.base!=null?s.base+A.hold:s.dur+A.hold)}).</p>`:''}<div class="nb"><button class="btn sm pri" data-now="actdone">✓ ${A?A.done:'Done'}</button></div></div>`}
+  const r=segs[segs.length-1].ride;if(!r)return '';const st=tripSteps(segs),c=stepCur(st);
+  return `<div class="nowc"><div class="nh">On the way to ${r.name}${G.trip&&G.trip.ll?' · ⚡':''}</div>${stepsListHTML(st,c,segs)}</div>`}
+function stepsListHTML(st,c,segs){const R=G.real,rows=st.map((x,j)=>{const s0=segs[x.i0],sl=segs[x.i1],cur=segs[G.seg];let cls,meta,btn='';
+    if(j<c){cls='done';meta=sl.t1!=null?'✓ '+fmtClock(sl.t1):'✓';if(R&&j===c-1&&x.k!=='queue'&&x.k!=='onride')btn=`<button class="btn sm" data-stp="${j}">↶ Not yet</button>`}
+    else if(j===c){cls='cur';
+      if(x.k==='twait')meta=`${fmtDur(cur.el)} so far${cur.hold?' · running late?':' · usually ~'+fmtDur(cur.base!=null?cur.base:cur.dur)}`;
+      else if(x.k==='queue')meta=!cur.started?'getting in line':cur.hold?`${fmtDur(cur.el)} so far · ${fmtDur(cur.el-cur.base)} over the estimate`:`${fmtDur(cur.el)} so far · ~${fmtDur(cur.dur-cur.el)} left`;
+      else meta=`~${fmtDur(Math.max(1,x.est))} left`;
+      if(R&&x.k==='queue'&&!cur.ll&&cur.started)btn=`<button class="btn sm" data-now="plus5">+5 min</button>`}
+    else{cls='fut';meta=x.k==='onride'?fmtDur(sl.dur||sl.ride.dur):`~${fmtDur(Math.max(1,x.est))}`;if(R)btn=`<button class="btn sm wbtn" data-stp="${j}">✓ ${x.reach}</button>`}
+    return `<div class="stp ${cls}"><span class="si">${j<c?'✓':x.ic}</span><span class="sl">${x.label}</span><span class="sx">${meta}</span><span class="sbt">${btn}</span></div>`});
+  const r=segs[segs.length-1].ride;
+  rows.push(`<div class="stp fut"><span class="si">🏁</span><span class="sl">Off the ride</span><span class="sx">counts it and replans</span><span class="sbt">${R?`<button class="btn sm pri" data-stp="${st.length}">✓ Rode it</button>`:''}</span></div>`);
+  return rows.join('')+(R?'<p class="note" style="margin:6px 0 0">Tap a step when you reach it; earlier steps count as done. If you don’t, the sim estimates: it waits at a bus stop up to 20 min extra and in a line up to an hour extra.</p>':'')}
+// idle: how you'd get to the plan's next ride
+function nowPreviewHTML(){const pr=G.plan&&dpProgress();if(!pr||!pr.step||pr.blk||pr.meal)return '';const r=RIDE_BY[pr.step.rid];if(!r)return '';
+  try{const pl=planTo(r,false);if(!pl.st.can)return '';const segs=buildSegs(pl,r,false),st=tripSteps(segs);
+    return `<div class="nowpv">Next, ${r.short}: ${st.map(x=>x.k==='onride'?'ride':x.label.replace(/ · .*$/,'')+(x.est>=1?' ~'+fmtDur(x.est):'')).join(' → ')}</div>`}catch(e){return ''}}
+function nowBind(root){root.querySelectorAll('[data-stp]').forEach(b=>b.onclick=()=>{stepJump(+b.dataset.stp);stepsRefresh()});
+  root.querySelectorAll('[data-now]').forEach(b=>b.onclick=()=>{const k=b.dataset.now;
+    if(k==='where')openWhere(currentPark());else if(k==='doing')openDoing();else if(k==='actdone'){actDone();stepsRefresh()}else if(k==='plus5'){rtPlus5();stepsRefresh()}})}
+function openSteps(){const h=nowCardHTML()||'<p class="note">Nothing in progress.</p>';
+  openSheet(`<div class="sh" id="stepsSheet"><h2>Right now</h2><span class="paused">Clock paused</span><button class="x" aria-label="Close">×</button></div><div class="sb">${h}</div>`);nowBind(sheetIn)}
+function stepsRefresh(){rtHudK='';if(PV.on)pvRefresh(true);if(!sheet.hidden){if(sheetIn.querySelector('#stepsSheet'))openSteps();else if(sheetIn.querySelector('#dpRe')&&!PV.on)openPlan()}}
 // ---- auto-adjust
 const AUTO={on:(()=>{try{return localStorage.getItem('wdwsim.auto')!=='0'}catch(e){return true}})(),last:-1e9,lastReal:0};
 // In-game planning knows which rides are down now: sim breakdowns until downUntil, live-feed closures ~DP_DOWN_GUESS min
@@ -4020,11 +4138,11 @@ inDate.addEventListener('change',()=>{showForecast();llSumUpdate();daySumUpdate(
 document.querySelectorAll('#segGfx button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===GQL?'true':'false'));segPick('#segGfx',()=>setGfx($('#segGfx [aria-pressed="true"]').dataset.v));segPick('#segCrowd',showForecast);segPick('#segTime');showForecast();llSumUpdate();daySumUpdate();
 segPick('#speedSeg',b=>{G.speed=+b.dataset.s});
 $('#segTime [data-now]').addEventListener('click',rtPick);$('#segTime').addEventListener('click',()=>setTimeout(rtStartLabel,0));rtStartLabel();setInterval(()=>{if(!G.started)rtStartLabel()},20000);
-$('#rtDone').onclick=rtRodeIt;$('#rtWhere').onclick=()=>openWhere();$('#rtMore').onclick=()=>{const s=G.segs&&G.segs[G.seg];if(!s||s.k!=='queue')return;if(s.base!=null)s.base+=5;s.dur=Math.max(s.dur,s.el)+5;s.hold=false;toast('Line +5 min');setTimeout(()=>autoCheck('line'),50)};rtStartUI();
+$('#rtDone').onclick=()=>{const p=stepPrimary();if(p){p.fn();stepsRefresh()}};$('#rtRode').onclick=()=>{rtRodeIt();stepsRefresh()};$('#rtSteps').onclick=()=>openSteps();$('#status').onclick=()=>{if(G.started&&!G.over&&G.segs)openSteps()};$('#rtWhere').onclick=()=>openWhere(currentPark());rtStartUI();
 $('#bPlay').onclick=startDay;$('#bAgain').onclick=()=>{setTimeout(runBox,0);G.real=false;rtStartUI();$('#end').hidden=true;$('#start').hidden=false;G.over=false;G.started=false;$('#top').hidden=true;$('#bottom').hidden=true;me.visible=false;flyTo(150,330,5000,1200)};
 $('#bRides').onclick=()=>openRides();$('#bPlan').onclick=()=>{DPV.edit=false;DPV.S=null;openPlan()};$('#bDayPlan').onclick=openDaySetup;$('#bPicks').onclick=openPicks;$('#llchip').onclick=()=>{if(G.started&&!G.over){llView.confirm=null;openLL()}};
 $('#bLLPlan').onclick=openLLSetup;
-$('#bBreak').onclick=()=>{if(G.segs)return;G.segs=[{k:'snack',dur:20,el:0,started:false}];G.seg=0;sayBubble('Snack time')};
+$('#bBreak').onclick=()=>openDoing();
 $('#bFollow').onclick=()=>{const v=!G.follow;setFollow(v);if(v)flyTo(G.pos[0],G.pos[2],Math.max(180,Math.min(520,camera.position.distanceTo(controls.target))),700)};
 $('#bMap').onclick=()=>{setFollow(false);flyTo(150,330,5000,1200)};
 function startDay(){
@@ -4134,15 +4252,33 @@ function endDay(){G.over=true;closeSheet();$('#bAgain').textContent='Play anothe
 // The run survives a Safari reload or a closed tab: one saved run per park day in localStorage wdwsim.run.<date>, written
 // every few seconds of real time while playing, right after rides, syncs, replans and Lightning Lane changes, and when the
 // page is hidden. Derived state (crowd factors, hours, wait curves) is rebuilt with prepDay on resume. A trip in progress
-// comes back as "still in line" / "still riding"; a walk or bus ride in progress restarts from the last place reached.
+// comes back segment by segment (bus stop wait, bus ride, walk, line, ride, meal) with the time already spent; saves from
+// before Nov 21 restart a walk or bus ride from the last place reached.
 // Real-time runs catch the clock up to now (rtAdvance) and then auto-adjust; simulated runs pick up at their saved time.
 var RUN={dirty:false,last:0,v:1};
 const RUN_KEY=d=>'wdwsim.run.'+d;
 function runDirty(){RUN.dirty=true}
+// the whole trip in progress, segment by segment (since Nov 21: a bus wait, a bus ride or a walk keeps its progress too)
+const SEG_F=['dur','done','len','inPark','park','base','hold','ll','t0','t1','d0','force','act','name','sync'];
+function segOut(s){const r1=v=>Math.round(v*100)/100,nid=n=>n!=null&&NODES[n]?NODES[n].id:null,o={k:s.k,el:r1(s.el||0),st:s.started?1:0};
+  for(const f of SEG_F){const v=s[f];if(v!=null&&v!==false)o[f]=typeof v==='number'?r1(v):v}
+  for(const f of ['bNode','stopNode','toNode'])if(s[f]!=null)o[f]=nid(s[f]);
+  for(const f of ['a','b','at'])if(s[f])o[f]=s[f].map(r1);
+  if(s.line)o.line=s.line.id;if(s.pts)o.pts=s.pts.map(p=>[Math.round(p[0]*10)/10,Math.round(p[1]*10)/10]);if(s.ride)o.rid=s.ride.id;
+  if(s.use)o.use={kind:s.use.kind,pid:s.use.p?s.use.p.id:null};return o}
+function segIn(o){const s={k:o.k,el:o.el||0,started:!!o.st};for(const f of SEG_F)if(o[f]!=null)s[f]=o[f];
+  for(const f of ['bNode','stopNode','toNode'])if(o[f]!=null){const n=NI[o[f]];if(n==null)return null;s[f]=n}
+  for(const f of ['a','b','at'])if(o[f])s[f]=o[f].slice();if(o.pts)s.pts=o.pts.map(p=>p.slice());
+  if(o.line!=null){s.line=LINES.find(L=>L.id===o.line);if(!s.line)return null}
+  if(o.rid){s.ride=RIDE_BY[o.rid];if(!s.ride)return null}
+  if(o.use){const p=o.use.pid!=null?G.LL.passes.find(x=>x.id===o.use.pid):null;s.use=o.use.kind==='prem'?{kind:'prem'}:p?{kind:o.use.kind,p}:null}
+  return s}
 function runTrip(){const segs=G.segs;if(!segs||!segs.length)return null;const s=segs[G.seg],last=segs[segs.length-1];
-  if(s&&s.k==='snack')return{k:'snack',el:s.el,dur:s.dur,name:s.name||null};
-  if(!last.ride)return null;const r=last.ride,q=segs.find(x=>x.k==='queue');
-  const o={rid:r.id,ll:!!(q&&q.ll),start:G.trip?G.trip.start:G.t,est:G.trip?G.trip.est:0};
+  const o={seg:G.seg,segs:segs.map(segOut)};
+  // older fields, kept so the summary card and an older build can still read the save
+  if(s&&s.k==='snack')Object.assign(o,{k:'snack',el:s.el,dur:s.dur,name:s.name||null});
+  if(!last.ride)return o;const r=last.ride,q=segs.find(x=>x.k==='queue');
+  Object.assign(o,{rid:r.id,ll:!!(q&&q.ll),start:G.trip?G.trip.start:G.t,est:G.trip?G.trip.est:0,from:G.trip&&G.trip.from!=null&&NODES[G.trip.from]?NODES[G.trip.from].id:null});
   if(s&&s.k==='queue'&&s.started){Object.assign(o,{k:'queue',el:s.el,dur:s.dur,base:s.base!=null?s.base:null,hold:!!s.hold});if(s.use)o.use={kind:s.use.kind,pid:s.use.p?s.use.p.id:null}}
   else if(s&&s.k==='onride'&&s.started)Object.assign(o,{k:'onride',el:s.el,sync:!!s.sync});
   else o.k='travel';return o}
@@ -4183,8 +4319,12 @@ function runResume(o){const r0=o.trip&&RIDE_BY[o.trip.rid];
   AUTO.last=o.autoLast!=null?o.autoLast:-1e9;
   if(!G.real&&o.speed!=null){G.speed=o.speed;document.querySelectorAll('#speedSeg button').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.s===G.speed?'true':'false'))}
   // the trip in progress
-  let msg='';const T=o.trip;
-  if(T&&T.k==='snack'){G.segs=[{k:'snack',dur:T.dur,el:T.el,started:true,name:T.name||undefined}];G.seg=0}
+  let msg='';const T=o.trip;let segsBack=null;
+  if(T&&T.segs){const a=T.segs.map(segIn);if(a.length&&a.every(Boolean))segsBack=a}
+  if(segsBack){G.segs=segsBack;G.seg=clamp(T.seg|0,0,segsBack.length-1);
+    if(r0){G.trip={start:T.start,est:T.est,ride:r0,ll:!!T.ll,from:T.from!=null&&NI[T.from]!=null?NI[T.from]:null};G.tripEnd=NI[r0.nodeId];showTrip(G.segs)}
+    const st=tripSteps(),c=stepCur(st),cs=G.segs[G.seg];msg=cs.k==='snack'?(cs.name||'break')+' continues':c>=0?st[c].label.toLowerCase()+(r0&&cs.k!=='queue'&&cs.k!=='onride'?' (to '+r0.short+')':''):''}
+  else if(T&&T.k==='snack'){G.segs=[{k:'snack',dur:T.dur,el:T.el,started:true,name:T.name||undefined}];G.seg=0}
   else if(T&&r0&&(T.k==='queue'||T.k==='onride')){const on={k:'onride',ride:r0,dur:r0.dur,el:T.k==='onride'?T.el:0,started:T.k==='onride',sync:!!T.sync};
     if(T.k==='queue'){const q={k:'queue',ride:r0,ll:T.ll,el:T.el,dur:T.dur,started:true};if(T.base!=null)q.base=T.base;if(T.hold)q.hold=true;
       if(T.use){const p=T.use.pid!=null?G.LL.passes.find(x=>x.id===T.use.pid):null;q.use=T.use.kind==='prem'?{kind:'prem'}:p?{kind:T.use.kind,p}:null}
@@ -4195,7 +4335,7 @@ function runResume(o){const r0=o.trip&&RIDE_BY[o.trip.rid];
   $('#start').hidden=true;$('#end').hidden=true;$('#top').hidden=false;$('#bottom').hidden=false;me.visible=true;setFollow(true);
   const n=NODES[G.node];flyTo(G.pos[0]||n.x,G.pos[2]||n.z,520,1300);
   // a walk or bus ride in progress restarts from the last place reached
-  if(T&&T.k==='travel'&&r0&&!G.over){go(r0,T.ll);if(G.segs)msg=`heading to ${r0.short} again`}
+  if(!segsBack&&T&&T.k==='travel'&&r0&&!G.over){go(r0,T.ll);if(G.segs)msg=`heading to ${r0.short} again`}
   RUN.dirty=true;runBox();
   setTimeout(()=>toast(`Welcome back · resumed at ${fmtClock(o.t)}${msg?' · '+msg:''}${G.real?' · catching up to now':''}`),900);
   if(G.plan)setTimeout(()=>{if(G.started&&!G.over)autoCheck('resume')},2500)}
@@ -4227,14 +4367,14 @@ function pvLLHTML(){const act=G.LL.passes.filter(p=>p.st==='active'||p.st==='mep
 function pvRefresh(force){if(!PV.on||!G.started||G.over)return;const now=performance.now();
   if(!force&&(now-PV.last<2000||now-PV.touch<1500))return;
   const cur=G.segs&&G.segs[G.seg],pk=NODES[effectiveStart().node].park||(G.plan?G.plan.res.pk:currentPark());
-  const sig=[G.plan?G.plan.made+':'+G.plan.notes.length+':'+Object.keys(G.plan.blkDone||{}).length+':'+G.plan.lunchAt:'-',G.ridden.length,G.seg,G.segs?G.segs.length:0,cur?cur.k+(cur.started?1:0)+(cur.hold?1:0):'',
+  const sig=[G.plan?G.plan.made+':'+G.plan.notes.length+':'+Object.keys(G.plan.blkDone||{}).length+':'+G.plan.lunchAt:'-',G.ridden.length,G.seg,G.segs?G.segs.length:0,cur?cur.k+(cur.started?1:0)+(cur.hold?1:0)+(cur.act||''):'',G.node,
     G.LL.passes.map(p=>p.rid+p.st+p.start).join(),LIVE.got,Math.floor(G.t/(G.real?1:5)),DPV.clr,AUTO.on,pk,G.LL.tapped].join('|');
   PV.last=now;if(!force&&sig===PV.sig)return;PV.sig=sig;
   const el=$('#pvIn'),sc=$('#pv').scrollTop;let html,v=null;
   if(G.plan){v=planViewHTML();html=`<div class="pvh"><h2>Your plan · ${dpParksLabel(G.plan.res)}</h2><span>${G.real?'● Real time':fmtClock(G.t)}</span></div>${pvLLHTML()}${v.top}${pvWaitsHTML(pk)}<h3>Plan</h3>${v.rest}`}
-  else html=`<div class="pvh"><h2>No plan yet</h2><span>${G.real?'● Real time':fmtClock(G.t)}</span></div>${pvLLHTML()}<p class="note">Pick your must-dos and the sim plans the rest of today from where you are.</p><div class="go"><button class="btn pri" id="pvMake">🗺 Plan my day from here</button></div>${pvWaitsHTML(pk)}`;
+  else html=`<div class="pvh"><h2>No plan yet</h2><span>${G.real?'● Real time':fmtClock(G.t)}</span></div>${pvLLHTML()}${nowCardHTML()}<p class="note">Pick your must-dos and the sim plans the rest of today from where you are.</p><div class="go"><button class="btn pri" id="pvMake">🗺 Plan my day from here</button></div>${pvWaitsHTML(pk)}`;
   el.innerHTML=html;$('#pv').scrollTop=sc;
-  if(v)planBind(el,v);const mk=el.querySelector('#pvMake');if(mk)mk.onclick=()=>{DPV.edit=false;DPV.S=null;openPlan()};
+  if(v)planBind(el,v);else nowBind(el);const mk=el.querySelector('#pvMake');if(mk)mk.onclick=()=>{DPV.edit=false;DPV.S=null;openPlan()};
   el.querySelectorAll('[data-pvr]').forEach(b=>b.onclick=()=>openRide(RIDE_BY[b.dataset.pvr]));
   el.querySelectorAll('[data-pvll]').forEach(b=>b.onclick=()=>{llView.confirm=null;openLL()})}
 function pvSizes(){const t=$('#top'),b=$('#bottom'),r=document.documentElement.style;r.setProperty('--topH',(t.hidden?0:t.offsetHeight)+'px');r.setProperty('--botH',(b.hidden?0:b.offsetHeight)+'px')}
