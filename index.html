@@ -295,6 +295,7 @@ body.pvmode #start,body.pvmode #end{background:var(--night)}
     <div class="fld"><label>Day plan</label><button class="btn pri" id="bDayPlan" type="button" style="background:rgba(255,201,77,.16);color:var(--gold);border-color:rgba(255,201,77,.55)">🗺 Plan my day</button><div class="fc" id="daySum"></div></div>
     <div class="fld"><label>Shows</label><button class="btn" id="bShows" type="button" style="width:100%">🎭 Showtimes &amp; characters</button><div class="fc" id="showSum"></div></div>
     <div class="fld"><label>Phone alerts</label><button class="btn" id="bPush" type="button" style="width:100%">📳 Phone alerts</button><div class="fc" id="pushSum"></div></div>
+    <div id="dbgPrev" class="note" hidden style="margin:0 0 10px;color:var(--warn)"></div>
     <div class="fld"><label>View</label><div class="seg" id="segView"><button data-v="map" aria-pressed="true">3D map</button><button data-v="plan">Plan only</button></div><div class="fc">Plan only skips the 3D map for a day in the park: your plan, waits and Lightning Lanes as a list, and much less battery. Switch any time from the dock.</div></div>
     <div class="fld"><label>Graphics</label><div class="seg" id="segGfx"><button data-v="low">Low</button><button data-v="med">Medium</button><button data-v="high">High</button></div><div class="fc">Medium suits most iPhones. Low turns off shadows and reflections for older phones; High adds sharper shadows and glow at night.</div></div>
     <p class="note" id="liveNote" style="margin:0 0 8px"></p>
@@ -343,9 +344,63 @@ const THREE=Object.assign({},THREE0,{MapControls});
 const $=s=>document.querySelector(s);
 const rnd=(a,b)=>a+Math.random()*(b-a), clamp=(v,a,b)=>v<a?a:v>b?b:v, lerp=(a,b,t)=>a+(b-a)*t;
 const WALK_PARK=26, WALK_OUT=20; // world units per park minute
-let errShown=0;
-function showErr(err){if(errShown++>2)return;const d=document.createElement('div');d.style.cssText='position:fixed;left:16px;right:16px;top:calc(env(safe-area-inset-top,0px) + 90px);z-index:20;background:#4a1620;color:#ffe3e3;border:1px solid #f2665f;border-radius:12px;padding:10px 12px;font:600 12.5px/1.4 system-ui;user-select:text;-webkit-user-select:text';d.textContent='Map error: '+((err&&(err.message||err.reason&&err.reason.message))||String(err));document.body.appendChild(d);setTimeout(()=>d.remove(),15000)}
+// ===== ERRORS & DEBUG INFO (row 67, Nov 22) =====
+// Every error is kept (last 20) with what was tapped just before; the red box shows the latest one with a count and a
+// "Copy debug info" button. Stalls (no frame for 2.5 s+ while visible) are logged with the last tap. A heartbeat in
+// localStorage lets the next load tell that the page froze after a tap (iOS kills a hung page without pagehide).
+const BUILD='2026-11-22 row67';
+const DBG={err:[],tap:[],stall:[],prev:null,box:null,n:0,hbT:0,frameT:0,visT:0};
+function dbgClock(t){try{return new Date(t).toLocaleTimeString([],{hour:'numeric',minute:'2-digit',second:'2-digit'})}catch(e){return String(t)}}
+function dbgLabel(el){const b=el&&el.closest&&el.closest('button,a,summary,[data-must],[data-sha],[data-shx],.chip,.pvc');if(!b)return null;
+  const tx=(b.getAttribute('aria-label')||b.textContent||'').replace(/\s+/g,' ').trim().slice(0,48),ds=Object.keys(b.dataset||{}).slice(0,2).map(k=>k+'='+String(b.dataset[k]).slice(0,16)).join(' ');
+  return (b.id?'#'+b.id+' ':'')+(tx?'"'+tx+'"':'')+(ds?' ['+ds+']':'')}
+function showErr(err){const msg=((err&&(err.message||err.reason&&err.reason.message))||String(err)).slice(0,300),stack=String(err&&err.stack||'').split('\n').slice(0,4).join(' | ').slice(0,500);
+  const last=DBG.err[DBG.err.length-1];if(last&&last.m===msg&&Date.now()-last.t<5000){last.n=(last.n||1)+1;last.t=Date.now()}else{DBG.err.push({t:Date.now(),m:msg,s:stack,tap:DBG.tap.length?DBG.tap[DBG.tap.length-1].l:'',n:1});if(DBG.err.length>20)DBG.err.shift()}
+  DBG.n++;dbgSaveSoon();let d=DBG.box;
+  if(!d){d=DBG.box=document.createElement('div');d.id='errBox';d.style.cssText='position:fixed;left:16px;right:16px;top:calc(env(safe-area-inset-top,0px) + 90px);z-index:30;background:#4a1620;color:#ffe3e3;border:1px solid #f2665f;border-radius:12px;padding:10px 12px;font:600 12.5px/1.4 system-ui;user-select:text;-webkit-user-select:text';
+    d.innerHTML='<div class="em"></div><div style="display:flex;gap:8px;margin-top:8px"><button type="button" class="btn" data-dbgcopy style="flex:1;padding:8px;font-size:12.5px">Copy debug info</button><button type="button" class="btn" data-dbgx style="padding:8px 12px;font-size:12.5px">✕</button></div>';
+    d.querySelector('[data-dbgx]').onclick=()=>{d.hidden=true};document.body.appendChild(d)}
+  d.querySelector('.em').textContent='Error'+(DBG.n>1?' ('+DBG.n+' so far)':'')+': '+msg;d.hidden=false;clearTimeout(d._t);d._t=setTimeout(()=>{d.hidden=true},20000)}
 addEventListener('error',e=>showErr(e.error||e.message));addEventListener('unhandledrejection',e=>showErr(e.reason));
+// one delegated handler for every "Copy debug info" button, bound once so it works even if a sheet's own binding failed
+document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-dbgcopy]');if(b){e.preventDefault();dbgCopy(b)}},true);
+// tap log (capture phase: runs before any handler, so it's there even when that handler throws or hangs)
+document.addEventListener('click',e=>{const l=dbgLabel(e.target);if(!l)return;DBG.tap.push({t:Date.now(),l});if(DBG.tap.length>20)DBG.tap.shift();dbgBeat(true)},true);
+function dbgBeat(force){const n=Date.now();if(!force&&n-DBG.hbT<2000)return;DBG.hbT=n;const lt=DBG.tap[DBG.tap.length-1];
+  try{localStorage.setItem('wdwsim.dbg.hb',JSON.stringify({hb:n,clean:0,tap:lt||null,b:BUILD}))}catch(e){}}
+let dbgSaveT=0;function dbgSaveSoon(){if(dbgSaveT)return;dbgSaveT=setTimeout(()=>{dbgSaveT=0;try{localStorage.setItem('wdwsim.dbg.log',JSON.stringify({at:Date.now(),err:DBG.err.slice(-10),stall:DBG.stall.slice(-10)}))}catch(e){}},500)}
+function dbgClean(){try{const j=JSON.parse(localStorage.getItem('wdwsim.dbg.hb')||'null');if(j){j.clean=1;j.hb=Date.now();localStorage.setItem('wdwsim.dbg.hb',JSON.stringify(j))}}catch(e){}}
+document.addEventListener('visibilitychange',()=>{DBG.visT=performance.now();if(document.visibilityState==='hidden')dbgClean();else dbgBeat(true)});addEventListener('pagehide',dbgClean);
+// called from frame(): logs a stall when the page went 2.5 s+ without a frame while visible
+function dbgFrame(now){const g=now-DBG.frameT;if(DBG.frameT&&g>2500&&now>20000&&document.visibilityState==='visible'&&now-DBG.visT>g){const lt=DBG.tap[DBG.tap.length-1];
+    DBG.stall.push({t:Date.now(),ms:Math.round(g),tap:lt&&Date.now()-lt.t<g+3000?lt.l:''});if(DBG.stall.length>10)DBG.stall.shift();dbgSaveSoon()}
+  DBG.frameT=now;dbgBeat(false)}
+// previous visit: did it freeze right after a tap? (heartbeat stopped within 1.5 s of the last tap and the page never went to the background)
+try{const j=JSON.parse(localStorage.getItem('wdwsim.dbg.hb')||'null');const lg=JSON.parse(localStorage.getItem('wdwsim.dbg.log')||'null');
+  if(j&&!j.clean&&j.tap&&j.tap.t>=j.hb-1500&&Date.now()-j.hb<86400000)DBG.prev={tap:j.tap.l,at:j.tap.t,b:j.b};
+  if(lg&&Date.now()-lg.at<86400000)DBG.prevLog=lg}catch(e){}
+{const el=document.getElementById('dbgPrev');if(el&&DBG.prev){el.hidden=false;el.textContent='⚠ Last time the app stopped responding right after you tapped '+DBG.prev.tap+' ('+dbgClock(DBG.prev.at)+'). Please send Claude the debug info. ';
+  const b=document.createElement('button');b.type='button';b.className='btn sm';b.dataset.dbgcopy='1';b.textContent='🐞 Copy debug info';el.appendChild(b)}}
+function dbgText(){const L=[];const T=x=>dbgClock(x);
+  L.push('WDW Sim debug info · build '+BUILD+' · '+new Date().toString());L.push('UA: '+navigator.userAgent);
+  try{L.push('Standalone: '+(!!(navigator.standalone||matchMedia('(display-mode: standalone)').matches))+' · view: '+(PV.on?'plan':'map')+' · size '+innerWidth+'x'+innerHeight)}catch(e){}
+  try{L.push('Game: started='+!!G.started+' real='+!!G.real+' over='+!!G.over+' t='+(G.t!=null?fmtClock(G.t):'?')+' date='+G.date+' node='+(NODES[G.node]?NODES[G.node].id:G.node)+' segs='+(G.segs?G.segs.map(x=>x.k).join(','):'-')+' seg='+G.seg)}catch(e){L.push('Game: ? '+e.message)}
+  try{const sh=document.getElementById('sheet');L.push('Sheet: '+(sh.hidden?'closed':'open "'+((sh.querySelector('h2')||{}).textContent||'')+'"')+(sh.classList.contains('top')?' (top)':'')+' · DPV.edit='+(typeof DPV!=='undefined'&&DPV.edit))}catch(e){}
+  try{if(G.plan){const S=G.plan.settings,r=G.plan.res;L.push('Plan: '+S.pk+' must='+(S.must||[]).join(',')+' ll='+S.ll+' pace='+S.pace+' lunch='+!!S.lunch+' extras='+!!S.extras+' keep='+!!S.keep+' end='+S.end+' legs='+(S.legs||[]).map(l=>l.pk).join(',')+' blocks='+(S.blocks||[]).map(b=>b.name+'@'+b.at).join(';'));L.push('Plan result: '+r.nDone+'/'+r.nMust+' by '+fmtClock(r.endMust)+' · notes '+G.plan.notes.length)}}catch(e){}
+  try{L.push('LL: '+(G.LL.mp||'-')+' tapped='+!!G.LL.tapped+' '+G.LL.passes.map(p=>p.rid+' '+fmtClock(p.start)+' '+p.st).join('; '))}catch(e){}
+  if(DBG.prev)L.push('PREVIOUS VISIT FROZE after tapping '+DBG.prev.tap+' at '+T(DBG.prev.at)+' (build '+DBG.prev.b+')');
+  L.push('Errors ('+DBG.err.length+'):');DBG.err.forEach(e=>L.push('  '+T(e.t)+(e.n>1?' ×'+e.n:'')+' '+e.m+(e.tap?' · after '+e.tap:'')+(e.s?' · '+e.s:'')));
+  L.push('Stalls:');DBG.stall.forEach(e=>L.push('  '+T(e.t)+' '+e.ms+' ms'+(e.tap?' after '+e.tap:'')));
+  if(DBG.prevLog){L.push('Previous visit errors/stalls:');(DBG.prevLog.err||[]).forEach(e=>L.push('  '+T(e.t)+' '+e.m+(e.tap?' · after '+e.tap:'')));(DBG.prevLog.stall||[]).forEach(e=>L.push('  stall '+T(e.t)+' '+e.ms+' ms'+(e.tap?' after '+e.tap:'')))}
+  L.push('Last taps:');DBG.tap.slice(-15).forEach(x=>L.push('  '+T(x.t)+' '+x.l));
+  return L.join('\n')}
+async function dbgCopy(btn){const txt=dbgText();let ok=false;try{await navigator.clipboard.writeText(txt);ok=true}catch(e){}
+  if(ok){const o=btn.textContent;btn.textContent='Copied ✓ · paste it to Claude';setTimeout(()=>{btn.textContent=o},2500);return}
+  // fallback: a selectable box
+  let w=document.getElementById('dbgTxt');if(!w){w=document.createElement('div');w.id='dbgTxt';w.style.cssText='position:fixed;inset:12% 12px auto 12px;z-index:31;background:#0e1626;border:1px solid #556;border-radius:12px;padding:10px';
+    w.innerHTML='<textarea style="width:100%;height:50vh;font:11px/1.35 ui-monospace,monospace;color:#dfe6f3;background:#0b1220;border:0;-webkit-user-select:text;user-select:text"></textarea><button type="button" class="btn" style="width:100%;margin-top:8px">Close</button>';
+    w.querySelector('button').onclick=()=>w.remove();document.body.appendChild(w)}
+  const ta=w.querySelector('textarea');ta.value=txt;ta.focus();ta.select()}
 
 // ================= DATA (layout traced from the guidemaps; x = east, z = south) =================
 const LAND_KEYS={MK:new Set(['ent','main','hub','adv','frl','lib','fant','tomo']),EP:new Set(['ent','se','fw','fwe','fww','sp','mex','nor','chi','ger','ita','usa','jap','mor','fra','ig','uk','can']),HS:new Set(['ent','hb','cen','echo','com','ge','tsl','anim','sun']),AK:new Set(['ent','oasis','di','afr','asia','pan','dino'])}; // keys that are lands, per park (others are waypoints of the real walkway network)
@@ -3719,7 +3774,9 @@ function updateHUD(){
 
 // ================= SHEETS =================
 const sheet=$('#sheet'),sheetIn=$('#sheetIn');let sheetTab=null,wasSpeed=1;
-function openSheet(html){sheetIn.innerHTML=html;if(G.real)sheetIn.querySelectorAll('.paused').forEach(x=>{x.textContent='Real time';x.style.color='#4fd18d'});sheet.hidden=false;if(!G.sheetPaused){G.sheetPaused=true}sheetIn.querySelectorAll('.x').forEach(x=>x.onclick=closeSheet);sheetIn.querySelectorAll('[data-rf]').forEach(x=>x.onclick=()=>openRF())}
+function sheetKeep(){const h=!sheet.hidden&&sheetIn.querySelector('.sh h2');if(!h)return null;const sb=sheetIn.querySelector('.sb');return{t:h.textContent,y:sb?sb.scrollTop:0,op:[...sheetIn.querySelectorAll('details[open]>summary')].map(x=>x.textContent)}}
+function sheetRestore(k){if(!k)return;const h=sheetIn.querySelector('.sh h2');if(!h||h.textContent!==k.t)return;sheetIn.querySelectorAll('details>summary').forEach(x=>{if(k.op.includes(x.textContent))x.parentNode.open=true});const sb=sheetIn.querySelector('.sb');if(sb)sb.scrollTop=k.y}
+function openSheet(html){const keep=sheetKeep();sheetIn.innerHTML=html;if(G.real)sheetIn.querySelectorAll('.paused').forEach(x=>{x.textContent='Real time';x.style.color='#4fd18d'});sheet.hidden=false;if(!G.sheetPaused){G.sheetPaused=true}sheetIn.querySelectorAll('.x').forEach(x=>x.onclick=closeSheet);sheetIn.querySelectorAll('[data-rf]').forEach(x=>x.onclick=()=>openRF());try{sheetRestore(keep)}catch(e){}}
 function closeSheet(){sheet.hidden=true;G.sheetPaused=false}
 function currentPark(){const st=effectiveStart();const n=NODES[st.node];if(n.park)return n.park;if(n.outside)return n.outside;
   let best='MK',bd=Infinity;for(const pk in PARKS){const P=PARKS[pk],d=Math.hypot(n.x-P.c[0],n.z-P.c[1]);if(d<bd){bd=d;best=pk}}return best}
@@ -3957,7 +4014,7 @@ function dpEditorHTML(S,L,inGame){
   <div class="fld"><label>Options</label><div class="row" style="gap:6px;flex-wrap:wrap"><button type="button" class="btn sm tog" data-dt="lunch" aria-pressed="${!!S.lunch}">Lunch break · 45 min</button><button type="button" class="btn sm tog" data-dt="extras" aria-pressed="${!!S.extras}">Fill free time</button><button type="button" class="btn sm tog" data-dt="keep" aria-pressed="${!!S.keep}">Keep my order</button></div></div>
   <div class="fld"><label>Plan ends</label><select id="dpEnd" class="sel">${dpTimeOpts(S.end==null?null:S.end,'At park close')}</select><div class="fc">Off your last ride by this time${S.legs&&S.legs.length?' (in the last park)':''}, e.g. to leave early for dinner. Free time ideas stop then too.</div></div>`:''}`}
 function dpBindEditor(root,S,changed,inGame){
-  const E=dpLegE(S),leg0=E===S;showEditorBind(root,E,changed);
+  const E=dpLegE(S),leg0=E===S;try{showEditorBind(root,E,changed)}catch(e){showErr(e)}
   root.querySelectorAll('.seg[data-dk] button').forEach(b=>b.onclick=()=>{const k=b.parentNode.dataset.dk,v=b.dataset.v,T=k==='pk'?E:S;if(T[k]===v)return;
     if(k==='pk'&&((T.must||[]).length||T.imported||(T.blocks||[]).length)&&!(DP_PKC&&DP_PKC.E===T&&DP_PKC.v===v&&Date.now()-DP_PKC.t<8000)){DP_PKC={E:T,v,t:Date.now()};changed();return}
     DP_PKC=null;T[k]=v;if(k==='pk'){T.must=T.must.filter(id=>RIDE_BY[id].pk===v);T.blocks=[];T.tp={};T.arrive=null;T.llImport=null;T.llSp=null;T.book=null;T.gate=null;T.tpw=null;T.tpd=null;T.tpWalks=null;T.imported=''}changed()});
@@ -4097,6 +4154,7 @@ function dpStartOpts(S){const date=dpSetupDate(),mult=+$('#segCrowd [aria-presse
 function daySumUpdate(){const S=dpLoad(dpSetupDate());try{dpTimeButton(S,false)}catch(e){}const nm=dpAllMust(S).length;$('#daySum').innerHTML=nm?dpLegs(S).map((l,i)=>`${i?`🚝 ${l.hopAt!=null?fmtClock(l.hopAt):'then'} → `:''}${PARKS[l.pk][i||S.legs&&S.legs.length?'short':'name']} · ${(l.must||[]).length} must-do${(l.must||[]).length===1?'':'s'}: ${(l.must||[]).map(id=>RIDE_BY[id].short).join(', ')||'free time'}`).join('<br>')+(S.end!=null?`<br>Ends ${fmtClock(S.end)}`:''):'No plan yet. Pick your must-dos and get the best order.'}
 function openDaySetup(){const date=dpSetupDate();DPS=dpLoad(date)||dpDefaults((llLoadPlan(date).mp)||'MK');DPR=null;DPST=null;dpStartOpts(DPS);renderDaySetup();$('#daysetup').hidden=false;$('#daysetup').scrollTop=0}
 function renderDaySetup(busyMsg){const S=DPS,date=dpSetupDate(),d=parseDay(date)||new Date(),n=dpAllMust(S).length;let pl0=llLoadPlan(date);if(S.llImport){pl0=Object.assign({},pl0,S.llImport.picks.length?{mp:S.pk,picks:S.llImport.picks}:{},S.llImport.sp.length?{sp:S.llImport.sp}:{})}pl0=dpLegSp(S,pl0);const L=llFromPlan(pl0);
+  const dsOpen=[...$('#daysetIn').querySelectorAll('details[open]>summary')].map(x=>x.textContent);
   $('#daysetIn').innerHTML=`<h1 style="font-size:28px">Plan my <span>day</span></h1><p class="sub">Pick your must-dos for ${d.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})}. The planner tries every order, mixing rope drop, standby and Lightning Lane, starting from ${RESORTS.find(h=>h.id===selH.value).name} at ${fmtClock(+$('#segTime [aria-pressed="true"]').dataset.v)}.</p>
   ${dpEditorHTML(S,L,false)}
   <button class="btn pri" id="dpMake" type="button" ${n?'':'disabled'} style="width:100%;margin-bottom:12px">${busyMsg||(DPR?'Plan again':'Make my plan')}</button>
@@ -4105,7 +4163,7 @@ function renderDaySetup(busyMsg){const S=DPS,date=dpSetupDate(),d=parseDay(date)
   ${S.llImport?'<p class="note">Use this plan also saves the imported Lightning Lanes as your plan for this date (replacing Multi Pass picks and Single Passes there).</p>':''}
   ${DPR&&DPR.pre&&DPR.pre.length?'<p class="note">Use this plan saves these Multi Pass pre-books as your Lightning Lane plan for this date (replacing any Multi Pass picks there).</p>':''}
   <div class="row"><button class="btn" id="dpCancel" type="button">Cancel</button><button class="btn pri" id="dpUse" type="button" ${n?'':'disabled'}>Use this plan</button></div>`;
-  const root=$('#daysetIn');dpBindEditor(root,S,()=>{DPR=null;DPST=null;renderDaySetup()},false);
+  const root=$('#daysetIn');root.querySelectorAll('details>summary').forEach(x=>{if(dsOpen.includes(x.textContent))x.parentNode.open=true});try{dpBindEditor(root,S,()=>{DPR=null;DPST=null;renderDaySetup()},false)}catch(e){showErr(e)}
   const sb=$('#dpStress');if(sb)sb.onclick=async()=>{sb.disabled=true;sb.textContent='Stress testing…';
     try{const mult=+$('#segCrowd [aria-pressed="true"]').dataset.v;DPST=await stRun(S,{date:dpSetupDate(),mult,hotel:selH.value,onProgress:(a,b)=>{sb.textContent=`Stress testing… ${Math.round(a/b*100)}%`}})}catch(e){showErr(e)}
     dpStartOpts(S);renderDaySetup();const o=$('#dpStOut');if(o)o.scrollIntoView({behavior:'smooth',block:'start'})};
@@ -4149,8 +4207,9 @@ function openPlan(){
     openSheet(`<div class="sh">${G.plan?'<button class="x" aria-label="Back" style="font-size:15px" data-back>‹</button>':''}<h2>Plan my day</h2><span class="paused">Clock paused</span><button class="x" aria-label="Close">×</button></div><div class="sb">
     <p class="note">Plans the rest of today from where you are (${fmtClock(G.t)}).</p>${dpEditorHTML(S,G.LL,true)}
     <button class="btn pri" id="dpGo" style="width:100%" ${dpAllMust(S).length?'':'disabled'}>Make plan from here</button></div>`);
-    dpBindEditor(sheetIn,S,openPlan,true);const bk=sheetIn.querySelector('[data-back]');if(bk)bk.onclick=()=>{DPV.edit=false;DPV.S=null;openPlan()};
-    $('#dpGo').onclick=()=>{try{if(G.plan)G.plan.legI=0;dpMakeGame(S)}catch(e){showErr(e)}DPV.edit=false;DPV.S=null;openPlan()};return}
+    const bk=sheetIn.querySelector('[data-back]');if(bk)bk.onclick=()=>{DPV.edit=false;DPV.S=null;openPlan()};
+    sheetIn.querySelector('#dpGo').onclick=()=>{try{if(G.plan)G.plan.legI=0;dpMakeGame(S)}catch(e){showErr(e)}DPV.edit=false;DPV.S=null;openPlan()};
+    try{dpBindEditor(sheetIn,S,openPlan,true)}catch(e){showErr(e)}return}
   if(PV.on){if(!sheet.hidden)closeSheet();pvRefresh(true);const pv=$('#pv'),h=pv.querySelector('#pvPlanH');
     const toTL=pv.scrollTop<40&&h,y=toTL?Math.max(0,h.offsetTop-8):0;try{pv.scrollTo({top:y,behavior:'smooth'})}catch(e){pv.scrollTop=y}
     const f=toTL?h:pv.querySelector('.pvh');if(f){f.classList.remove('flash');void f.offsetWidth;f.classList.add('flash')}return}
@@ -4185,7 +4244,7 @@ function planViewHTML(){
     if(rec)bkH+=`<button class="btn ll" data-bk="${rec.r.id}">⚡ Free slot · book ${rec.r.short} · returns ~${fmtClock(rec.ret)} (saves ~${fmtDur(rec.save)})</button>`}
   const top=`${nowCardHTML()}${confCardHTML()}${autoNoteHTML()}${status?`<p class="note" style="color:var(--text)">${status}</p>`:''}
   <div class="go">${btns}${bkH}</div>${bkH?'<p class="note">Your plan books these as soon as you tap in. Return times shown are live.</p>':''}
-  <div class="row" style="margin:10px 0 4px;flex-wrap:wrap"><button class="btn sm" id="dpRe">Replan from here</button><button class="btn sm" id="dpEdit">Change must-dos</button><button class="btn sm" id="dpClr">${DPV.clr?'Tap again to clear':'Clear plan'}</button><button class="btn sm tog" id="dpAuto" aria-pressed="${AUTO.on}">Auto-adjust ${AUTO.on?'on':'off'}</button><button class="btn sm tog" id="dpPush" aria-pressed="${PUSH.on}">📳 Alerts ${PUSH.on?'on':'off'}</button><button class="btn sm" id="dpShows">🎭 Shows</button></div>`;
+  <div class="row" style="margin:10px 0 4px;flex-wrap:wrap"><button class="btn sm" id="dpRe">Replan from here</button><button class="btn sm" id="dpEdit">Change must-dos</button><button class="btn sm" id="dpClr">${DPV.clr?'Tap again to clear':'Clear plan'}</button><button class="btn sm tog" id="dpAuto" aria-pressed="${AUTO.on}">Auto-adjust ${AUTO.on?'on':'off'}</button><button class="btn sm tog" id="dpPush" aria-pressed="${PUSH.on}">📳 Alerts ${PUSH.on?'on':'off'}</button><button class="btn sm" id="dpShows">🎭 Shows</button><button class="btn sm" data-dbgcopy type="button">🐞 Debug info</button></div>`;
   const rest=`${dpTimelineHTML(P.res,pr)}
   <p class="note">Made at ${fmtClock(P.made)} from typical waits${liveActive()?' and live waits':''}. ${AUTO.on?'Auto-adjust replans by itself when you fall behind, a ride goes down, the crowd read shifts or live waits drift.':'Breakdowns and slow buses will push it around; replan when you fall behind.'}</p>`;
   return {top,rest,pr,s}}
@@ -4871,7 +4930,7 @@ $('#bShows').onclick=()=>openShows();if(typeof inDate!=='undefined'&&inDate)inDa
 stepAgents(0.01,true);rebuildQueues();refreshPins();
 setupShadows();if(GQ.bloom)makeComposer();
 let last=performance.now(),densClock=0;
-function frame(now){requestAnimationFrame(frame);try{tick(now)}catch(err){showErr(err)}}
+function frame(now){requestAnimationFrame(frame);try{dbgFrame(now)}catch(e){}try{tick(now)}catch(err){showErr(err)}}
 function tick(now){const pv=PV.on;if(pv&&(G.real||!G.started||G.over)&&now-PV.tickT<450)return;PV.tickT=now;if(!pv)checkSize();const dtR=Math.min(0.1,Math.max(0,(now-last)/1000));last=now;
   const running=G.started&&!G.over&&!G.real&&!G.sheetPaused&&G.speed>0;
   if(!G.started){if(G.holdT!=null)G.t=G.holdT;else{G.t+=dtR*0.5;if(G.t>17*60)G.t=11*60}if(!pv)stepAgents(dtR*0.5)}
@@ -4884,7 +4943,7 @@ function tick(now){const pv=PV.on;if(pv&&(G.real||!G.started||G.over)&&now-PV.ti
     camStep(now);controls.update();skyDome.position.copy(camera.position);renderFrame();updateLabels()}
   if(G.started){updateHUD();runTick();try{pushTick()}catch(e){}try{confTick()}catch(e){}if(pv)pvRefresh(false)}
 }
-window.WDW={SHOWS,showIngest,showsFor,showEventsReal,openShows,showBlock,showNode,showRideTimes,showPoll,showAddGame,showGo,PUSH,pushPlan,pushSync,openPush,pushSupport,pushDataText,pushDataImport,llOdds,llObs,llObsAdd,llCalFor,CONF,confRun,confOpts,confCompare,confCardHTML,openLLEnter,endDay,resBuild,resHTML,resShow,resLoad,resLatest,RUN,runSave,runLoad,runClear,runResume,runState,runBox,runFind,AUTO,RT,autoCheck,autoReasons,autoReplan,autoDiff,rtRodeIt,rtAt,rtNow,openWhere,dpGameOpts,camera,controls,RF,rfCompact,rfStore,rfLoad,rfResid,rfCalibrate,rfEstimate,rfBacktest,rfUpdateToday,rfApplyDay,rfMul,rfCal,openRF,rfAfterUpdate,rfNoteUpdate,rfTick,rfBannerHTML,liveMatch,stRun,stHTML,stCalib,stModelDay,dpParseTP,dpApplyImport,scene,setGfx,LIGHT,sunDir,fwShows,fwSim:(n,dt)=>{for(let i=0;i<n;i++)updateFireworks(dt)},holdTime:t=>{G.holdT=t==null?null:t*60;if(t!=null)G.t=t*60},dpRun,dpRunDay,dpLegs,dpAllMust,getDPS:()=>DPS,dpStartOpts:S=>dpStartOpts(S),dpMakeGame,dpProgress,dpLoad,dpSave,openPlan,openDaySetup,prepDay,llFromPlan,llFresh,llBook,llNext,llRecs,llUse,llHeld,llTick,llPlanErrors,llSuggest,llLoadPlan,openLL,openRides,openPicks,LIVE,liveIngest,liveFor,curveAt,orlandoNow,livePoll,G,go,flyTo,setFollow,RIDE_BY,PARKS,camera,controls,openRide,closeSheet,rawWait,waitAt,dayFactor,holiday,hoursFor,applyHours,accessOpen,lastClose,renderer,dijkstra,NI,NODES,RESORTS,RIDES,LINES};
+window.WDW={DBG,dbgText,SHOWS,showIngest,showsFor,showEventsReal,openShows,showBlock,showNode,showRideTimes,showPoll,showAddGame,showGo,PUSH,pushPlan,pushSync,openPush,pushSupport,pushDataText,pushDataImport,llOdds,llObs,llObsAdd,llCalFor,CONF,confRun,confOpts,confCompare,confCardHTML,openLLEnter,endDay,resBuild,resHTML,resShow,resLoad,resLatest,RUN,runSave,runLoad,runClear,runResume,runState,runBox,runFind,AUTO,RT,autoCheck,autoReasons,autoReplan,autoDiff,rtRodeIt,rtAt,rtNow,openWhere,dpGameOpts,camera,controls,RF,rfCompact,rfStore,rfLoad,rfResid,rfCalibrate,rfEstimate,rfBacktest,rfUpdateToday,rfApplyDay,rfMul,rfCal,openRF,rfAfterUpdate,rfNoteUpdate,rfTick,rfBannerHTML,liveMatch,stRun,stHTML,stCalib,stModelDay,dpParseTP,dpApplyImport,scene,setGfx,LIGHT,sunDir,fwShows,fwSim:(n,dt)=>{for(let i=0;i<n;i++)updateFireworks(dt)},holdTime:t=>{G.holdT=t==null?null:t*60;if(t!=null)G.t=t*60},dpRun,dpRunDay,dpLegs,dpAllMust,getDPS:()=>DPS,dpStartOpts:S=>dpStartOpts(S),dpMakeGame,dpProgress,dpLoad,dpSave,openPlan,openDaySetup,prepDay,llFromPlan,llFresh,llBook,llNext,llRecs,llUse,llHeld,llTick,llPlanErrors,llSuggest,llLoadPlan,openLL,openRides,openPicks,LIVE,liveIngest,liveFor,curveAt,orlandoNow,livePoll,G,go,flyTo,setFollow,RIDE_BY,PARKS,camera,controls,openRide,closeSheet,rawWait,waitAt,dayFactor,holiday,hoursFor,applyHours,accessOpen,lastClose,renderer,dijkstra,NI,NODES,RESORTS,RIDES,LINES};
 requestAnimationFrame(frame);
 })();
 </script>
