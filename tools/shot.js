@@ -15,6 +15,7 @@ const T = '/home/claude/t/node_modules/three/';
   p.on('console', m => { if (m.type() === 'error') errs.push(m.text()) });
   await p.route('**/*', r => {
     const u = r.request().url();
+    if (u.startsWith('https://game.test/planner.js')) return r.fulfill({ body: fs.readFileSync(require('path').join(__dirname, '..', 'planner.js')), contentType: 'application/javascript' }); // row 67
     if (u.startsWith('https://game.test/')) return r.fulfill({ body: html, contentType: 'text/html' });
     const m = u.match(/three@0\.180\.0\/(.*)$/);
     if (m) { const f = T + m[1]; if (fs.existsSync(f)) return r.fulfill({ body: fs.readFileSync(f), contentType: 'application/javascript' }); }
