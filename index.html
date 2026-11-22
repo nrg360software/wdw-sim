@@ -346,11 +346,16 @@ function showErr(err){if(errShown++>2)return;const d=document.createElement('div
 addEventListener('error',e=>showErr(e.error||e.message));addEventListener('unhandledrejection',e=>showErr(e.reason));
 
 // ================= DATA (layout traced from the guidemaps; x = east, z = south) =================
+const LAND_KEYS=new Set(['ent','main','hub','adv','frl','lib','fant','tomo']); // MK keys that are lands (others are waypoints of the real walkway network)
 const PARKS={
  MK:{name:'Magic Kingdom',short:'MK',c:[-476,-1165],rot:0,r:148,sc:1,fo:20,open:9,close:22,
-  nodes:{ent:[0,118],main:[0,70],hub:[0,20],adv:[-60,30],frl:[-112,-10],lib:[-60,-30],fant:[0,-72],tomo:[72,10]},
-  links:[['ent','main'],['main','hub'],['hub','adv'],['adv','frl'],['frl','lib'],['lib','hub'],['lib','fant'],['hub','fant'],['fant','tomo'],['hub','tomo']],
-  landNames:{ent:'Main Entrance',main:'Main Street, U.S.A.',hub:'Central Plaza',adv:'Adventureland',frl:'Frontierland',lib:'Liberty Square',fant:'Fantasyland',tomo:'Tomorrowland'}},
+  nodes:{ent:[0,117.9],tsq:[-0.6,96],main:[0,70.3],mainN:[0.7,46.6],hub:[0.1,18.7],castF:[-0.4,12.4],fant:[-0.6,-46],fw:[-27.3,-57.3],fe:[22,-66],fN:[44,-84],fte:[46.7,-53.4],sc:[67.5,-69.9],scE:[88.7,-86.2],ft:[88.2,-29.9],tN:[104,-8],trx:[105,-62],tB:[27.6,29.4],tW:[50.1,34.6],tomo:[67.6,4.4],tS:[76.3,26.3],hNE:[34,9],aB:[-20.8,32.1],adv:[-37.2,46.9],aC:[-62,54.6],aW:[-98.1,36.4],aF:[-71.5,32.4],lB:[-20.1,12.5],lib:[-42.2,-2.4],lW:[-62.7,-2.9],frl:[-88.1,3.4],fW:[-131.7,-7.1],lN:[-56.1,-39.3],hE:[26,-28]},
+  links:[['ent','tsq'],['tsq','main'],['main','mainN'],['mainN','hub'],['hub','castF'],['castF','fant'],['fant','fw'],['fant','fe'],['fant','fN'],['fe','fN'],['fe','fte'],['fte','sc'],['sc','scE'],['fte','ft'],['ft','tN'],['scE','trx'],['trx','tN'],['hub','tB'],['tB','tW'],['tW','tomo'],['tomo','tN'],['tomo','tS'],['tW','tS'],['hub','hNE'],['hNE','tW'],['hub','aB'],['aB','adv'],['adv','aC'],['aC','aW'],['aC','aF'],['aF','frl'],['hub','lB'],['lB','lib'],['lib','lW'],['lW','frl'],['frl','fW'],['lib','lN'],['lN','fw'],['lB','aB'],['hNE','hE'],['hE','fe']],
+  landNames:{ent:"Main Entrance",tsq:"Town Square",main:"Main Street, U.S.A.",mainN:"Main Street (north end)",hub:"Central Plaza",castF:"Castle Forecourt",fant:"Fantasyland",fw:"Fantasyland (Peter Pan / small world)",fe:"Fantasyland (Pooh / Mine Train)",fN:"Enchanted Forest",fte:"Fantasyland (Mad Tea Party)",sc:"Storybook Circus",scE:"Storybook Circus (east)",ft:"Fantasyland\u2013Tomorrowland walkway",tN:"Tomorrowland (Space Mountain)",trx:"Tomorrowland (TRON)",tB:"Tomorrowland bridge",tW:"Tomorrowland (west)",tomo:"Tomorrowland",tS:"Tomorrowland (Buzz / PeopleMover)",hNE:"Castle east walkway",aB:"Adventureland bridge",adv:"Adventureland",aC:"Adventureland (Aladdin / Tiki)",aW:"Adventureland (Pirates / Jungle Cruise)",aF:"Adventureland\u2013Frontierland passage",lB:"Liberty Square bridge",lib:"Liberty Square",lW:"Liberty Square (west)",frl:"Frontierland",fW:"Frontierland (Big Thunder / Tiana)",lN:"Liberty Square (Haunted Mansion)",hE:"Castle east garden"},
+  // Real walking (Nov 21): real = node positions on the true map (park-local units, 0.3/m, from Disney's ride points + the satellite map); walk costs use these lengths, the art positions above only draw the paths.
+  real:{ent:[0,126],tsq:[0,104],main:[0,78],mainN:[0,52],hub:[0,32],castF:[0,19],fant:[0,-5],fw:[-18,-6],fe:[28,-5],fN:[18,-24],fte:[44,-2],sc:[60,-11],scE:[78,-17],ft:[52,16],tN:[80,34],trx:[88,22],tB:[19,40],tW:[36,48],tomo:[58,50],tS:[56,62],hNE:[15,19],aB:[-19,40],adv:[-36,50],aC:[-62,58],aW:[-80,67],aF:[-75,44],lB:[-17,27],lib:[-36,22],lW:[-56,23],frl:[-80,27],fW:[-104,19],lN:[-38,6],hE:[22,6]},
+  rideReal:{tron:[94.5,16.5],sdmt:[26.1,-8.3],pp:[-20.3,-4.7],tiana:[-111.1,23.3],space:[88.3,42.7],btm:[-101.1,5.2],jc:[-65.8,71.1],hm:[-49.4,-2.6],potc:[-88.9,71.4],buzz:[52.6,60.8],isw:[-24.7,-12],pooh:[27.4,-3],ariel:[36,-33.1],dumbo:[66.2,-12.9],barn:[82.5,-21.4],tea:[40.4,3.3],spdwy:[55.8,25],pm:[63.7,65.2],astro:[65,54],phil:[-8.3,3],mil:[43,57.2],carp:[-66.8,56.1]},
+  rideAt:{tron:'trx',sdmt:'fe',pp:'fw',tiana:'fW',space:'tN',btm:'fW',jc:'aW',hm:'lN',potc:'aW',buzz:'tS',isw:'fw',pooh:'fe',ariel:'fN',dumbo:'sc',barn:'scE',tea:'fte',spdwy:'ft',pm:'tS',astro:'tomo',phil:'fant',mil:'tS',carp:'aC'}},
  EP:{name:'EPCOT',short:'EPCOT',c:[458,462],rot:0,r:215,sc:1.25,open:9,close:21,lagoon:[0,62,70],
   nodes:{ent:[0,-152],se:[0,-108],fw:[0,-70],fwe:[62,-72],fww:[-62,-72],sp:[0,-25],mex:[55,0],nor:[85,30],chi:[92,65],ger:[75,100],ita:[40,122],usa:[0,130],jap:[-40,122],mor:[-70,105],fra:[-92,72],ig:[-100,58],uk:[-90,25],can:[-60,0]},
   links:[['ent','se'],['se','fw'],['fw','fwe'],['fw','fww'],['fw','sp'],['sp','mex'],['sp','can'],['mex','nor'],['nor','chi'],['chi','ger'],['ger','ita'],['ita','usa'],['usa','jap'],['jap','mor'],['mor','fra'],['fra','ig'],['ig','uk'],['uk','can']],
@@ -570,7 +575,8 @@ function toWorld(pk,lx,lz){const P=PARKS[pk],c=Math.cos(P.rot),s=Math.sin(P.rot)
 for(const pk in PARKS){
   const P=PARKS[pk]; P.pnodes=[];
   for(const k in P.nodes){const w=toWorld(pk,...P.nodes[k]);addNode(pk+':'+k,w[0],w[1],{park:pk,land:k,label:`${P.landNames[k]} · ${P.short}`});P.pnodes.push(NI[pk+':'+k])}
-  for(const [a,b] of P.links) walk2(pk+':'+a,pk+':'+b,{inPark:true,park:pk});
+  const RL=(ka,kb)=>P.real&&P.real[ka]&&P.real[kb]?Math.hypot(P.real[ka][0]-P.real[kb][0],P.real[ka][1]-P.real[kb][1])*(P.sc||1):null; // real walking length (world units)
+  for(const [a,b] of P.links){const d=RL(a,b);walk2(pk+':'+a,pk+':'+b,d==null?{inPark:true,park:pk}:{inPark:true,park:pk,d})}
   const e=NODES[NI[pk+':ent']], dx=e.x-P.c[0], dz=e.z-P.c[1], L=Math.hypot(dx,dz);
   addNode(pk+':front',e.x+dx/L*(P.fo||34),e.z+dz/L*(P.fo||34),{label:P.name,station:true,outside:pk});
   link(pk+':front',pk+':ent','walk',{inPark:true,park:pk,entry:3});
@@ -584,7 +590,9 @@ for(const pk in PARKS){
 for(const r of RIDES){
   const w=toWorld(r.pk,r.lx,r.lz); r.x=w[0]; r.z=w[1]; r.nodeId=r.pk+':'+r.id;
   addNode(r.nodeId,w[0],w[1],{park:r.pk,ride:r,label:r.name});
-  walk2(r.nodeId,r.pk+':'+r.land,{inPark:true,park:r.pk});
+  const P=PARKS[r.pk],at=P.rideAt&&P.rideAt[r.id],rr=P.rideReal&&P.rideReal[r.id];
+  if(at&&rr&&P.real[at]){r.rlx=rr[0];r.rlz=rr[1];walk2(r.nodeId,r.pk+':'+at,{inPark:true,park:r.pk,d:Math.max(2,Math.hypot(rr[0]-P.real[at][0],rr[1]-P.real[at][1]))*(P.sc||1)})}
+  else walk2(r.nodeId,r.pk+':'+r.land,{inPark:true,park:r.pk});
   PARKS[r.pk].pnodes.push(NI[r.nodeId]);
 }
 addNode('S:ttc',XZ.ttc[0],XZ.ttc[1],{label:'Transportation & Ticket Center',station:true});
@@ -3087,7 +3095,7 @@ for(const pk in PARKS){const P=PARKS[pk],n=P.pnodes.length,dist=[],next=[];
   P.pnodes.forEach((g,i)=>{for(const e of NODES[g].adj)if(e.type==='walk'&&li[e.to]!==undefined){dist[i][li[e.to]]=e.d;next[i][li[e.to]]=li[e.to]}});
   for(let k=0;k<n;k++)for(let i=0;i<n;i++)for(let j=0;j<n;j++)if(dist[i][k]+dist[k][j]<dist[i][j]){dist[i][j]=dist[i][k]+dist[k][j];next[i][j]=next[i][k]}
   P.next=next;P.entL=li[NI[pk+':ent']];
-  P.dests=[];P.pnodes.forEach((g,i)=>{const N=NODES[g];if(N.land==='dino')return;P.dests.push({i,w:N.ride?N.ride.base/10+1:0.8})});P.wsum=P.dests.reduce((a,d)=>a+d.w,0);
+  P.dests=[];P.pnodes.forEach((g,i)=>{const N=NODES[g];if(N.land==='dino')return;P.dests.push({i,w:N.ride?N.ride.base/10+1:(P.real&&!LAND_KEYS.has(N.land)?0.15:0.8)})});P.wsum=P.dests.reduce((a,d)=>a+d.w,0);
   for(let i=0;i<CAP[pk];i++)AG.push({pk,a:P.entL,b:P.entL,dest:P.entL,s:0,len:1,sp:rnd(0.75,1.15)*WALK_PARK,off:rnd(-3.2,3.2),dwell:0,on:false})}
 function pickDest(P){let r=Math.random()*P.wsum;for(const d of P.dests){r-=d.w;if(r<=0)return d.i}return P.dests[0].i}
 function agentLen(P,a,b){const A=NODES[P.pnodes[a]],B=NODES[P.pnodes[b]];return Math.hypot(A.x-B.x,A.z-B.z)||0.01}
@@ -3144,7 +3152,7 @@ const moodWord=m=>m>=80?'Delighted':m>=60?'Happy':m>=40?'Okay':m>=20?'Frustrated
 function effectiveStart(){
   if(!G.segs)return{node:G.node,prefix:[],can:true};
   const s=G.segs[G.seg];if(!s)return{node:G.node,prefix:[],can:true};
-  if(s.k==='walk'){return{node:s.bNode,prefix:[{k:'walk',a:[G.pos[0],G.pos[2]],b:[NODES[s.bNode].x,NODES[s.bNode].z],bNode:s.bNode,len:Math.max(0.01,Math.hypot(G.pos[0]-NODES[s.bNode].x,G.pos[2]-NODES[s.bNode].z)),done:0,inPark:s.inPark,park:s.park}],can:true,note:'You\'ll change course from where you\'re walking.'}}
+  if(s.k==='walk'){return{node:s.bNode,prefix:[{k:'walk',a:[G.pos[0],G.pos[2]],b:[NODES[s.bNode].x,NODES[s.bNode].z],bNode:s.bNode,len:Math.max(0.01,s.len-s.done),done:0,inPark:s.inPark,park:s.park}],can:true,note:'You\'ll change course from where you\'re walking.'}}
   if(s.k==='queue')return{node:NI[s.ride.nodeId],prefix:[],can:true,note:`You'll step out of the ${s.ride.short} line.`,leaveLine:true};
   if(s.k==='twait')return{node:s.stopNode,prefix:[],can:true,note:'You\'ll stop waiting at this stop.'};
   if(s.k==='snack')return{node:G.node,prefix:[],can:true};
