@@ -4,6 +4,10 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="WDW Sim">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<meta name="theme-color" content="#0c1424">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Figtree:wght@400;500;600;700&display=swap">
@@ -133,7 +137,8 @@ button:focus-visible,select:focus-visible{outline:2px solid var(--gold);outline-
 .callout b{color:var(--ll)}
 .callout .why{margin-top:6px;font-size:12.5px;line-height:1.35}.callout .why.m{opacity:.75}
 .callout.warnc{background:rgba(246,163,71,.12);border-color:rgba(246,163,71,.45)}
-#llsetup,#daysetup,#rfview{z-index:11;background:rgba(8,12,22,.9)}
+#llsetup,#daysetup,#rfview,#pushview{z-index:11;background:rgba(8,12,22,.9)}
+.pushol{margin:4px 0 10px;padding-left:20px;font-size:13.5px;line-height:1.5}.pucats{display:grid;gap:8px;margin:10px 0}.pucat{display:flex;gap:10px;align-items:flex-start;font-size:13.5px;line-height:1.35}.pucat input{width:20px;height:20px;margin-top:2px;flex:none}.pucat small{color:var(--muted);font-size:12px}.pulist{margin:2px 0 6px;padding-left:18px;font-size:13px;line-height:1.5}
 textarea{box-sizing:border-box;width:100%;background:var(--chip);color:var(--text);border:1px solid var(--line);border-radius:12px;padding:9px 11px;font:500 14px var(--body);-webkit-user-select:text;user-select:text;resize:vertical}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
 .chip{border:1px solid var(--line);background:transparent;border-radius:999px;padding:6px 10px;font-size:12.5px;font-weight:700;color:var(--muted);display:flex;gap:5px;align-items:baseline}
@@ -169,8 +174,8 @@ textarea{box-sizing:border-box;width:100%;background:var(--chip);color:var(--tex
 .llrow select{padding:9px 8px;font-size:13.5px;min-width:0}
 .lld{margin-top:14px}.lld summary{font-family:var(--display);font-size:16px;font-weight:600;cursor:pointer}
 
-#start,#end,#llsetup,#daysetup,#rfview{position:fixed;inset:0;z-index:10;display:grid;place-items:center;padding:calc(env(safe-area-inset-top,0px) + 16px) max(16px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 16px) max(16px,env(safe-area-inset-left,0px));background:linear-gradient(180deg,rgba(12,20,36,.25),rgba(12,20,36,.82) 55%);overflow:auto}
-#rfview{z-index:13}
+#start,#end,#llsetup,#daysetup,#rfview,#pushview{position:fixed;inset:0;z-index:10;display:grid;place-items:center;padding:calc(env(safe-area-inset-top,0px) + 16px) max(16px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 16px) max(16px,env(safe-area-inset-left,0px));background:linear-gradient(180deg,rgba(12,20,36,.25),rgba(12,20,36,.82) 55%);overflow:auto}
+#rfview,#pushview{z-index:13}
 .modal{width:min(100%,430px);background:var(--glass2);border:1px solid var(--line);border-radius:22px;padding:22px 20px;box-shadow:0 20px 60px rgba(0,0,0,.55)}
 .modal h1{font-family:var(--display);font-weight:700;font-size:36px;margin:0;line-height:1;letter-spacing:.01em}
 .modal h1 span{color:var(--gold)}
@@ -287,6 +292,7 @@ body.pvmode #start,body.pvmode #end{background:var(--night)}
     <div class="fld"><label>Start time</label><div class="seg" id="segTime"><button data-v="480" aria-pressed="true">Rope drop · 8:00</button><button data-v="660">Sleep in · 11:00</button><button data-now="1" data-v="660">Now · real time</button></div><div class="fc" id="rtFc"></div></div>
     <div class="fld"><label>Lightning Lane</label><button class="btn ll" id="bLLPlan" type="button">⚡ Plan Lightning Lanes</button><div class="fc" id="llSum"></div></div>
     <div class="fld"><label>Day plan</label><button class="btn pri" id="bDayPlan" type="button" style="background:rgba(255,201,77,.16);color:var(--gold);border-color:rgba(255,201,77,.55)">🗺 Plan my day</button><div class="fc" id="daySum"></div></div>
+    <div class="fld"><label>Phone alerts</label><button class="btn" id="bPush" type="button" style="width:100%">📳 Phone alerts</button><div class="fc" id="pushSum"></div></div>
     <div class="fld"><label>View</label><div class="seg" id="segView"><button data-v="map" aria-pressed="true">3D map</button><button data-v="plan">Plan only</button></div><div class="fc">Plan only skips the 3D map for a day in the park: your plan, waits and Lightning Lanes as a list, and much less battery. Switch any time from the dock.</div></div>
     <div class="fld"><label>Graphics</label><div class="seg" id="segGfx"><button data-v="low">Low</button><button data-v="med">Medium</button><button data-v="high">High</button></div><div class="fc">Medium suits most iPhones. Low turns off shadows and reflections for older phones; High adds sharper shadows and glow at night.</div></div>
     <p class="note" id="liveNote" style="margin:0 0 8px"></p>
@@ -303,6 +309,7 @@ body.pvmode #start,body.pvmode #end{background:var(--night)}
 <div id="llsetup" hidden><div class="modal" id="llsetIn"></div></div>
 <div id="daysetup" hidden><div class="modal" id="daysetIn"></div></div>
 <div id="rfview" hidden><div class="modal" id="rfIn"></div></div>
+<div id="pushview" hidden><div class="modal" id="pushIn"></div></div>
 
 <div id="end" hidden>
   <div class="modal">
@@ -3941,11 +3948,12 @@ function planViewHTML(){
     if(rec)bkH+=`<button class="btn ll" data-bk="${rec.r.id}">⚡ Free slot · book ${rec.r.short} · returns ~${fmtClock(rec.ret)} (saves ~${fmtDur(rec.save)})</button>`}
   const top=`${nowCardHTML()}${confCardHTML()}${autoNoteHTML()}${status?`<p class="note" style="color:var(--text)">${status}</p>`:''}
   <div class="go">${btns}${bkH}</div>${bkH?'<p class="note">Your plan books these as soon as you tap in. Return times shown are live.</p>':''}
-  <div class="row" style="margin:10px 0 4px;flex-wrap:wrap"><button class="btn sm" id="dpRe">Replan from here</button><button class="btn sm" id="dpEdit">Change must-dos</button><button class="btn sm" id="dpClr">${DPV.clr?'Tap again to clear':'Clear plan'}</button><button class="btn sm tog" id="dpAuto" aria-pressed="${AUTO.on}">Auto-adjust ${AUTO.on?'on':'off'}</button></div>`;
+  <div class="row" style="margin:10px 0 4px;flex-wrap:wrap"><button class="btn sm" id="dpRe">Replan from here</button><button class="btn sm" id="dpEdit">Change must-dos</button><button class="btn sm" id="dpClr">${DPV.clr?'Tap again to clear':'Clear plan'}</button><button class="btn sm tog" id="dpAuto" aria-pressed="${AUTO.on}">Auto-adjust ${AUTO.on?'on':'off'}</button><button class="btn sm tog" id="dpPush" aria-pressed="${PUSH.on}">📳 Alerts ${PUSH.on?'on':'off'}</button></div>`;
   const rest=`${dpTimelineHTML(P.res,pr)}
   <p class="note">Made at ${fmtClock(P.made)} from typical waits${liveActive()?' and live waits':''}. ${AUTO.on?'Auto-adjust replans by itself when you fall behind, a ride goes down, the crowd read shifts or live waits drift.':'Breakdowns and slow buses will push it around; replan when you fall behind.'}</p>`;
   return {top,rest,pr,s}}
 function planBind(root,v){const pr=v.pr,s=v.s,q=x=>root.querySelector(x);nowBind(root);
+  q('#dpPush').onclick=()=>openPush();
   q('#dpAuto').onclick=()=>{AUTO.on=!AUTO.on;try{localStorage.setItem('wdwsim.auto',AUTO.on?'1':'0')}catch(e){}planRefresh();if(AUTO.on)autoCheck('toggle')};
   const nx=q('#dpNext');if(nx)nx.onclick=()=>{const r=RIDE_BY[s.rid],wantLL=s.how!=='rope'&&s.how!=='standby';go(r,wantLL&&!!llUse(r))};
   const bb=q('#dpBlk');if(bb)bb.onclick=()=>{if(G.segs&&!effectiveStart().can){toast('Finish this ride first');return}const b=pr.blk,dur=Math.max(b.walk+b.dur,b.at?b.at-(b.meal?15:0)+b.dur-G.t:0);G.plan.blkDone[b.id]=1;if(b.meal)G.plan.lunchAt=G.t;G.segs=[{k:'snack',dur:Math.round(dur),el:0,started:false,name:b.name,act:b.meal?'dine':undefined}];G.seg=0;sayBubble(b.meal?'Food!':'Off we go');planDone()};
@@ -4391,7 +4399,7 @@ function resBox(){const box=$('#resBox');if(!box)return;const R=G.started&&!G.ov
 function resShow(R){$('#endFace').innerHTML=faceSVG(R.mood);$('#endTitle').textContent='Day results';
   $('#endSub').textContent=`${parseDay(R.date).toLocaleDateString(undefined,{weekday:'long',month:'short',day:'numeric'})}${R.real?' · real time':''} · finished ${fmtClock(R.endT)} at ${R.mood}/100.`;
   $('#endStats').innerHTML='';$('#ridden').textContent='';$('#endRes').innerHTML=resHTML(R);$('#bAgain').textContent='Back';$('#start').hidden=true;$('#end').hidden=false;$('#end').scrollTop=0}
-function endDay(){G.over=true;closeSheet();$('#bAgain').textContent='Play another day';runClear(G.date);const m=Math.round(G.mood);
+function endDay(){G.over=true;closeSheet();try{PUSH.sig='end';pushSync('hide')}catch(e){}$('#bAgain').textContent='Play another day';runClear(G.date);const m=Math.round(G.mood);
   $('#endFace').innerHTML=faceSVG(m);$('#endTitle').textContent=m>=70?'What a day':m>=45?'Day’s done':'Rough day';
   $('#endSub').textContent=`Your guest finished the day ${moodWord(m).toLowerCase()} at ${m}/100 after ${G.ridden.length} ride${G.ridden.length===1?'':'s'}.`;
   const S=G.stats;$('#endStats').innerHTML=`<div><b>${G.score}</b><span>Magic points</span></div><div><b>${G.ridden.length}</b><span>Rides & shows</span></div><div><b>${fmtDur(S.wait)}</b><span>Waiting</span></div><div><b>${fmtDur(S.transit+S.walk)}</b><span>Getting around</span></div><div><b>${G.LL.used}</b><span>Lightning Lanes used</span></div><div><b>≈$${G.LL.spent}</b><span>Spent on LL per person</span></div>`;
@@ -4408,7 +4416,7 @@ function endDay(){G.over=true;closeSheet();$('#bAgain').textContent='Play anothe
 // Real-time runs catch the clock up to now (rtAdvance) and then auto-adjust; simulated runs pick up at their saved time.
 var RUN={dirty:false,last:0,v:1};
 const RUN_KEY=d=>'wdwsim.run.'+d;
-function runDirty(){RUN.dirty=true}
+function runDirty(){RUN.dirty=true;if(PUSH)PUSH.dirty=true}
 // the whole trip in progress, segment by segment (since Nov 21: a bus wait, a bus ride or a walk keeps its progress too)
 const SEG_F=['dur','done','len','inPark','park','base','hold','ll','t0','t1','d0','force','act','name','sync'];
 function segOut(s){const r1=v=>Math.round(v*100)/100,nid=n=>n!=null&&NODES[n]?NODES[n].id:null,o={k:s.k,el:r1(s.el||0),st:s.started?1:0};
@@ -4534,6 +4542,93 @@ if(window.ResizeObserver){const ro=new ResizeObserver(pvSizes);ro.observe($('#to
 $('#pv').addEventListener('pointerdown',()=>{PV.touch=performance.now()},{passive:true});$('#pv').addEventListener('scroll',()=>{PV.touch=performance.now()},{passive:true});
 $('#bView').onclick=()=>setView(PV.on?'map':'plan');segPick('#segView',b=>setView(b.dataset.v));setView(PV.on?'plan':'map');
 
+// ================= PHONE ALERTS (roadmap row 36) =================
+// Real notifications on the iPhone, even with the phone locked: the Home Screen app subscribes to Web Push, and on a
+// real-time day it sends the relay (worker/waits.js) the alerts it wants and when (Lightning Lane "head there" / "window
+// ends", the plan's leave-now times, park hops, timed meals) plus the rides to watch. The relay's every-minute cron sends
+// what's due; its 5-minute feed check sends "X is down / back up". The page itself can't notify once iOS suspends it.
+var PUSH={on:false,cats:{ll:1,plan:1,down:1},sub:null,key:null,sig:'',last:0,lastTry:0,busy:false,dirty:false,err:'',state:'',sent:null};
+const PUSH_URL=LIVE_URL?LIVE_URL.replace(/\/waits$/,'/push'):'';
+const PUSH_CATS=[['ll','⚡ Lightning Lane','Head there now (travel time + 10 min before the window) and 15 min before a window ends'],['plan','🗺 Plan','Leave-now times after free time or a break, park hops and timed meals'],['down','🛑 Ride down','A ride in your next few plan steps or with your Lightning Lane goes down or comes back up']];
+function pushCfgLoad(){try{const j=JSON.parse(localStorage.getItem('wdwsim.push')||'null');if(j){PUSH.on=!!j.on;Object.assign(PUSH.cats,j.cats||{});PUSH.sub=j.sub||null}}catch(e){}}
+function pushCfgSave(){try{localStorage.setItem('wdwsim.push',JSON.stringify({on:PUSH.on,cats:PUSH.cats,sub:PUSH.sub}))}catch(e){}}
+function pushIOS(){return /iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1)}
+function pushStandalone(){return navigator.standalone===true||(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)}
+// 'ok' | 'homescreen' (iPhone Safari tab: needs Add to Home Screen) | 'nopush' (browser without Web Push) | 'norelay'
+function pushSupport(){if(!PUSH_URL)return 'norelay';const has='serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window;if(has)return 'ok';return pushIOS()&&!pushStandalone()?'homescreen':'nopush'}
+function pushB64(s){s=String(s).replace(/-/g,'+').replace(/_/g,'/');s+='==='.slice((s.length+3)%4);const b=atob(s),o=new Uint8Array(b.length);for(let i=0;i<b.length;i++)o[i]=b.charCodeAt(i);return o}
+async function pushPost(path,body,keep){const r=await fetch(PUSH_URL+path,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(body),keepalive:!!keep,cache:'no-store'});let j=null;try{j=await r.json()}catch(e){}if(!r.ok)throw new Error((j&&(j.error||j.result))||('HTTP '+r.status));return j}
+function pushSWReg(){if(!('serviceWorker' in navigator))return Promise.resolve(null);return navigator.serviceWorker.register('sw.js').catch(e=>{PUSH.err='Service worker: '+e.message;return null})}
+// must run from a tap (iOS only asks for permission inside a user gesture)
+async function pushEnable(){if(pushSupport()!=='ok')return;PUSH.err='';PUSH.busy=true;pushUI();
+  try{const perm=await Notification.requestPermission();if(perm!=='granted')throw new Error(perm==='denied'?'Notifications are blocked. Turn them on in Settings → Notifications → WDW Sim':'Notifications not allowed');
+    await pushSWReg();const reg=await navigator.serviceWorker.ready;
+    if(!PUSH.key){const r=await fetch(PUSH_URL+'/key',{cache:'no-store'});const j=await r.json();if(!j.key)throw new Error(j.error||'relay has no key');PUSH.key=j.key}
+    let sub=await reg.pushManager.getSubscription();
+    if(sub&&sub.options&&sub.options.applicationServerKey){const a=new Uint8Array(sub.options.applicationServerKey),b=pushB64(PUSH.key);if(a.length!==b.length||a.some((x,i)=>x!==b[i])){await sub.unsubscribe();sub=null}}
+    if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:pushB64(PUSH.key)});
+    PUSH.sub=sub.toJSON();PUSH.on=true;pushCfgSave();await pushPost('/test',{sub:PUSH.sub});PUSH.sig='';PUSH.dirty=true;toast('Phone alerts on · test alert sent')}
+  catch(e){PUSH.err=e.message||String(e)}finally{PUSH.busy=false;pushUI()}}
+async function pushDisable(){PUSH.busy=true;pushUI();const s=PUSH.sub;PUSH.on=false;pushCfgSave();
+  try{if(s)await pushPost('/off',{sub:s})}catch(e){}
+  try{const reg=await navigator.serviceWorker.getRegistration();const sub=reg&&await reg.pushManager.getSubscription();if(sub)await sub.unsubscribe()}catch(e){}
+  PUSH.sub=null;PUSH.sig='';pushCfgSave();PUSH.busy=false;toast('Phone alerts off');pushUI()}
+async function pushTest(){PUSH.busy=true;PUSH.err='';pushUI();try{await pushPost('/test',{sub:PUSH.sub});toast('Test alert sent. Lock the phone to see it arrive')}catch(e){PUSH.err=e.message}finally{PUSH.busy=false;pushUI()}}
+// what to schedule right now (game minutes → epoch ms through the real-time clock)
+function pushPlan(){const out={items:[],watch:[]};if(!G.started||G.over||!G.real)return out;
+  const nowM=G.t,ep=m=>Math.round(Date.now()+(m-rtNow())*60000),add=(k,m,title,body,tag)=>{if(m>nowM+1)out.items.push({k,at:ep(m),title,body,tag:tag||k,m})};
+  const segs=G.segs||[],tgt=segs.length?segs[segs.length-1].ride:null,watch=new Map(),W=r=>{const e=LIVE.map&&LIVE.map[r.id];if(e&&e.name&&!watch.has(r.id))watch.set(r.id,{park:r.pk,name:e.name,label:r.short,until:ep(PARKS[r.pk].close*60+30)})};
+  const act=G.LL.passes.filter(p=>p.st==='active'&&!G.ridden.includes(p.rid));
+  if(act.length){let D=null;try{D=dijkstra(effectiveStart().node,nowM/60)}catch(e){}
+    for(const p of act){const r=llR(p);if(PUSH.cats.down)W(r);if(!PUSH.cats.ll)continue;const eta=D?Math.round(D.dist[NI[r.nodeId]]||0):15;
+      if(tgt!==r&&!G.LL.rem['go'+p.id])add('llgo:'+p.id,p.start-eta-10,`⚡ Head to ${r.short} now`,`Lightning Lane ${fmtClock(p.start)}–${fmtClock(p.end)} · about ${fmtDur(eta)} away`);
+      if(!G.LL.rem['end'+p.id])add('llend:'+p.id,p.end-15,`⚡ ${r.short} window ends ${fmtClock(p.end)}`,'Tap points usually allow about an hour late, but don\'t count on it')}}
+  const P=G.plan;if(P&&P.res){let pr=null;try{pr=dpProgress()}catch(e){}
+    if(pr){const st=P.res.steps;
+      if(PUSH.cats.plan){if(pr.step){const s=pr.step,r=RIDE_BY[s.rid],hop=dpHopBefore(st,pr.next),hp=!!hop&&currentPark()!==hop.to;
+          if(!hp&&tgt!==r&&!(G.segs&&G.seg<G.segs.length&&!effectiveStart().can&&s.leave<nowM+20))add('leave:'+s.rid,s.leave,`🎢 Time to head to ${r.short}`,`${DP_HOW[s.how][0]} · get in line ~${fmtClock(s.q0)}${s.wait!=null&&s.how==='standby'?` · ~${Math.round(s.wait)} min wait planned`:''}`)}
+        for(let i=Math.max(0,pr.next);i<st.length&&pr.next>=0;i++){const h=st[i];if(h.k==='hop'&&currentPark()!==h.to)add('hop:'+h.to,h.leave,`🚝 Time to hop to ${PARKS[h.to].name}`,`Leave ${fmtClock(h.leave)} · at the gate ~${fmtClock(h.arr)}`)}
+        st.forEach(h=>(h.blocks||[]).forEach(b=>{if(!b.at||P.blkDone&&P.blkDone[b.id])return;add('blk:'+b.id,(b.start||b.at-15)-(b.walk||0)-5,`🍽 Head to ${b.name}`,`Booked ${fmtClock(b.at)} · about ${fmtDur(b.walk||0)} walk`)}))}
+      if(PUSH.cats.down&&pr.next>=0){let n=0;for(let i=pr.next;i<st.length&&n<3;i++)if(st[i].k==='ride'){W(RIDE_BY[st[i].rid]);n++}}}}
+  out.items.sort((a,b)=>a.at-b.at);out.items=out.items.slice(0,30);out.watch=[...watch.values()].slice(0,10);return out}
+// push the schedule to the relay when it changed (or every 15 min), and when the app goes to the background
+function pushSync(why){if(!PUSH.on||!PUSH.sub||PUSH.busy||pushSupport()!=='ok')return;const now=Date.now();
+  const pl=pushPlan(),sig=JSON.stringify([pl.items.map(x=>[x.k,Math.round(x.at/60000),x.title]),pl.watch.map(w=>w.name)]);
+  if(why!=='hide'&&sig===PUSH.sig&&now-PUSH.last<15*60000)return;if(why!=='hide'&&now-PUSH.lastTry<(PUSH.fails?60000:8000))return;
+  PUSH.lastTry=now;PUSH.dirty=false;const body={sub:PUSH.sub,items:pl.items.map(({k,at,title,body,tag})=>({k,at,title,body,tag})),watch:pl.watch};
+  pushPost('/sync',body,why==='hide').then(()=>{PUSH.sig=sig;PUSH.last=Date.now();PUSH.fails=0;PUSH.sent=pl;PUSH.err=''}).catch(e=>{PUSH.fails=(PUSH.fails||0)+1;PUSH.err='Couldn\'t reach the alerts relay: '+e.message})}
+let pushClock=0;function pushTick(){if(!PUSH.on)return;const now=performance.now();if(now-pushClock<(PUSH.dirty?2500:30000))return;pushClock=now;pushSync('tick')}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')pushSync('hide')});
+// Home Screen apps on iOS keep their own storage, separate from Safari: move plans, Lightning Lanes and saved runs across
+function pushDataText(){const o={};for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith('wdwsim.')&&!k.startsWith('wdwsim.hist.')&&k!=='wdwsim.push')o[k]=localStorage.getItem(k)}return 'WDWSIM-DATA1 '+JSON.stringify(o)}
+function pushDataImport(txt){const m=String(txt||'').trim().match(/^WDWSIM-DATA1 ([\s\S]+)$/);if(!m)throw new Error('That isn\'t WDW Sim data. Copy it again in Safari');const o=JSON.parse(m[1]);let n=0;for(const k in o)if(k.startsWith('wdwsim.')&&typeof o[k]==='string'){localStorage.setItem(k,o[k]);n++}return n}
+function pushSummary(){const s=pushSupport();if(s==='norelay')return '';if(s==='homescreen')return 'Alerts need the Home Screen app (Share → Add to Home Screen).';if(s==='nopush')return 'This browser can\'t get alerts.';
+  if(!PUSH.on)return 'Off · get Lightning Lane, leave-now and ride-down alerts with the phone locked.';const n=PUSH.sent?PUSH.sent.items.length:0;return `On · ${G.started&&G.real?(n?`${n} alert${n===1?'':'s'} scheduled`:'nothing due yet'):'scheduled on a real-time (Now) day'}${PUSH.err?' · ⚠ '+PUSH.err:''}`}
+function pushUI(){const el=document.getElementById('pushSum');if(el)el.textContent=pushSummary();if(!$('#pushview').hidden)openPush(true)}
+function openPush(keep){const s=pushSupport(),st=pushStandalone();let h=`<h2>📳 Phone alerts</h2>`;
+  if(s==='homescreen')h+=`<p class="note">iPhones only deliver web alerts to apps on the Home Screen (iOS 16.4 or newer). Set it up once:</p><ol class="pushol"><li>Tap <b>Share</b> <span aria-hidden="true">⬆︎</span> in Safari's toolbar.</li><li>Tap <b>Add to Home Screen</b>, then <b>Add</b>.</li><li>Open <b>WDW Sim</b> from the new icon and come back here to turn alerts on.</li></ol>
+    <p class="note"><b>Your plans stay in Safari.</b> The Home Screen app has its own storage, so bring your day plans, Lightning Lanes and saved runs with you: tap Copy here, then Paste in the app.</p><button class="btn" id="puCopy" style="width:100%">Copy my WDW Sim data</button>`;
+  else if(s==='nopush')h+=`<p class="note">This browser doesn't support web push. On iPhone, add WDW Sim to the Home Screen from Safari and open it from there.</p>`;
+  else if(s==='ok'){const perm=window.Notification?Notification.permission:'default';
+    h+=`<p class="note">${PUSH.on?'<b style="color:var(--good)">On.</b> ':''}On a real-time day (Start time: Now) the game sends the alerts it wants to the WDW Sim relay, which delivers each one at the right minute, even with the phone locked. The list updates whenever your plan or Lightning Lanes change while the app is open, and again as you close it.</p>`;
+    if(perm==='denied')h+=`<p class="note" style="color:var(--warn)">Notifications are blocked for WDW Sim. Turn them on in Settings → Notifications → WDW Sim, then try again.</p>`;
+    h+=PUSH.on?`<div class="row" style="gap:8px;margin:8px 0"><button class="btn" id="puTest" ${PUSH.busy?'disabled':''}>Send a test</button><button class="btn" id="puOff" ${PUSH.busy?'disabled':''}>Turn off</button></div>`:`<button class="btn pri" id="puOn" style="width:100%" ${PUSH.busy?'disabled':''}>${PUSH.busy?'Turning on…':'Turn on phone alerts'}</button>`;
+    h+=`<div class="pucats">${PUSH_CATS.map(([k,t,d])=>`<label class="pucat"><input type="checkbox" data-pucat="${k}" ${PUSH.cats[k]?'checked':''}><span><b>${t}</b><br><small>${d}</small></span></label>`).join('')}</div>`;
+    if(PUSH.on){const pl=pushPlan();h+=G.started&&G.real?(pl.items.length||pl.watch.length?`<p class="note" style="margin-top:10px"><b>Coming up</b></p><ul class="pulist">${pl.items.map(x=>`<li><b>${fmtClock(x.m)}</b> ${x.title}</li>`).join('')}${pl.watch.length?`<li>Watching for breakdowns: ${pl.watch.map(w=>w.label).join(', ')}</li>`:''}</ul>${PUSH.last?`<p class="note">Sent to the relay ${liveAgo(PUSH.last)}.</p>`:''}`:'<p class="note">Nothing to alert yet. Book a Lightning Lane or make a plan.</p>'):'<p class="note">Alerts are only scheduled on a real-time day: pick Start time · Now.</p>'}
+    if(st)h+=`<details style="margin-top:10px"><summary class="note">Bring plans over from Safari</summary><p class="note">In Safari: open this page, 📳 Phone alerts → Copy my WDW Sim data. Then paste here.</p><textarea id="puPaste" rows="3" placeholder="Paste here"></textarea><button class="btn" id="puImp" style="width:100%;margin-top:6px">Load pasted data</button></details>`}
+  if(PUSH.err)h+=`<p class="note" style="color:var(--warn)">⚠ ${PUSH.err}</p>`;
+  h+=`<p class="note" style="margin-top:10px">Alerts go out within about a minute of their time (ride-down alerts with the 5-minute wait feed). In-app reminders still show while the app is open.</p><button class="btn pri" id="puClose" style="width:100%;margin-top:6px">Done</button>`;
+  const v=$('#pushview'),y=v.scrollTop;$('#pushIn').innerHTML=h;v.hidden=false;v.scrollTop=keep?y:0;const q=x=>$('#pushIn').querySelector(x);
+  q('#puClose').onclick=()=>{v.hidden=true;pushUI()};
+  const on=q('#puOn');if(on)on.onclick=()=>pushEnable();const off=q('#puOff');if(off)off.onclick=()=>pushDisable();const ts=q('#puTest');if(ts)ts.onclick=()=>pushTest();
+  $('#pushIn').querySelectorAll('[data-pucat]').forEach(c=>c.onchange=()=>{PUSH.cats[c.dataset.pucat]=c.checked?1:0;pushCfgSave();PUSH.dirty=true;PUSH.sig='';openPush(true)});
+  const cp=q('#puCopy');if(cp)cp.onclick=async()=>{const t=pushDataText();try{await navigator.clipboard.writeText(t);toast('Copied. Open the Home Screen app → 📳 Phone alerts → Paste')}catch(e){const ta=document.createElement('textarea');ta.value=t;ta.rows=3;cp.after(ta);ta.select();toast('Select all and copy this text')}};
+  const im=q('#puImp');if(im)im.onclick=()=>{try{const n=pushDataImport(q('#puPaste').value);toast(`Loaded ${n} saved item${n===1?'':'s'}. Reloading…`);setTimeout(()=>location.reload(),900)}catch(e){PUSH.err=e.message;openPush(true)}}}
+// on load: register the service worker, check a saved subscription still exists (iOS can drop it)
+async function pushInit(){pushCfgLoad();if(pushSupport()!=='ok'){pushUI();return}await pushSWReg();
+  if(PUSH.on){try{const reg=await navigator.serviceWorker.ready;const sub=await reg.pushManager.getSubscription();if(!sub||Notification.permission!=='granted'){PUSH.on=false;PUSH.err='Alerts were switched off on this phone. Turn them on again.';pushCfgSave()}else{PUSH.sub=sub.toJSON();pushCfgSave()}}catch(e){}}
+  pushUI()}
+$('#bPush').onclick=()=>openPush();pushInit();
 // attract mode before the day starts
 stepAgents(0.01,true);rebuildQueues();refreshPins();
 setupShadows();if(GQ.bloom)makeComposer();
@@ -4549,9 +4644,9 @@ function tick(now){const pv=PV.on;if(pv&&(G.real||!G.started||G.over)&&now-PV.ti
   if(!pv){updateVehicles();updateExtras();updateSky(now);updateFireworks(dtR);
     if(G.started){me.position.set(G.pos[0],G.pos[1],G.pos[2]);me.ring.material.opacity=0.6+0.35*Math.sin(now/300)}
     camStep(now);controls.update();skyDome.position.copy(camera.position);renderFrame();updateLabels()}
-  if(G.started){updateHUD();runTick();try{confTick()}catch(e){}if(pv)pvRefresh(false)}
+  if(G.started){updateHUD();runTick();try{pushTick()}catch(e){}try{confTick()}catch(e){}if(pv)pvRefresh(false)}
 }
-window.WDW={llOdds,llObs,llObsAdd,llCalFor,CONF,confRun,confOpts,confCompare,confCardHTML,openLLEnter,endDay,resBuild,resHTML,resShow,resLoad,resLatest,RUN,runSave,runLoad,runClear,runResume,runState,runBox,runFind,AUTO,RT,autoCheck,autoReasons,autoReplan,autoDiff,rtRodeIt,rtAt,rtNow,openWhere,dpGameOpts,camera,controls,RF,rfCompact,rfStore,rfLoad,rfResid,rfCalibrate,rfEstimate,rfBacktest,rfUpdateToday,rfApplyDay,rfMul,rfCal,openRF,rfAfterUpdate,rfNoteUpdate,rfTick,rfBannerHTML,liveMatch,stRun,stHTML,stCalib,stModelDay,dpParseTP,dpApplyImport,scene,setGfx,LIGHT,sunDir,fwShows,fwSim:(n,dt)=>{for(let i=0;i<n;i++)updateFireworks(dt)},holdTime:t=>{G.holdT=t==null?null:t*60;if(t!=null)G.t=t*60},dpRun,dpRunDay,dpLegs,dpAllMust,getDPS:()=>DPS,dpStartOpts:S=>dpStartOpts(S),dpMakeGame,dpProgress,dpLoad,dpSave,openPlan,openDaySetup,prepDay,llFromPlan,llFresh,llBook,llNext,llRecs,llUse,llHeld,llTick,llPlanErrors,llSuggest,llLoadPlan,openLL,openRides,openPicks,LIVE,liveIngest,liveFor,curveAt,orlandoNow,livePoll,G,go,flyTo,setFollow,RIDE_BY,PARKS,camera,controls,openRide,closeSheet,rawWait,waitAt,dayFactor,holiday,hoursFor,applyHours,accessOpen,lastClose,renderer,dijkstra,NI,NODES,RESORTS,RIDES,LINES};
+window.WDW={PUSH,pushPlan,pushSync,openPush,pushSupport,pushDataText,pushDataImport,llOdds,llObs,llObsAdd,llCalFor,CONF,confRun,confOpts,confCompare,confCardHTML,openLLEnter,endDay,resBuild,resHTML,resShow,resLoad,resLatest,RUN,runSave,runLoad,runClear,runResume,runState,runBox,runFind,AUTO,RT,autoCheck,autoReasons,autoReplan,autoDiff,rtRodeIt,rtAt,rtNow,openWhere,dpGameOpts,camera,controls,RF,rfCompact,rfStore,rfLoad,rfResid,rfCalibrate,rfEstimate,rfBacktest,rfUpdateToday,rfApplyDay,rfMul,rfCal,openRF,rfAfterUpdate,rfNoteUpdate,rfTick,rfBannerHTML,liveMatch,stRun,stHTML,stCalib,stModelDay,dpParseTP,dpApplyImport,scene,setGfx,LIGHT,sunDir,fwShows,fwSim:(n,dt)=>{for(let i=0;i<n;i++)updateFireworks(dt)},holdTime:t=>{G.holdT=t==null?null:t*60;if(t!=null)G.t=t*60},dpRun,dpRunDay,dpLegs,dpAllMust,getDPS:()=>DPS,dpStartOpts:S=>dpStartOpts(S),dpMakeGame,dpProgress,dpLoad,dpSave,openPlan,openDaySetup,prepDay,llFromPlan,llFresh,llBook,llNext,llRecs,llUse,llHeld,llTick,llPlanErrors,llSuggest,llLoadPlan,openLL,openRides,openPicks,LIVE,liveIngest,liveFor,curveAt,orlandoNow,livePoll,G,go,flyTo,setFollow,RIDE_BY,PARKS,camera,controls,openRide,closeSheet,rawWait,waitAt,dayFactor,holiday,hoursFor,applyHours,accessOpen,lastClose,renderer,dijkstra,NI,NODES,RESORTS,RIDES,LINES};
 requestAnimationFrame(frame);
 })();
 </script>
