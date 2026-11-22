@@ -346,7 +346,7 @@ function showErr(err){if(errShown++>2)return;const d=document.createElement('div
 addEventListener('error',e=>showErr(e.error||e.message));addEventListener('unhandledrejection',e=>showErr(e.reason));
 
 // ================= DATA (layout traced from the guidemaps; x = east, z = south) =================
-const LAND_KEYS={MK:new Set(['ent','main','hub','adv','frl','lib','fant','tomo']),EP:new Set(['ent','se','fw','fwe','fww','sp','mex','nor','chi','ger','ita','usa','jap','mor','fra','ig','uk','can'])}; // keys that are lands, per park (others are waypoints of the real walkway network)
+const LAND_KEYS={MK:new Set(['ent','main','hub','adv','frl','lib','fant','tomo']),EP:new Set(['ent','se','fw','fwe','fww','sp','mex','nor','chi','ger','ita','usa','jap','mor','fra','ig','uk','can']),HS:new Set(['ent','hb','cen','echo','com','ge','tsl','anim','sun'])}; // keys that are lands, per park (others are waypoints of the real walkway network)
 const PARKS={
  MK:{name:'Magic Kingdom',short:'MK',c:[-476,-1165],rot:0,r:148,sc:1,fo:20,open:9,close:22,
   nodes:{ent:[0,117.9],tsq:[-0.6,96],main:[0,70.3],mainN:[0.7,46.6],hub:[0.1,18.7],castF:[-0.4,12.4],fant:[-0.6,-46],fw:[-27.3,-57.3],fe:[22,-66],fN:[44,-84],fte:[46.7,-53.4],sc:[67.5,-69.9],scE:[88.7,-86.2],ft:[88.2,-29.9],tN:[104,-8],trx:[105,-62],tB:[27.6,29.4],tW:[50.1,34.6],tomo:[67.6,4.4],tS:[76.3,26.3],hNE:[34,9],aB:[-20.8,32.1],adv:[-37.2,46.9],aC:[-62,54.6],aW:[-98.1,36.4],aF:[-71.5,32.4],lB:[-20.1,12.5],lib:[-42.2,-2.4],lW:[-62.7,-2.9],frl:[-88.1,3.4],fW:[-131.7,-7.1],lN:[-56.1,-39.3],hE:[26,-28]},
@@ -365,9 +365,13 @@ const PARKS={
   rideReal:{gotg:[29.8,-96.5],msp:[52.3,-94.3],tt:[41.2,-57.7],sse:[-4.7,-114.9],seas:[-41,-111.8],soar:[-61.5,-60.7],lwtl:[-55.8,-74.7],fig:[-40.5,-52.9],gft:[52.1,-13.3],fea:[67.4,10.5],remy:[-89.2,64.2],aa:[-0.8,96.3]},
   rideAt:{gotg:'wdN',msp:'wdN',tt:'ttw',sse:'se',seas:'seasF',soar:'land',lwtl:'land',fig:'img',gft:'mex',fea:'nor',remy:'fra',aa:'usa'}},
  HS:{name:"Hollywood Studios",short:'DHS',c:[154,929],rot:-Math.PI*0.75,r:112,sc:0.75,open:9,close:21,
-  nodes:{ent:[10,118],hb:[5,70],cen:[0,30],echo:[-55,35],com:[-40,0],ge:[-60,-65],tsl:[40,-50],anim:[50,0],sun:[55,68]},
-  links:[['ent','hb'],['hb','cen'],['hb','sun'],['cen','echo'],['cen','com'],['echo','com'],['com','ge'],['cen','anim'],['anim','tsl'],['ge','tsl'],['sun','anim']],
-  landNames:{ent:'Main Entrance',hb:'Hollywood Boulevard',cen:'Chinese Theatre',echo:'Echo Lake',com:'Commissary Lane',ge:"Star Wars: Galaxy's Edge",tsl:'Toy Story Land',anim:'Animation Courtyard',sun:'Sunset Boulevard'}},
+  nodes:{ent:[10,118],hb:[5,70],hbS:[2,48],cen:[0,30],sun:[55,68],sunE:[78,87],sunW:[92,42],echoN:[-24,50],echo:[-55,35],echoE:[-75,55],echoS:[-78,22],stP:[-96,4],com:[-40,0],gaN:[-88,-40],geE:[-95,-80],ge:[-60,-65],geN:[4,-82],anim:[50,0],pix:[-6,-17],tsl:[40,-50],tslC:[48,-74]},
+  links:[['ent','hb'],['hb','hbS'],['hbS','cen'],['hb','sun'],['sun','sunE'],['sunE','sunW'],['hbS','echoN'],['echoN','echo'],['cen','echo'],['echoN','echoE'],['echo','echoS'],['echoE','echoS'],['echoS','stP'],['cen','com'],['echo','com'],['com','gaN'],['stP','gaN'],['gaN','geE'],['geE','ge'],['ge','geN'],['geN','tslC'],['tslC','tsl'],['tsl','pix'],['pix','com'],['pix','anim'],['anim','cen']],
+  landNames:{ent:"Main Entrance",hb:"Hollywood Boulevard",cen:"Chinese Theatre",echo:"Echo Lake",com:"Commissary Lane",ge:"Star Wars: Galaxy's Edge",tsl:"Toy Story Land",anim:"Animation Courtyard",sun:"Sunset Boulevard",hbS:"Hollywood Boulevard (Echo Lake end)",sunE:"Sunset Boulevard (Tower of Terror)",sunW:"Sunset Boulevard (Rock 'n' Roller Coaster)",echoN:"Echo Lake (north)",echoE:"Echo Lake (Indiana Jones)",echoS:"Echo Lake (south)",stP:"Star Tours plaza",gaN:"Grand Avenue",geE:"Galaxy's Edge (Grand Avenue entrance)",geN:"Galaxy's Edge (Toy Story Land entrance)",pix:"Pixar Plaza",tslC:"Toy Story Land (Slinky / Saucers)"},
+  // Real walking (Nov 21): node positions on the true map (park-local units, 0.4/m since sc 0.75), traced on the IMG_8731 satellite view (tools/hs_walk.py) with ride spots checked against the 2026 guidemap; walk costs use these lengths, the art positions above only draw the paths.
+  real:{ent:[10.0,70.9],hb:[10.3,48.6],hbS:[10.3,23.9],cen:[14.1,-9.8],sun:[38.5,52.2],sunE:[70.9,64.9],sunW:[88.0,47.2],echoN:[0.2,21.1],echo:[-4.4,2.8],echoE:[-28.9,22.1],echoS:[-32.0,1.8],stP:[-55.7,-11.2],com:[-13.9,-27.6],gaN:[-50.6,-41.2],geE:[-50.7,-72.8],ge:[-36.4,-133.5],geN:[3.3,-126.2],anim:[40.8,-23.5],pix:[8.1,-46.7],tsl:[35.8,-73.8],tslC:[35.9,-107.2]},
+  rideReal:{rotr:[-46.6,-85.3],msr:[-43.6,-150.6],sdd:[60.4,-107.3],ass:[22.3,-122.9],tsm:[40.7,-77.6],mmrr:[12.5,-32.2],tot:[80.4,79.7],rnrc:[108.0,62.0],bob:[55.7,64.6],st:[-64.7,-16.6],indy:[-41.9,21.7],frz:[-7.1,-3.5],lmm:[45.6,-14.8]},
+  rideAt:{rotr:"geE",msr:"ge",sdd:"tslC",ass:"tslC",tsm:"tsl",mmrr:"cen",tot:"sunE",rnrc:"sunW",bob:"sunE",st:"stP",indy:"echoE",frz:"echo",lmm:"anim"}},
  AK:{name:'Animal Kingdom',short:'DAK',c:[-752,886],rot:0,r:145,sc:0.85,open:8,close:19,
   nodes:{ent:[10,140],oasis:[0,95],di:[0,15],afr:[-58,-70],asia:[80,-55],pan:[-70,70],dino:[72,45]},
   links:[['ent','oasis'],['oasis','di'],['di','afr'],['di','asia'],['di','pan'],['di','dino'],['afr','asia']],
@@ -417,8 +421,8 @@ R('mmrr','HS','cen',0,8,"Mickey & Minnie's Runaway Railway",'Runaway Rwy',45,5,5
 R('msr','HS','ge',-45,-98,'Millennium Falcon: Smugglers Run','Smugglers',50,7,5,1,14),
 R('tsm','HS','tsl',58,-38,'Toy Story Mania!','TS Mania',45,5,7,1,15),
 R('ass','HS','tsl',34,-90,'Alien Swirling Saucers','Saucers',30,4,2,1,18),
-R('st','HS','echo',-90,54,'Star Tours – The Adventures Continue','Star Tours',25,7,5,1,18),
-R('indy','HS','echo',-94,18,'Indiana Jones Epic Stunt Spectacular!','Indy',15,5,30,1,20,'show'),
+R('st','HS','echo',-94,18,'Star Tours – The Adventures Continue','Star Tours',25,7,5,1,18),
+R('indy','HS','echo',-90,54,'Indiana Jones Epic Stunt Spectacular!','Indy',15,5,30,1,20,'show'),
 R('bob','HS','sun',58,102,'Beauty and the Beast – Live on Stage','Beauty & Beast',15,3,25,1,20,'show'),
 R('frz','HS','echo',-80,95,'For the First Time in Forever: A Frozen Sing-Along Celebration','Frozen Sing-Along',15,2,30,1,20,'show'),
 R('lmm','HS','anim',78,-20,'The Little Mermaid – A Musical Adventure','Little Mermaid',15,2,25,1,20,'show'),
@@ -1893,14 +1897,14 @@ LMB.prototype.wins=function(cx,cz,ry,w,y0,y1,rows,cols,col,ww,wh){const f=R2(cx,
  B.gl(0,8,4,0xffb070,14).gl(-12,6,4,0xffd0a0,8).gl(12,6,4,0xffd0a0,8);
 
  // Indiana Jones Epic Stunt Spectacular: temple ruins at the back, seating in front
- B.move(...HSV(-94,18,-55,35));
+ B.move(...HSV(-90,54,-55,40)); // Nov 21: swapped with Star Tours to match the real park (Indy is on the entrance side of Echo Lake)
  B.box(0,0,-10,26,2.4,9,SN);B.box(0,2.4,-12,18,3,5,SN);B.box(0,5.4,-13,10,4,3,SN);B.frus(0,9.4,-13,10,3,3,0.4,SN);
  [[-10,9],[-6,9],[-2,6.5],[2,9],[6,4],[10,9]].forEach(([x,h])=>{B.cyl(x,2.4,-6.5,0.75,0.85,h,SN,8)});B.box(-8,11.4,-6.5,5.2,1,1.8,SN);B.box(4,11.4,-6.5,10,1,1.8,SN);
  B.box(6,2.4,-4.6,3,1,1.6,SN,0.7);[[-13,-3,2.4],[13,-5,3],[-14,-12,3.6]].forEach(([x,z,s],i)=>B.ball(x,s*0.5,z,s,MS,0,0.7,i));
  for(let r=0;r<4;r++)for(let i=-4;i<=4;i++){const a=i*0.2,R=13+r*2.4;B.box(Math.sin(a)*R,0,-9+Math.cos(a)*R,3.4,0.6+r*0.6,1.5,SE,a)}
 
  // Star Tours: hangar with a curved roof, big door, hazard stripes
- B.move(...HSV(-90,54,-55,40));
+ B.move(...HSV(-94,18,-55,35));
  B.box(0,0,-2,18,7,14,HG);B.at(new THREE.CylinderGeometry(7,7,18,16,1,false,0,Math.PI),HG2,0,7,-2,0.55,1,1,0,0,Math.PI/2);
  B.box(0,0,5.05,9,6,0.4,CB);B.box(0,6,5.1,9.6,0.6,0.3,HY);for(const s of[-1,1])B.box(s*4.8,0,5.1,0.6,6,0.3,HY);
  B.beam([6,10.5,-2],[6,15,-2],0.25,HG2,4);B.ball(6,15.2,-2,0.5,0xff5040,0);B.gl(0,5,6,0x9fd0ff,10).gl(6,15.2,-2,0xff5040,4,1);
