@@ -424,7 +424,7 @@ R('ass','HS','tsl',34,-90,'Alien Swirling Saucers','Saucers',30,4,2,1,18),
 R('st','HS','echo',-94,18,'Star Tours – The Adventures Continue','Star Tours',25,7,5,1,18),
 R('indy','HS','echo',-90,54,'Indiana Jones Epic Stunt Spectacular!','Indy',15,5,30,1,20,'show'),
 R('bob','HS','sun',58,102,'Beauty and the Beast – Live on Stage','Beauty & Beast',15,3,25,1,20,'show'),
-R('frz','HS','echo',-80,95,'For the First Time in Forever: A Frozen Sing-Along Celebration','Frozen Sing-Along',15,2,30,1,20,'show'),
+R('frz','HS','echo',-64,10,'For the First Time in Forever: A Frozen Sing-Along Celebration','Frozen Sing-Along',15,2,30,1,20,'show'),
 R('lmm','HS','anim',78,-20,'The Little Mermaid – A Musical Adventure','Little Mermaid',15,2,25,1,20,'show'),
 R('fop','AK','pan',-120,110,'Avatar Flight of Passage','Flight of Passage',60,9,5,1,10.5),
 R('navi','AK','pan',-94,58,"Na'vi River Journey","Na'vi",50,3,5,1,12),
@@ -2544,13 +2544,40 @@ const HSB=new LMB(0,0,0),HS_N=PARKS.HS.nodes,HS_WIN=0x2b2f3a,HS_NB=0x39c6ff,HS_N
    B.box(0,H,-D/2,W+1,0.4,D+1,CHR);B.box(0,H+0.4,-D/2,2.6,6,1,0xf3e9d6);B.box(0,H+0.4,-D/2+0.53,2.7,6,0.06,NP);B.box(0,H+6.4,-D/2,3.2,0.5,1.4,RD);
    B.box(0,0,1.8,4,3.4,3.6,0xf3e9d6);B.box(0,3.4,2,4.6,0.3,4.2,RD);B.box(0,3.25,4.05,4.6,0.1,0.08,NB);B.gl(0,2,3.8,0xffd9a0,3.4);B.gl(0,H+3.4,-D/2+0.8,NP,3,0.4)}
  hsAv(-45,90,12);
- // Hyperion Theater: big Art Deco theatre (For the First Time in Forever), marquee, tall blade sign, stepped crown
- hsAt(B,-80,95,hsFace(-80,95,-55,40));{const W=19,D=15,H=11,TC=0xe8d6b4,TT=0x7a3f5a,TG=0xd4af37;B.box(0,0,-D/2,W,H,D,TC);B.box(0,0,-D/2-1,W-2,H+3,D-4,TC);
-   B.box(0,0,0,9,H+3,1.4,TC);B.box(0,H+3,0,6.4,2,1.2,TC);B.box(0,H+5,0,3.4,1.6,1,TT);for(const x of[-3.6,-1.2,1.2,3.6])B.box(x,4,0.75,0.5,H-1,0.4,TT);
-   B.box(0,3.4,1.6,10,1.3,3.2,TT);B.box(0,3.3,1.6,10,0.12,3.2,NB);B.box(0,4.7,3.22,10,0.12,0.06,NP);B.box(0,0.4,0.72,7,2.8,0.2,WIN);
-   B.box(5.6,5.2,1.8,0.5,9,1.8,TT);B.box(5.6,5.2,2.73,0.55,9,0.07,NP);B.box(5.6,14.2,1.8,0.6,0.5,2,TG);B.box(0,H+0.1,-D/2,W+0.3,0.5,D+0.3,TT);
-   B.gl(0,3.2,3.4,0xffe0b0,4.2);B.gl(5.6,10,2.9,NP,3,0.4)}
- hsAv(-80,95,15);
+ // Hyperion Theater (For the First Time in Forever): moved Nov 21 to its real spot on the Commissary Lane side of Echo Lake, facing the lake.
+ // Artistic license: an Art Deco theatre that is freezing over into an ice palace — frosted crown of crystal shards with a glowing
+ // snowflake on top, icicles on every cornice, snow on the ledges, ice-blue neon marquee and blade sign, frosty corner towers.
+ hsAt(B,-64,10,hsFace(-64,10,-55,35));{const W=19,D=15,H=11,TC=0xe9e2d4,IC=0xbfe3f0,IC2=0x8ecbe6,SN=0xf7fbff,TT=0x3f5f8a,TG=0xd4af37;
+   B.box(0,0,-D/2,W,H,D,TC);B.box(0,0,-D/2-1,W-2,H+3,D-4,TC);B.box(0,H+3,-D/2-1,W-1.6,0.45,D-3.4,SN);B.box(0,H,-D/2,W+0.3,0.5,D+0.3,TT);B.box(0,H+0.5,-D/2,W+0.4,0.35,D+0.4,SN);
+   // stepped centre pylon with frosted glass strips
+   B.box(0,0,0,9,H+3,1.4,TC);B.box(0,H+3,0,6.4,2.2,1.2,TC);B.box(0,H+5.2,0,3.6,1.6,1,TT);B.box(0,H+5.2,0,6.6,0.3,1.4,SN);
+   for(const x of[-3.4,-1.15,1.15,3.4]){B.box(x,4.6,0.72,0.75,H-2.2,0.12,WIN);B.box(x,4.6,0.75,0.95,0.25,0.18,IC)}
+   // frosty corner towers with pointed ice caps
+   for(const s of[-1,1]){const x=s*(W/2-1.2);B.box(x,0,0.2,2.6,H+5,2.6,TC);B.box(x,H+5,0.2,3,0.4,3,SN);B.frus(x,H+5.4,0.2,2.4,4.6,2.4,0.05,IC);
+     B.box(x,H+1,1.52,1.2,2.6,0.1,WIN);B.box(x,6,1.55,0.3,4,0.1,HS_NB)}
+   // crystal crown: faceted ice shards rising from the roof, the tallest topped by a glowing snowflake
+   [[0,-4,6,13],[-3.4,-5.5,1.4,8.5],[3.4,-5.5,1.4,9],[-1.8,-8,1.2,7],[2,-8.5,1.3,7.5],[0,-10,1.6,10],[-5.5,-9,1.1,5.5],[5.6,-9.5,1.1,6]].forEach(([x,z,r,h],i)=>{
+     const y=H+3.2;B.at(new THREE.CylinderGeometry(0,r,h,5),i%2?IC:IC2,x,y+h/2,z,1,1,1,i*0.7,(i%3-1)*0.08,((i+1)%3-1)*0.08)});
+   {const y=H+3.2+13+1.6,z=-4;for(let k=0;k<3;k++)B.box(0,y-0.15,z,4.4,0.3,0.3,HS_NB,k*Math.PI/3);B.ball(0,y,z,0.45,SN);
+     for(let k=0;k<6;k++){const a=k*Math.PI/3,cx=Math.cos(a)*1.6,cz=Math.sin(a)*1.6;B.box(cx,y-0.1,z+cz,0.9,0.2,0.2,HS_NB,-a+Math.PI/2)}
+     B.gl(0,y,z,0x9fe4ff,7,0.5)}
+   // icicles along the front and side cornices
+   for(let x=-W/2+0.6;x<=W/2-0.5;x+=1.1){const h=0.7+((x*7.3)%1+1)%1*1.3;B.cyl(x,H-h,D/2-D/2+0.2,0.22,0.01,h,IC,5)}
+   for(let z=-D+0.6;z<0;z+=1.3)for(const s of[-1,1]){const h=0.6+((z*5.1)%1+1)%1*1.1;B.cyl(s*(W/2+0.1),H-h,z,0.2,0.01,h,IC,5)}
+   for(let x=-3;x<=3;x+=0.9){const h=0.5+((x*3.7)%1+1)%1*0.9;B.cyl(x,H+5.2-h,0.55,0.16,0.01,h,IC,5)}
+   // marquee: deep canopy, ice-blue neon edges, a row of snowflake lights, snow on top, icicles under the lip
+   B.box(0,3.4,1.9,11,1.3,3.8,TT);B.box(0,3.3,1.9,11.2,0.12,3.9,HS_NB);B.box(0,4.75,3.82,11,0.12,0.06,HS_NB);B.box(0,4.7,1.9,11,0.3,3.8,SN);
+   for(let x=-4.5;x<=4.5;x+=1.5){B.box(x,4.05,3.84,0.5,0.12,0.05,0xffffff);B.box(x,4.05,3.84,0.12,0.5,0.05,0xffffff)}
+   for(let x=-5.2;x<=5.2;x+=0.8)B.cyl(x,2.6,3.75,0.14,0.01,0.75,IC,5);
+   B.box(0,0.4,0.72,7,2.8,0.2,WIN);for(const x of[-4,4])B.cyl(x,0,1.2,0.35,0.35,3.4,TG,8);
+   // tall blade sign in ice-blue neon with a gold cap and a snowflake badge
+   B.box(6.2,5.4,2,0.55,10,1.9,TT);B.box(6.2,5.4,2.97,0.6,10,0.07,HS_NB);B.box(6.2,15.4,2,0.7,0.5,2.2,TG);
+   for(let k=0;k<3;k++)B.box(6.2,13.2,3.05,0.08,1.6,0.25,0xffffff,0);B.ball(6.2,13.2,3.05,0.35,HS_NB);
+   // frost drifts at the foot of the walls and a patch of "snow" on the forecourt
+   for(const [x,z,w] of[[-7,1.4,3],[7.6,1.4,2.4],[-W/2-0.4,-6,2.2],[W/2+0.4,-9,2.6]])B.at(new THREE.SphereGeometry(1,10,6),SN,x,0,z,w,0.55,1.1);
+   B.at(new THREE.CylinderGeometry(6.5,6.5,0.12,24),SN,0,0.06,8,1,1,0.6);
+   B.gl(0,3.2,3.6,0xcff0ff,4.4);B.gl(6.2,10,3.1,0x9fe4ff,3,0.4);B.gl(0,6,1.2,0xcff0ff,3)}
+ hsAv(-64,10,15);
  // Sci-Fi Dine-In: windowless soundstage in the Commissary Lane triangle with a drive-in screen billboard on the roof
  hsAt(B,-33,21,hsFace(-33,21,0,30));{const W=10,D=7.5,H=6;B.box(0,0,-D/2,W,H,D,0x9aa3ad);B.box(0,H,-D/2,W+0.3,0.4,D+0.3,0x5a6270);B.box(-2.6,0,0.1,2.6,3.2,0.3,0x3a3f4a);
    B.box(-2.6,3.2,0.4,3.4,0.25,1,0x5a6270);B.gl(-2.6,2.6,0.8,0xffd9a0,2.2);for(const x of[-3.4,3.4])B.box(x,H+0.4,-D/2+1,0.35,3,0.35,ST);
@@ -3015,7 +3042,7 @@ function updateExtras(){const t=G.t;
 // ride buildings + pins
 const CUSTOM=new Set(['frz','lmm','pp','jc','potc','buzz','isw','pooh','ariel','spdwy','pm','phil','mil','carp','tron','btm','space','tot','ee','sse','tea','dumbo','astro','hm','tiana','sdmt','barn','soar','lwtl','seas','fig','tt','msp','gotg','fea','remy','aa','gft','mmrr','sdd','msr','rotr','rnrc','tsm','ass','st','indy','bob','fop','navi','flk','kili','krr','zoo']);
 const LANDCOL={adv:0x5c8f4a,frl:0x9a6b45,lib:0x6e7b8f,fant:0xc98bb9,tomo:0x8ca7c9,main:0xd8b28a,fwe:0x7f93ad,fww:0x5fa3a0,se:0xa9b6c4,mex:0xd7934e,nor:0x8b5a4a,fra:0x8fa3c4,usa:0xb98a6a,ge:0x8d755e,tsl:0xe0b04a,sun:0xc77a8e,cen:0xc94f4f,echo:0x5aa4b0,pan:0x6c8fbf,afr:0xc49a58,asia:0xb5543e,di:0x6f9d4f};
-const PIN_Y={frz:16,lmm:16,pp:22,isw:22,phil:16,pooh:15,ariel:20,jc:12,potc:24,carp:13,buzz:15,mil:15,spdwy:13,pm:12,space:31,ee:46,sse:52,btm:36,tron:18,hm:30,sdmt:16,gotg:24,tt:15,msp:15,soar:22,lwtl:22,seas:16,fig:26,gft:30,aa:34,fea:16,remy:14,tot:70,rotr:24,rnrc:20,mmrr:27,msr:18,tsm:16,ass:15,sdd:22,st:16,indy:16,bob:15,fop:18,navi:16,flk:22,kili:12,krr:12,zoo:14};
+const PIN_Y={frz:31,lmm:16,pp:22,isw:22,phil:16,pooh:15,ariel:20,jc:12,potc:24,carp:13,buzz:15,mil:15,spdwy:13,pm:12,space:31,ee:46,sse:52,btm:36,tron:18,hm:30,sdmt:16,gotg:24,tt:15,msp:15,soar:22,lwtl:22,seas:16,fig:26,gft:30,aa:34,fea:16,remy:14,tot:70,rotr:24,rnrc:20,mmrr:27,msr:18,tsm:16,ass:15,sdd:22,st:16,indy:16,bob:15,fop:18,navi:16,flk:22,kili:12,krr:12,zoo:14};
 const pinGeo=new THREE.CylinderGeometry(0.5,0.5,16,5);pinGeo.translate(0,8,0);const headGeo=new THREE.SphereGeometry(3.4,12,10);
 for(const r of RIDES){
   const s=r.kind==='show'?11:9+r.base/10;
