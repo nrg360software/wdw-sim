@@ -346,7 +346,7 @@ function showErr(err){if(errShown++>2)return;const d=document.createElement('div
 addEventListener('error',e=>showErr(e.error||e.message));addEventListener('unhandledrejection',e=>showErr(e.reason));
 
 // ================= DATA (layout traced from the guidemaps; x = east, z = south) =================
-const LAND_KEYS=new Set(['ent','main','hub','adv','frl','lib','fant','tomo']); // MK keys that are lands (others are waypoints of the real walkway network)
+const LAND_KEYS={MK:new Set(['ent','main','hub','adv','frl','lib','fant','tomo']),EP:new Set(['ent','se','fw','fwe','fww','sp','mex','nor','chi','ger','ita','usa','jap','mor','fra','ig','uk','can'])}; // keys that are lands, per park (others are waypoints of the real walkway network)
 const PARKS={
  MK:{name:'Magic Kingdom',short:'MK',c:[-476,-1165],rot:0,r:148,sc:1,fo:20,open:9,close:22,
   nodes:{ent:[0,117.9],tsq:[-0.6,96],main:[0,70.3],mainN:[0.7,46.6],hub:[0.1,18.7],castF:[-0.4,12.4],fant:[-0.6,-46],fw:[-27.3,-57.3],fe:[22,-66],fN:[44,-84],fte:[46.7,-53.4],sc:[67.5,-69.9],scE:[88.7,-86.2],ft:[88.2,-29.9],tN:[104,-8],trx:[105,-62],tB:[27.6,29.4],tW:[50.1,34.6],tomo:[67.6,4.4],tS:[76.3,26.3],hNE:[34,9],aB:[-20.8,32.1],adv:[-37.2,46.9],aC:[-62,54.6],aW:[-98.1,36.4],aF:[-71.5,32.4],lB:[-20.1,12.5],lib:[-42.2,-2.4],lW:[-62.7,-2.9],frl:[-88.1,3.4],fW:[-131.7,-7.1],lN:[-56.1,-39.3],hE:[26,-28]},
@@ -357,9 +357,13 @@ const PARKS={
   rideReal:{tron:[94.5,16.5],sdmt:[26.1,-8.3],pp:[-20.3,-4.7],tiana:[-111.1,23.3],space:[88.3,42.7],btm:[-101.1,5.2],jc:[-65.8,71.1],hm:[-49.4,-2.6],potc:[-88.9,71.4],buzz:[52.6,60.8],isw:[-24.7,-12],pooh:[27.4,-3],ariel:[36,-33.1],dumbo:[66.2,-12.9],barn:[82.5,-21.4],tea:[40.4,3.3],spdwy:[55.8,25],pm:[63.7,65.2],astro:[65,54],phil:[-8.3,3],mil:[43,57.2],carp:[-66.8,56.1]},
   rideAt:{tron:'trx',sdmt:'fe',pp:'fw',tiana:'fW',space:'tN',btm:'fW',jc:'aW',hm:'lN',potc:'aW',buzz:'tS',isw:'fw',pooh:'fe',ariel:'fN',dumbo:'sc',barn:'scE',tea:'fte',spdwy:'ft',pm:'tS',astro:'tomo',phil:'fant',mil:'tS',carp:'aC'}},
  EP:{name:'EPCOT',short:'EPCOT',c:[458,462],rot:0,r:215,sc:1.25,open:9,close:21,lagoon:[0,62,70],
-  nodes:{ent:[0,-152],se:[0,-108],fw:[0,-70],fwe:[62,-72],fww:[-62,-72],sp:[0,-25],mex:[55,0],nor:[85,30],chi:[92,65],ger:[75,100],ita:[40,122],usa:[0,130],jap:[-40,122],mor:[-70,105],fra:[-92,72],ig:[-100,58],uk:[-90,25],can:[-60,0]},
-  links:[['ent','se'],['se','fw'],['fw','fwe'],['fw','fww'],['fw','sp'],['sp','mex'],['sp','can'],['mex','nor'],['nor','chi'],['chi','ger'],['ger','ita'],['ita','usa'],['usa','jap'],['jap','mor'],['mor','fra'],['fra','ig'],['ig','uk'],['uk','can']],
-  landNames:{ent:'Main Entrance',se:'Spaceship Earth',fw:'World Celebration',fwe:'World Discovery',fww:'World Nature',sp:'Showcase Plaza',mex:'Mexico',nor:'Norway',chi:'China',ger:'Germany',ita:'Italy',usa:'The American Adventure',jap:'Japan',mor:'Morocco',fra:'France',ig:'International Gateway',uk:'United Kingdom',can:'Canada'}},
+  nodes:{ent:[0,-152],se:[0,-108],seW:[-27,-103],seE:[27,-103],seS:[0,-88],fw:[0,-70],hW:[-29.3,-69.2],hE:[30,-71],fww:[-62,-72],wnN:[-63.6,-97.4],jow:[-66.2,-53.1],img:[-77.9,-34.6],land:[-102.8,-84.2],seasF:[-86.1,-102.5],fwe:[62,-72],wdN:[96.6,-117.4],gxW:[90.7,-151.2],ttw:[89.3,-71.4],hS:[1.6,-45.7],hSW:[-37.2,-35.5],hSE:[62,-38],sp:[0,-25],spE:[52.1,-18.9],spW:[-29.4,-13.6],ukN:[-78.1,8.4],mex:[55,0],nor:[85,30],chi:[92,65],ger:[75,100],ita:[40,122],usa:[0,130],jap:[-40,122],mor:[-70,105],fra:[-92,72],ig:[-100,58],uk:[-90,25],can:[-60,0]},
+  links:[['ent','se'],['se','seW'],['se','seE'],['seW','seS'],['seE','seS'],['seS','fw'],['fw','hW'],['hW','fww'],['seW','wnN'],['wnN','seasF'],['wnN','fww'],['seasF','land'],['fww','land'],['fww','jow'],['jow','img'],['hW','jow'],['fw','hE'],['hE','fwe'],['fwe','wdN'],['seE','gxW'],['gxW','wdN'],['fwe','ttw'],['ttw','hSE'],['fw','hS'],['hS','hSW'],['hS','hSE'],['hSW','spW'],['hSE','spE'],['sp','spE'],['sp','spW'],['spE','mex'],['img','hSW'],['spW','can'],['mex','nor'],['nor','chi'],['chi','ger'],['ger','ita'],['ita','usa'],['usa','jap'],['jap','mor'],['mor','fra'],['fra','ig'],['ig','uk'],['uk','ukN'],['ukN','can']],
+  landNames:{ent:'Main Entrance',se:'Spaceship Earth',fw:'World Celebration',fwe:'World Discovery',fww:'World Nature',sp:'Showcase Plaza',mex:'Mexico',nor:'Norway',chi:'China',ger:'Germany',ita:'Italy',usa:'The American Adventure',jap:'Japan',mor:'Morocco',fra:'France',ig:'International Gateway',uk:'United Kingdom',can:'Canada',seW:'Spaceship Earth (west)',seE:'Spaceship Earth (east)',seS:'Dreamers Point',hW:'World Celebration (west)',hE:'World Celebration (east)',wnN:'World Nature (north)',jow:'Journey of Water',img:'Imagination!',land:'The Land',seasF:'The Seas',wdN:'World Discovery (Xandar / Mission: SPACE)',gxW:'World Discovery walkway',ttw:'Test Track plaza',hS:'CommuniCore Plaza',hSW:'World Showcase walkway (west)',hSE:'World Showcase walkway (east)',spE:'Showcase Plaza (east)',spW:'Showcase Plaza (west)',ukN:'United Kingdom (north)'},
+  // Real walking (Nov 21): node positions on the true map (park-local units, 0.24/m since sc 1.25), traced on the satellite view with Wikipedia/Disney attraction points; walk costs use these lengths, the art positions above only draw the paths.
+  real:{ent:[-0.8,-146.1],se:[-0.8,-121.4],seW:[-10.4,-107.5],seE:[8.8,-107.5],seS:[-0.8,-88.7],fw:[-0.8,-74.7],hW:[-13.4,-76],hE:[11.9,-77.3],fww:[-29.2,-77.8],wnN:[-24.8,-99.2],jow:[-32.4,-66.4],img:[-40.1,-54.4],land:[-48.8,-80.6],seasF:[-37.5,-104],fwe:[29.8,-76.2],wdN:[39.6,-88.7],gxW:[21.5,-101.8],ttw:[34.6,-61.6],hS:[-0.8,-55],hSW:[-20,-52.9],hSE:[35.5,-52.9],sp:[-0.8,-17.9],spE:[38.5,-20.1],spW:[-23,-20.1],ukN:[-63.7,6.8],mex:[47.7,-11.4],nor:[55.6,13.3],chi:[59.3,34.1],ger:[70.2,56.3],ita:[54.9,75.6],usa:[-0.8,85.4],jap:[-29.2,85.4],mor:[-51,80.4],fra:[-72.4,65.1],ig:[-82,52.6],uk:[-72.4,28.6],can:[-49.9,-10.7]},
+  rideReal:{gotg:[29.8,-96.5],msp:[52.3,-94.3],tt:[41.2,-57.7],sse:[-4.7,-114.9],seas:[-41,-111.8],soar:[-61.5,-60.7],lwtl:[-55.8,-74.7],fig:[-40.5,-52.9],gft:[52.1,-13.3],fea:[67.4,10.5],remy:[-89.2,64.2],aa:[-0.8,96.3]},
+  rideAt:{gotg:'wdN',msp:'wdN',tt:'ttw',sse:'se',seas:'seasF',soar:'land',lwtl:'land',fig:'img',gft:'mex',fea:'nor',remy:'fra',aa:'usa'}},
  HS:{name:"Hollywood Studios",short:'DHS',c:[154,929],rot:-Math.PI*0.75,r:112,sc:0.75,open:9,close:21,
   nodes:{ent:[10,118],hb:[5,70],cen:[0,30],echo:[-55,35],com:[-40,0],ge:[-60,-65],tsl:[40,-50],anim:[50,0],sun:[55,68]},
   links:[['ent','hb'],['hb','cen'],['hb','sun'],['cen','echo'],['cen','com'],['echo','com'],['com','ge'],['cen','anim'],['anim','tsl'],['ge','tsl'],['sun','anim']],
@@ -3095,7 +3099,7 @@ for(const pk in PARKS){const P=PARKS[pk],n=P.pnodes.length,dist=[],next=[];
   P.pnodes.forEach((g,i)=>{for(const e of NODES[g].adj)if(e.type==='walk'&&li[e.to]!==undefined){dist[i][li[e.to]]=e.d;next[i][li[e.to]]=li[e.to]}});
   for(let k=0;k<n;k++)for(let i=0;i<n;i++)for(let j=0;j<n;j++)if(dist[i][k]+dist[k][j]<dist[i][j]){dist[i][j]=dist[i][k]+dist[k][j];next[i][j]=next[i][k]}
   P.next=next;P.entL=li[NI[pk+':ent']];
-  P.dests=[];P.pnodes.forEach((g,i)=>{const N=NODES[g];if(N.land==='dino')return;P.dests.push({i,w:N.ride?N.ride.base/10+1:(P.real&&!LAND_KEYS.has(N.land)?0.15:0.8)})});P.wsum=P.dests.reduce((a,d)=>a+d.w,0);
+  P.dests=[];P.pnodes.forEach((g,i)=>{const N=NODES[g];if(N.land==='dino')return;P.dests.push({i,w:N.ride?N.ride.base/10+1:(P.real&&LAND_KEYS[N.park]&&!LAND_KEYS[N.park].has(N.land)?0.15:0.8)})});P.wsum=P.dests.reduce((a,d)=>a+d.w,0);
   for(let i=0;i<CAP[pk];i++)AG.push({pk,a:P.entL,b:P.entL,dest:P.entL,s:0,len:1,sp:rnd(0.75,1.15)*WALK_PARK,off:rnd(-3.2,3.2),dwell:0,on:false})}
 function pickDest(P){let r=Math.random()*P.wsum;for(const d of P.dests){r-=d.w;if(r<=0)return d.i}return P.dests[0].i}
 function agentLen(P,a,b){const A=NODES[P.pnodes[a]],B=NODES[P.pnodes[b]];return Math.hypot(A.x-B.x,A.z-B.z)||0.01}
@@ -4450,7 +4454,7 @@ function runTrip(){const segs=G.segs;if(!segs||!segs.length)return null;const s=
   else if(s&&s.k==='onride'&&s.started)Object.assign(o,{k:'onride',el:s.el,sync:!!s.sync});
   else o.k='travel';return o}
 function runState(){const P=G.plan,down={};for(const r of RIDES)if(r.downUntil)down[r.id]=r.downUntil;
-  return{v:RUN.v,saved:Date.now(),date:G.date,real:!!G.real,t:G.t,mult:G.pfMult||1,hotel:selH.value,speed:G.speed,node:G.node,
+  return{v:RUN.v,saved:Date.now(),date:G.date,real:!!G.real,t:G.t,mult:G.pfMult||1,hotel:selH.value,speed:G.speed,node:G.node,nk:NODES[G.node]?NODES[G.node].id:null,
     ridden:G.ridden,mood:G.mood,score:G.score,stats:G.stats,LL:G.LL,down,autoLast:AUTO.last,trip:runTrip(),log:G.log||[],planFirst:G.planFirst||null,
     plan:P?{settings:P.settings,res:P.res,legI:P.legI||0,ridIdx:P.ridIdx,lunchAt:P.lunchAt,blkDone:P.blkDone||{},made:P.made,notes:P.notes||[],base:P.base,conf:P.conf||null}:null}}
 function runSave(){if(!G.started||G.over||!G.date)return false;RUN.last=Date.now();RUN.dirty=false;
@@ -4481,7 +4485,7 @@ function runResume(o){const r0=o.trip&&RIDE_BY[o.trip.rid];
   prepDay(o.date,o.mult,o.hotel);G.real=!!o.real;RT.at=0;G.t=o.t;livePoll(!!G.real);rtStartUI();
   Object.assign(G,{ridden:o.ridden.slice(),mood:o.mood,score:o.score,stats:Object.assign({wait:0,transit:0,walk:0,ride:0},o.stats),segs:null,seg:0,started:true,over:false,trip:null,tripEnd:null,plan:null,log:(o.log||[]).map(e=>Object.assign({},e)),planFirst:o.planFirst||null,lastTap:null});
   DPV={edit:false};G.LL=Object.assign(llFresh(),o.LL);llClock=0;
-  RIDES.forEach(r=>r.downUntil=o.down&&o.down[r.id]||0);G.node=NODES[o.node]?o.node:NI['R:'+selH.value];
+  RIDES.forEach(r=>r.downUntil=o.down&&o.down[r.id]||0);G.node=o.nk&&NI[o.nk]!=null?NI[o.nk]:NODES[o.node]?o.node:NI['R:'+selH.value]; // nk: node id, so saves survive new walkway nodes
   if(o.plan&&o.plan.res){G.plan=Object.assign({},o.plan,{settings:Object.assign({},o.plan.settings),notes:o.plan.notes||[],blkDone:o.plan.blkDone||{}})}
   AUTO.last=o.autoLast!=null?o.autoLast:-1e9;
   if(!G.real&&o.speed!=null){G.speed=o.speed;document.querySelectorAll('#speedSeg button').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.s===G.speed?'true':'false'))}
