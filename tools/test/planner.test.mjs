@@ -139,3 +139,25 @@ test('a dining reservation between two pass windows is kept on time, and both pa
   assert.ok(rides(res).some(s => s.rid === 'b'), 'b (pass only) dropped');
   for (const s of rides(res)) assert.ok(s.end <= m.start + 1e-6 || s.q0 >= m.end - 1e-6, `${s.rid} (${s.q0}–${s.end}) overlaps lunch ${m.start}–${m.end}`);
 });
+
+test('untimed stops float in free order, and stops between the same two rides stay linked in order (train → station → train back)', () => {
+  // imported after 'a' in the source plan; a's pass is late in the day, so glued after a they would push b past the plan end
+  const L = env.llFresh(); L.mp = 'TP'; L.passes.push({ id: 'p1', rid: 'a', type: 'mp', start: 840, end: 900, st: 'active', pre: true });
+  const grp = [
+    { id: 'g1', name: 'Train up', after: 'a', walk: 5, dur: 11, at: null, meal: false },
+    { id: 'g2', name: 'Station', after: 'a', walk: 2, dur: 20, at: null, meal: false },
+    { id: 'g3', name: 'Train back', after: 'a', walk: 2, dur: 11, at: null, meal: false },
+  ];
+  const res = P.dpRunDay(base({ must: ['a', 'b', 'c'], ll: 'mine', t: 720, L, end: 870 + 30, blocks: grp }));
+  const bl = res.steps.flatMap(s => s.blocks || []).filter(b => /^g/.test(b.id));
+  assert.deepEqual(bl.map(b => b.id), ['g1', 'g2', 'g3'], 'stops missing or out of order: ' + JSON.stringify(res.actMissed));
+  for (let i = 1; i < bl.length; i++) assert.ok(Math.abs(bl[i].start - bl[i - 1].end - bl[i].walk) < 1e-6, `${bl[i].id} not right after ${bl[i - 1].id}`);
+  for (const s of rides(res)) assert.ok(s.end <= bl[0].start - bl[0].walk + 1e-6 || s.q0 >= bl[2].end - 1e-6, `${s.rid} (${s.q0}–${s.end}) inside the linked stops`);
+  assert.equal(res.nDone, 3, JSON.stringify(res.missed));
+  const a = rides(res).find(s => s.rid === 'a');
+  assert.ok(bl[0].start < a.q0, 'stops still glued after a');
+  // keep my order: they stay where the source plan had them
+  const kept = P.dpRunDay(base({ must: ['a', 'b', 'c'], ll: 'mine', t: 720, L, keep: true, blocks: grp }));
+  const ka = kept.steps.find(s => s.rid === 'a');
+  assert.deepEqual((ka.blocks || []).map(b => b.id), ['g1', 'g2', 'g3']);
+});

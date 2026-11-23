@@ -1,6 +1,8 @@
 // the button audit itself must catch a dead button, a covered button and a button whose handler throws
 await pg.waitForTimeout(4000);
 await lib.startDay(pg,'MK','map',660);
+// the start-of-day toasts (plan ready, no Lightning Lanes) arrive a moment later; a toast landing during the dead button's tap counted as a change
+await pg.waitForTimeout(2500);await pg.waitForFunction(()=>!document.querySelector('#toasts').children.length,null,{timeout:20000}).catch(()=>{});
 const r=await lib.audit(pg,'selftest',`WDW.openPlan();const sb=document.querySelector('#sheet .sb');const d=document.createElement('div');d.id='selft';d.style.position='relative';
  d.innerHTML='<button id="stOk">ok</button><button id="stDead">dead</button><button id="stCov">covered</button><button id="stThrow">throws</button><div style="position:absolute;inset:0 0 0 auto;width:30%;height:100%"></div>';
  sb.prepend(d);const cov=d.lastChild;const b=d.querySelector('#stCov');d.querySelector('#stOk').onclick=()=>{d.querySelector('#stOk').textContent='done'};
