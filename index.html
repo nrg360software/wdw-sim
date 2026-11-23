@@ -350,7 +350,7 @@ const WALK_PARK=26, WALK_OUT=20; // world units per park minute
 // Every error is kept (last 20) with what was tapped just before; the red box shows the latest one with a count and a
 // "Copy debug info" button. Stalls (no frame for 2.5 s+ while visible) are logged with the last tap. A heartbeat in
 // localStorage lets the next load tell that the page froze after a tap (iOS kills a hung page without pagehide).
-const BUILD='2026-11-22 row67b';
+const BUILD='2026-11-22 row67c';
 const DBG={err:[],tap:[],stall:[],prev:null,box:null,n:0,hbT:0,frameT:0,visT:0};
 function dbgClock(t){try{return new Date(t).toLocaleTimeString([],{hour:'numeric',minute:'2-digit',second:'2-digit'})}catch(e){return String(t)}}
 function dbgLabel(el){const b=el&&el.closest&&el.closest('button,a,summary,[data-must],[data-sha],[data-shx],.chip,.pvc');if(!b)return null;
@@ -365,6 +365,16 @@ function showErr(err){const msg=((err&&(err.message||err.reason&&err.reason.mess
   d.querySelector('.em').textContent='Error'+(DBG.n>1?' ('+DBG.n+' so far)':'')+': '+msg;d.hidden=false;clearTimeout(d._t);d._t=setTimeout(()=>{d.hidden=true},20000)}
 // Tap handlers for panels (row 67): each selector is bound in its own try/catch and each handler runs in its own try/catch, so one
 // failing button reports to the red error box and the panel's other buttons keep working. map = {selector: (el, event) => …}.
+// The page itself never scrolls (html/body overflow hidden, everything is fixed). iOS still scrolls the document when a control
+// inside an overlay takes focus (checkboxes, text fields); afterwards fixed elements are drawn in place but taps land one row
+// lower than they look (Nick, Nov 22, after Phone alerts). Keep the document at 0 whenever no text field is being typed in.
+const PIN={n:0};
+function pinPage(){const a=document.activeElement,typing=a&&(a.tagName==='TEXTAREA'||a.tagName==='SELECT'||(a.tagName==='INPUT'&&!/^(checkbox|radio|button|submit|range|color|file)$/.test(a.type)));
+  if(typing)return;const se=document.scrollingElement||document.documentElement;
+  if(window.scrollY||window.scrollX||se.scrollTop||document.body.scrollTop||document.documentElement.scrollTop){window.scrollTo(0,0);se.scrollTop=0;document.body.scrollTop=0;document.documentElement.scrollTop=0;PIN.n++}}
+addEventListener('scroll',pinPage,{passive:true});addEventListener('focusout',()=>setTimeout(pinPage,60));addEventListener('pageshow',pinPage);
+if(window.visualViewport)visualViewport.addEventListener('resize',()=>setTimeout(pinPage,60));
+new MutationObserver(()=>setTimeout(pinPage,30)).observe(document.body,{subtree:true,attributes:true,attributeFilter:['hidden']});
 function bindAll(root,map,ev){ev=ev||'onclick';for(const sel in map){try{const h=map[sel];root.querySelectorAll(sel).forEach(el=>{el[ev]=e=>{try{return h(el,e)}catch(er){showErr(er)}}})}catch(er){showErr(er)}}}
 addEventListener('error',e=>showErr(e.error||e.message));addEventListener('unhandledrejection',e=>showErr(e.reason));
 // one delegated handler for every "Copy debug info" button, bound once so it works even if a sheet's own binding failed
@@ -389,6 +399,7 @@ try{const j=JSON.parse(localStorage.getItem('wdwsim.dbg.hb')||'null');const lg=J
 function dbgText(){const L=[];const T=x=>dbgClock(x);
   L.push('WDW Sim debug info · build '+BUILD+' · '+new Date().toString());L.push('UA: '+navigator.userAgent);
   try{L.push('Standalone: '+(!!(navigator.standalone||matchMedia('(display-mode: standalone)').matches))+' · view: '+(PV.on?'plan':'map')+' · size '+innerWidth+'x'+innerHeight)}catch(e){}
+  try{const vv=window.visualViewport;L.push('Page offset: scrollY='+Math.round(scrollY)+' html='+document.documentElement.scrollTop+' body='+document.body.scrollTop+(vv?' vv='+Math.round(vv.offsetTop)+'/'+Math.round(vv.height)+' scale '+vv.scale.toFixed(2):'')+' · resets '+PIN.n)}catch(e){}
   try{L.push('Game: started='+!!G.started+' real='+!!G.real+' over='+!!G.over+' t='+(G.t!=null?fmtClock(G.t):'?')+' date='+G.date+' node='+(NODES[G.node]?NODES[G.node].id:G.node)+' segs='+(G.segs?G.segs.map(x=>x.k).join(','):'-')+' seg='+G.seg)}catch(e){L.push('Game: ? '+e.message)}
   try{const sh=document.getElementById('sheet');L.push('Sheet: '+(sh.hidden?'closed':'open "'+((sh.querySelector('h2')||{}).textContent||'')+'"')+(sh.classList.contains('top')?' (top)':'')+' · DPV.edit='+(typeof DPV!=='undefined'&&DPV.edit))}catch(e){}
   try{if(G.plan){const S=G.plan.settings,r=G.plan.res;L.push('Plan: '+S.pk+' must='+(S.must||[]).join(',')+' ll='+S.ll+' pace='+S.pace+' lunch='+!!S.lunch+' extras='+!!S.extras+' keep='+!!S.keep+' end='+S.end+' legs='+(S.legs||[]).map(l=>l.pk).join(',')+' blocks='+(S.blocks||[]).map(b=>b.name+'@'+b.at).join(';'));L.push('Plan result: '+r.nDone+'/'+r.nMust+' by '+fmtClock(r.endMust)+' · notes '+G.plan.notes.length)}}catch(e){}
@@ -3472,8 +3483,8 @@ function updateHUD(){
   {const act=G.LL.passes.filter(p=>p.st==='active').sort((a,b)=>a.start-b.start);$('#llN').textContent=act.length;$('#llS').textContent=act.length?fmtClock(act[0].start).replace(/ [AP]M/,''):G.LL.mp||G.LL.premier?'LL':'none'}
   const s=G.segs&&G.segs[G.seg];let txt='',eta='';
   if(!s){const n=NODES[G.node],pr=G.plan&&dpProgress();txt=`At ${n.ride?n.ride.short:n.label}. `+(pr&&pr.blk?`Plan: ${pr.blk.name} next.`:pr&&pr.meal?'Plan: lunch next.':pr&&pr.step?`Plan: ${dpStepLabel(pr.step)} next.`:'Pick your next ride.')}
-  else{const tgt=G.segs[G.segs.length-1].ride;
-    switch(s.k){case 'walk':txt=`Walking${s.inPark?` · ${G.density>0.66?'packed':G.density>0.33?'busy':'open'} paths`:''} → ${tgt.short}`;break;
+  else{const last=G.segs[G.segs.length-1],tgt=last.ride,to=tgt?tgt.short:last.name||(NODES[G.tripEnd]&&NODES[G.tripEnd].label)||'next stop';// a held show / meet trip ends in a snack seg, no ride (Nov 22)
+    switch(s.k){case 'walk':txt=`Walking${s.inPark?` · ${G.density>0.66?'packed':G.density>0.33?'busy':'open'} paths`:''} → ${to}`;break;
       case 'gate':txt='Bag check & tapstiles';eta=fmtDur(s.dur-s.el)+' left';break;
       case 'twait':txt=`Waiting for the ${MODE[s.line.mode].toLowerCase()}`;eta=`${fmtDur(s.el)} so far${s.hold?' · tap ✓ when on':''}`;break;
       case 'transit':txt=`${MODE[s.line.mode]} → ${NODES[s.toNode].label}`;eta=fmtDur(s.dur-s.el)+' left';break;
@@ -4656,7 +4667,7 @@ function tick(now){const pv=PV.on;if(pv&&(G.real||!G.started||G.over)&&now-PV.ti
     camStep(now);controls.update();skyDome.position.copy(camera.position);renderFrame();updateLabels()}
   if(G.started){updateHUD();runTick();try{pushTick()}catch(e){}try{confTick()}catch(e){}if(pv)pvRefresh(false)}
 }
-window.WDW={DBG,dbgText,bindAll,setView:v=>setView(v),openSteps:()=>openSteps(),openDoing:()=>openDoing(),testReset:()=>{DPV={edit:false};closeSheet()},dpvEdit:()=>{DPV.edit=true;DPV.S=null},SHOWS,showIngest,showsFor,showEventsReal,openShows,showBlock,showNode,showRideTimes,showPoll,showAddGame,showGo,PUSH,pushPlan,pushSync,openPush,pushSupport,pushDataText,pushDataImport,llOdds,llObs,llObsAdd,llCalFor,CONF,confRun,confOpts,confCompare,confCardHTML,openLLEnter,endDay,resBuild,resHTML,resShow,resLoad,resLatest,RUN,runSave,runLoad,runClear,runResume,runState,runBox,runFind,AUTO,RT,autoCheck,autoReasons,autoReplan,autoDiff,rtRodeIt,rtAt,rtNow,openWhere,dpGameOpts,camera,controls,RF,rfCompact,rfStore,rfLoad,rfResid,rfCalibrate,rfEstimate,rfBacktest,rfUpdateToday,rfApplyDay,rfMul,rfCal,openRF,rfAfterUpdate,rfNoteUpdate,rfTick,rfBannerHTML,liveMatch,stRun,stHTML,stCalib,stModelDay,dpParseTP,dpApplyImport,scene,setGfx,LIGHT,sunDir,fwShows,fwSim:(n,dt)=>{for(let i=0;i<n;i++)updateFireworks(dt)},holdTime:t=>{G.holdT=t==null?null:t*60;if(t!=null)G.t=t*60},dpRun,dpRunDay,dpLegs,dpAllMust,getDPS:()=>DPS,dpStartOpts:S=>dpStartOpts(S),dpMakeGame,dpProgress,dpLoad,dpSave,openPlan,openDaySetup,prepDay,llFromPlan,llFresh,llBook,llNext,llRecs,llUse,llHeld,llTick,llPlanErrors,llSuggest,llLoadPlan,openLL,openRides,openPicks,LIVE,liveIngest,liveFor,curveAt,orlandoNow,livePoll,G,go,flyTo,setFollow,RIDE_BY,PARKS,camera,controls,openRide,closeSheet,rawWait,waitAt,dayFactor,holiday,hoursFor,applyHours,accessOpen,lastClose,renderer,dijkstra,NI,NODES,RESORTS,RIDES,LINES};
+window.WDW={DBG,dbgText,bindAll,PIN,pinPage,setView:v=>setView(v),openSteps:()=>openSteps(),openDoing:()=>openDoing(),testReset:()=>{DPV={edit:false};closeSheet()},dpvEdit:()=>{DPV.edit=true;DPV.S=null},SHOWS,showIngest,showsFor,showEventsReal,openShows,showBlock,showNode,showRideTimes,showPoll,showAddGame,showGo,PUSH,pushPlan,pushSync,openPush,pushSupport,pushDataText,pushDataImport,llOdds,llObs,llObsAdd,llCalFor,CONF,confRun,confOpts,confCompare,confCardHTML,openLLEnter,endDay,resBuild,resHTML,resShow,resLoad,resLatest,RUN,runSave,runLoad,runClear,runResume,runState,runBox,runFind,AUTO,RT,autoCheck,autoReasons,autoReplan,autoDiff,rtRodeIt,rtAt,rtNow,openWhere,dpGameOpts,camera,controls,RF,rfCompact,rfStore,rfLoad,rfResid,rfCalibrate,rfEstimate,rfBacktest,rfUpdateToday,rfApplyDay,rfMul,rfCal,openRF,rfAfterUpdate,rfNoteUpdate,rfTick,rfBannerHTML,liveMatch,stRun,stHTML,stCalib,stModelDay,dpParseTP,dpApplyImport,scene,setGfx,LIGHT,sunDir,fwShows,fwSim:(n,dt)=>{for(let i=0;i<n;i++)updateFireworks(dt)},holdTime:t=>{G.holdT=t==null?null:t*60;if(t!=null)G.t=t*60},dpRun,dpRunDay,dpLegs,dpAllMust,getDPS:()=>DPS,dpStartOpts:S=>dpStartOpts(S),dpMakeGame,dpProgress,dpLoad,dpSave,openPlan,openDaySetup,prepDay,llFromPlan,llFresh,llBook,llNext,llRecs,llUse,llHeld,llTick,llPlanErrors,llSuggest,llLoadPlan,openLL,openRides,openPicks,LIVE,liveIngest,liveFor,curveAt,orlandoNow,livePoll,G,go,flyTo,setFollow,RIDE_BY,PARKS,camera,controls,openRide,closeSheet,rawWait,waitAt,dayFactor,holiday,hoursFor,applyHours,accessOpen,lastClose,renderer,dijkstra,NI,NODES,RESORTS,RIDES,LINES};
 requestAnimationFrame(frame);
 })();
 </script>

@@ -78,10 +78,16 @@ const reload = async pg => { await pg.goto('https://wdw.test/'); await pg.waitFo
 const MUST = { MK: ['tron', 'sdmt', 'pp', 'space', 'btm', 'hm'], EP: ['gotg', 'tt', 'remy', 'fea', 'soar', 'msp'], HS: ['rotr', 'sdd', 'tot', 'tsm', 'mmrr', 'rnrc'], AK: ['fop', 'navi', 'ee', 'kili', 'krr'] };
 
 // start a day in park pk: view 'map'|'plan', time 'now' (real time) or minutes; reloads the page first
-async function startDay(pg, pk, view, time) {
-  await pg.evaluate(([pk, view, must]) => { localStorage.setItem('wdwsim.view', view); localStorage.setItem('wdwsim.auto', '0');
+// o.show: hold the first show or meet starting 2+ h after (reachable from the hotel) the start in the plan, so the plan's next step is that block (#dpBlk)
+async function startDay(pg, pk, view, time, o = {}) {
+  if (o.show) await pg.waitForFunction(p => { const x = WDW.showsFor(p, WDW.orlandoNow().date); return x && x.items && x.items.length }, pk, { timeout: 30000 });
+  await pg.evaluate(([pk, view, must, show, t0, o]) => { localStorage.setItem('wdwsim.view', view); localStorage.setItem('wdwsim.auto', '0');
     Object.keys(localStorage).filter(k => /^wdwsim\.run\./.test(k)).forEach(k => localStorage.removeItem(k));
-    WDW.dpSave(WDW.orlandoNow().date, { pk, must, ll: 'none', lunch: true, extras: true, pace: 'bal' }) }, [pk, view, MUST[pk]]);
+    const d = WDW.orlandoNow().date, blocks = [];
+    if (show) { const its = (WDW.showsFor(pk, d) || {}).items || []; let best = null;
+      for (const it of its) { if (it.p) continue; const T = (it.t || []).find(x => x >= t0 + 120) ?? ((it.w || []).map(w => Math.max(w[0], Math.ceil((t0 + 120) / 30) * 30)).find((x, i) => x < it.w[i][1])); if (T != null && (!best || T < best.T)) best = { it, T } }
+      if (!best) throw new Error('no show to hold in ' + pk); blocks.push(WDW.showBlock(best.it, pk, best.T)) }
+    WDW.dpSave(d, { pk, must, ll: 'none', lunch: !o.bare, extras: !o.bare, pace: 'bal', blocks }) }, [pk, view, o.must || MUST[pk], !!o.show, time === 'now' ? 0 : time, o]);
   await reload(pg);
   await pg.evaluate(t => { if (t === 'now') document.querySelector('#segTime [data-now="1"]').click(); else document.querySelector('#segTime [data-v="' + t + '"]:not([data-now])').click() }, time);
   await pg.waitForTimeout(200);
@@ -95,8 +101,8 @@ async function startDay(pg, pk, view, time) {
 async function parkAudit(pg, pk, o = {}) {
   const ride = MUST[pk][0], fails = [], sum = {};
   for (const [view, time] of [['map', 660], ['plan', 'now']]) {
-    await startDay(pg, pk, view, time);
-    const restart = () => startDay(pg, pk, view, time);
+    await startDay(pg, pk, view, time, { show: time !== 'now' });
+    const restart = () => startDay(pg, pk, view, time, { show: time !== 'now' });
     const V = `WDW.setView('${view}');`;
     const panels = [
       ['dock', V, '#bottom', { allow: '#bFollow|data-s=|speed' }],
