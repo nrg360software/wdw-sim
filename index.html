@@ -219,7 +219,7 @@ body.pvmode #stage,body.pvmode #labels{display:none}
 body.pvmode #bFollow,body.pvmode #bMap{display:none}
 body.pvmode #start,body.pvmode #end{background:var(--night)}
 #pv{position:fixed;inset:0;z-index:4;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y;-webkit-user-select:none;user-select:none;
-  padding:calc(var(--topH,76px) + 8px) max(12px,env(safe-area-inset-right,0px)) calc(var(--botH,200px) + var(--nowH,0px) + 10px) max(12px,env(safe-area-inset-left,0px));
+  padding:calc(var(--topH,76px) + var(--stripH,0px) + 8px) max(12px,env(safe-area-inset-right,0px)) calc(var(--botH,200px) + var(--nowH,0px) + 10px) max(12px,env(safe-area-inset-left,0px));
   background:radial-gradient(120% 60% at 50% 0%,#1a2950 0%,var(--night) 70%)}
 #pvIn{max-width:560px;margin:0 auto}
 #pvIn h3{font-family:var(--display);font-size:16px;font-weight:600;margin:16px 0 6px}
@@ -235,6 +235,16 @@ body.pvmode #start,body.pvmode #end{background:var(--night)}
 .pvc .pll{color:var(--ll);font-size:11px}
 #speedSeg button{padding:6px 7px}#bFollow,#bMap,#bView{padding:7px 8px}
 .pvll{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
+/* countdown strip (row 71) */
+#pvStrip{position:fixed;left:0;right:0;top:var(--topH,76px);z-index:5;padding:4px max(12px,env(safe-area-inset-right,0px)) 0 max(12px,env(safe-area-inset-left,0px));pointer-events:none}
+#pvStrip:empty{display:none}
+.cds{pointer-events:auto;max-width:560px;margin:0 auto;border-radius:12px;padding:7px 12px;font-size:13.5px;line-height:1.35;background:rgba(20,29,54,.97);border:1px solid rgba(255,255,255,.16);color:var(--text);box-shadow:0 4px 16px rgba(0,0,0,.35)}
+.cds.heads,.cds.late{background:#3b2f0c;border-color:#e0a82e;color:#ffe6a8}
+.cds.act{background:#5e1414;border:2px solid #ff6b6b;color:#fff;padding:10px 12px;font-size:14px;box-shadow:0 6px 28px rgba(0,0,0,.55)}
+.cds .cdt{display:block;font-size:10.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:#ffb3b3}
+.cds b.big{display:block;font-family:var(--display);font-size:20px;line-height:1.2;margin:1px 0 3px}
+.cds .cdb{display:flex;gap:8px;margin-top:8px}.cds .cdb .btn{min-height:44px;flex:1}
+#bPlan.dot{position:relative}#bPlan.dot::after{content:'';position:absolute;top:6px;right:8px;width:9px;height:9px;border-radius:50%;background:#5bc0ff;box-shadow:0 0 0 2px var(--bg,#0b1020)}
 /* Now card (row 70): bottom of the plan-only view, one button */
 #pvNow{position:fixed;left:0;right:0;bottom:var(--botH,200px);z-index:5;padding:0 max(12px,env(safe-area-inset-right,0px)) 6px max(12px,env(safe-area-inset-left,0px));pointer-events:none}
 #pvNow:empty{display:none}
@@ -248,6 +258,8 @@ body.pvmode #start,body.pvmode #end{background:var(--night)}
 .ncfix{background:none;border:0;color:var(--text);font:inherit;font-size:13px;font-weight:700;text-decoration:underline;text-underline-offset:3px;padding:10px 4px;min-height:40px;cursor:pointer}
 .ncft{font-size:12px;color:var(--muted);text-align:right;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 body.pvmode #rtRow{display:none!important}
+/* plan view: toasts sit under the countdown strip so they never cover an Act now banner (row 71) */
+body.pvmode #toasts{top:calc(var(--topH,76px) + var(--stripH,0px) + 8px)}
 .toast.undo{pointer-events:auto}.toast.undo .btn{padding:4px 12px;margin-left:4px}
 .fxl{display:flex;flex-direction:column;gap:8px;margin:8px 0 12px}
 .fxo{display:flex;align-items:center;gap:10px;text-align:left;background:var(--chip);border:1px solid var(--line);border-radius:12px;padding:12px;font:inherit;font-size:15px;font-weight:600;color:var(--text);min-height:48px;cursor:pointer}
@@ -261,7 +273,7 @@ body.pvmode #rtRow{display:none!important}
 
 <div id="stage"></div>
 <div id="labels"></div>
-<div id="pv" hidden><div id="pvIn"></div><div id="pvNow"></div></div>
+<div id="pv" hidden><div id="pvStrip"></div><div id="pvIn"></div><div id="pvNow"></div></div>
 
 <div class="hud" id="top" hidden>
   <div class="card" id="clock"><div class="t" id="clockT">8:30 AM</div><div class="s" id="clockS">Parks open 9 AM</div></div>
@@ -1185,8 +1197,8 @@ function llTick(dt){llClock-=dt;if(llClock>0)return;llClock=2;const L=G.LL,t=G.t
   const tgt=G.segs&&G.segs.length?G.segs[G.segs.length-1].ride:null,act=L.passes.filter(p=>p.st==='active');
   if(act.length){const D=dijkstra(effectiveStart().node,t/60);
     for(const p of act){const r=llR(p);if(tgt===r)continue;const eta=D.dist[NI[r.nodeId]];
-      if(t>=p.start-eta-10&&t<p.end&&!L.rem['go'+p.id]){L.rem['go'+p.id]=1;llToast(`Time to head to ${r.short} · window ${fmtClock(p.start)}–${fmtClock(p.end)} · ${fmtDur(eta)} away`,null,true)}
-      if(t>=p.end-15&&t<p.end&&!L.rem['end'+p.id]){L.rem['end'+p.id]=1;llToast(`${r.short} window ends ${fmtClock(p.end)}. Tap points usually allow about an hour late, but don't count on it`)}}}
+      if(t>=p.start-eta-10&&t<p.end&&!L.rem['go'+p.id]){L.rem['go'+p.id]=1;if(!PV.on)llToast(`Time to head to ${r.short} · window ${fmtClock(p.start)}–${fmtClock(p.end)} · ${fmtDur(eta)} away`,null,true)}
+      if(t>=p.end-15&&t<p.end&&!L.rem['end'+p.id]){L.rem['end'+p.id]=1;if(!PV.on)llToast(`${r.short} window ends ${fmtClock(p.end)}. Tap points usually allow about an hour late, but don't count on it`)}}}
   const can=llCanBookAny(t);
   if(can&&L.canWas===false){const rec=llRecs(t)[0];llToast(`You can book another Lightning Lane${rec?` · best now: ${rec.r.short} at ${fmtClock(rec.ret)}`:''}`);L.lastNudge=t}
   else if(can&&t-L.lastNudge>=60&&L.canWas!==null){const rec=llRecs(t)[0];if(rec){llToast(`Open Lightning Lane slot · ${rec.r.short} returns ${fmtClock(rec.ret)}${rec.why.length?' · '+rec.why[0]:''}`);L.lastNudge=t}}
@@ -3978,7 +3990,7 @@ function dpNudge(){const pr=dpProgress();if(!pr)return;if(pr.blk){dpToast(`Next 
 function dpPendingBooks(pr){const P=G.plan,out=[];if(!P)return out;const cur=G.segs&&G.segs[G.seg];
   P.res.steps.forEach((s,i)=>{if(!s.books.length)return;const ok=s.k==='start'||pr.done[i]||(cur&&cur.k==='queue'&&cur.ll&&cur.started&&cur.ride.id===s.rid);if(!ok)return;
     for(const b of s.books){const r=RIDE_BY[b.rid];if(G.LL.passes.some(p=>p.rid===b.rid&&p.st!=='cancelled')||G.ridden.includes(b.rid))continue;out.push({r,b})}});return out}
-function openPlan(){
+function openPlan(){AUTO.unseen=false;planDotUI();
   if(!G.plan||DPV.edit){const S=DPV.S||(G.plan?Object.assign(JSON.parse(JSON.stringify(G.plan.settings)),{legI:G.plan.legI||0}):(dpLoad(G.date)||dpDefaults(currentPark())));if(S.ll==='suggest')S.ll='mine';DPV.S=S;
     openSheet(`<div class="sh">${G.plan?'<button class="x" aria-label="Back" style="font-size:15px" data-back>‹</button>':''}<h2>Plan my day</h2><span class="paused">Clock paused</span><button class="x" aria-label="Close">×</button></div><div class="sb">
     <p class="note">Plans the rest of today from where you are (${fmtClock(G.t)}).</p>${dpEditorHTML(S,G.LL,true)}
@@ -4315,6 +4327,62 @@ function fixApply(o,T){const segs=G.segs;if(!segs||!segs.length)return;const r=s
   else if(o==='skip'){nowSkip();msg=`Skipped ${r.short}`}
   else return;
   nowUndoToast(msg,sn);stepsRefresh()}
+// ================= COUNTDOWN STRIP + ALERT TIERS (roadmap row 71) =================
+// Plan-only view: a strip at the top shows the next timed thing (Lightning Lane window, dining reservation, held show, park
+// hop). Three tiers: Act now (red banner + phone alert) only when a commitment that costs money is at risk: a held Lightning
+// Lane or a dining reservation, where finishing what you're doing (current line + ride, meal, walk) and then travelling there
+// would leave you less than CD_ACT minutes to spare, but leaving now still gets you there (up to CD_LOST late). Heads up (amber
+// strip) when it's time to head there. FYI (plain strip) otherwise. Accuracy: travel is measured from where you are now
+// (effectiveStart: mid-walk, the stop, the ride you're in line for) and, for "finishing first", from where that step ends;
+// the deadline is the window END for a pass and the booked time for a meal; you're never told to leave for what you're
+// already heading to. Plan changes don't interrupt: a dot on Plan + a log line with Undo, unless the next step changed.
+const CD_ACT=5,CD_LOST=-15,CD_RANK={act:3,late:2,heads:2,fyi:1};
+var CD={dis:{},pushAt:{},html:''};
+// minutes until what you're doing now ends if you carry on (rest of the trip incl. line and ride, or the meal / break)
+function cdRem(){const segs=G.segs;if(!segs)return 0;let m=0;for(let i=G.seg;i<segs.length;i++)m+=segEst(segs[i]);return m}
+function cdDoing(){const segs=G.segs,s=segs&&segs[G.seg];if(!s)return '';if(s.k==='snack'){const A=s.act&&ACT[s.act];return s.name||(A?A.n:'your break')}
+  const r=segs[segs.length-1].ride;return r?(s.k==='queue'&&s.started?`the ${r.short} line`:r.short):'this'}
+function cdList(){if(!G.started||G.over)return[];const t=G.t,out=[],segs=G.segs,cur=segs&&segs[G.seg],last=segs&&segs[segs.length-1],tgt=last&&last.ride||null;
+  const busy=!!(segs&&segs.length),rem=busy?cdRem():0,st=effectiveStart(),pre=st.prefix.reduce((a,s)=>a+s.len/WALK_PARK,0),endNode=busy&&G.tripEnd!=null?G.tripEnd:st.node;let Dn=null,Df=null;
+  const dN=n=>{if(!Dn)Dn=dijkstra(st.node,t/60);const d=Dn.dist[n];return isFinite(d)?d+pre:null};
+  const dF=n=>{if(!busy)return dN(n);if(!Df)Df=dijkstra(endNode,(t+rem)/60);const d=Df.dist[n];return isFinite(d)?d:null};
+  const add=o=>{o.slackNow=o.dl-(t+o.tNow);o.slackFin=o.dl-(t+o.rem+o.tFin);o.latest=o.dl-o.tNow;out.push(o)};
+  for(const p of G.LL.passes){if(p.st!=='active'||G.ridden.includes(p.rid))continue;const r=llR(p),n=NI[r.nodeId];if(n==null)continue;const tn=dN(n);if(tn==null)continue;
+    const onWay=tgt===r;add({k:'ll',key:'ll:'+p.id,p,r,ic:'⚡',name:r.short,start:p.start,dl:p.end,tNow:tn,tFin:onWay?0:(dF(n)??tn),rem:onWay?0:rem,onWay,money:true})}
+  const P=G.plan;if(P&&P.res){const done=P.blkDone||{},seen=new Set();
+    for(const h of P.res.steps)for(const b of h.blocks||[]){if(b.at==null||!(b.meal||b.user)||done[b.id]||seen.has(b.id))continue;seen.add(b.id);
+      if(cur&&cur.k==='snack'&&cur.name===b.name)continue; // you're there
+      const n=b.node!=null&&NI[b.node]!=null?NI[b.node]:null,w=b.walk||0,tn=n!=null?dN(n):w,tf=n!=null?dF(n):w,onWay=!!(last&&last.k==='snack'&&last.name===b.name);
+      add({k:b.meal?'dine':'show',key:'blk:'+b.id,b,ic:b.meal?'🍽':'🎭',name:b.name,start:b.at,dl:b.at,tNow:tn??w,tFin:onWay?0:(tf??w),rem:onWay?0:rem,onWay,money:!!b.meal})}
+    let pr=null;try{pr=dpProgress()}catch(e){}
+    if(pr&&pr.next>=0)for(let i=pr.next;i<P.res.steps.length;i++){const h=P.res.steps[i];if(h.k==='hop'&&currentPark()!==h.to){add({k:'hop',key:'hop:'+h.to,ic:'🚝',name:PARKS[h.to].short,start:h.leave,dl:h.leave,tNow:0,tFin:0,rem,onWay:false,money:false});break}}}
+  for(const o of out){const lead=o.k==='ll'?10:15,dis=CD.dis[o.key]!=null;
+    if(o.onWay)o.tier=o.slackNow<0?'late':'fyi';
+    else if(o.money&&o.slackFin<=CD_ACT&&o.slackNow>=CD_LOST&&!dis)o.tier='act';
+    else if(o.money&&o.slackNow<CD_LOST)o.tier='late';
+    else if(t>=o.start-o.tNow-lead||o.slackFin<=20||dis)o.tier='heads';
+    else o.tier='fyi'}
+  return out.sort((a,b)=>CD_RANK[b.tier]-CD_RANK[a.tier]||a.latest-b.latest)}
+function cdTop(){let L=[];try{L=cdList()}catch(e){}return L[0]||null}
+function cdHTML(o){if(!o)return '';const t=G.t,away=`${fmtDur(Math.max(1,Math.round(o.tNow)))} away`;
+  const when=o.k==='ll'?`window ${nowHM(o.p.start)}–${fmtClock(o.p.end)}`:o.k==='hop'?`leave by ${fmtClock(o.dl)}`:`${o.k==='dine'?'booked':o.b.meet?'line up':'starts'} ${fmtClock(o.dl)}`;
+  if(o.tier==='act'){const busy=!!(G.segs&&o.rem>0),sf=Math.round(o.slackFin),sn=Math.round(o.slackNow);
+    const why=busy?(sf<0?`Finishing ${cdDoing()} gets you there ~${fmtDur(-sf)} late.`:`Finishing ${cdDoing()} leaves only ${fmtDur(Math.max(0,sf))} to spare.`):(sn<0?`You'll be ~${fmtDur(-sn)} late${o.k==='ll'?' (tap points often allow some grace)':''}.`:`Leave within ${fmtDur(Math.max(1,sn))}.`);
+    let go='';if(o.k==='ll'){try{if(planTo(o.r,true).st.can)go='<button class="btn pri" data-cd="go">Go now</button>'}catch(e){}}
+    return `<div class="cds act" role="alert"><span class="cdt">Act now</span><b class="big">${o.ic} Leave now for ${o.name}</b>${o.k==='ll'?'Window ends':'Booked for'} ${fmtClock(o.dl)} · ${away}. ${why}<div class="cdb">${go}<button class="btn" data-cd="dis">Not going</button></div></div>`}
+  if(o.tier==='late')return `<div class="cds late">⚠ <b>${o.name}</b> · ${when} · you'd get there ~${fmtClock(t+o.tNow)}${o.onWay?' (on your way)':''}</div>`;
+  if(o.tier==='heads')return `<div class="cds heads">${o.ic} <b>${o.k==='hop'?'Time to hop to '+o.name:'Time to head to '+o.name}</b> · ${when}${o.k==='hop'?'':' · '+away}</div>`;
+  const lv=o.latest-t;return `<div class="cds">${o.ic} <b>${o.name}</b> · ${when}${o.onWay?' · on your way':o.k==='hop'?` · in ${fmtDur(Math.max(1,Math.round(lv)))}`:` · leave by ${fmtClock(o.latest)} · in ${fmtDur(Math.max(1,Math.round(lv)))}`}</div>`}
+function cdRender(){const el=$('#pvStrip');if(!el)return;const o=cdTop(),h=cdHTML(o);CD.top=o;if(h===CD.html)return;CD.html=h;el.innerHTML=h;
+  bindAll(el,{'[data-cd]':b=>{const o=CD.top;if(!o)return;if(b.dataset.cd==='dis'){CD.dis[o.key]=G.t;toast(`OK · no more alarms for ${o.name}`)}else if(b.dataset.cd==='go'&&o.r){go(o.r,true);stepsRefresh()}CD.html='';cdRender()}})}
+// plan changes: what the Now card would show next, so a replan only interrupts when that changes
+function cdNextSig(){let pr=null;try{pr=G.plan&&dpProgress()}catch(e){}if(!pr)return '-';const c=autoCur();if(c)return 'r:'+c.id;return pr.blk?'b:'+pr.blk.id:pr.meal?'meal':pr.step?'r:'+pr.step.rid:'-'}
+function cdNextLabel(){const s=cdNextSig();if(s.startsWith('r:'))return RIDE_BY[s.slice(2)].short;if(s==='meal')return 'lunch';if(s.startsWith('b:')){const pr=dpProgress();return pr.blk?pr.blk.name:'next stop'}return 'nothing left'}
+function planDotUI(){const b=$('#bPlan');if(b)b.classList.toggle('dot',!!(PV.on&&AUTO.unseen))}
+function autoUndo(){const u=AUTO.undo;if(!u||!G.plan)return;const cur=G.plan,P=u.plan;
+  P.notes=[{t:G.t,text:`Undid the ${fmtClock(u.t)} change · auto-adjust waits ${AUTO_UNDO_HOLD} min unless a ride goes down`,manual:true}].concat(cur.notes||[]).slice(0,8);
+  P.blkDone=cur.blkDone;P.lunchAt=cur.lunchAt;G.plan=P;AUTO.undo=null;AUTO.pause=G.t+AUTO_UNDO_HOLD;runDirty();toast('Plan change undone');planRefresh()}
+const AUTO_UNDO_HOLD=20;
 // ---- auto-adjust
 const AUTO={on:(()=>{try{return localStorage.getItem('wdwsim.auto')!=='0'}catch(e){return true}})(),last:-1e9,lastReal:0};
 // In-game planning knows which rides are down now: sim breakdowns until downUntil, live-feed closures ~DP_DOWN_GUESS min
@@ -4350,15 +4418,17 @@ function autoStretch(){const P=G.plan,o=Object.assign(dpGameOpts(P.settings),{no
   const was=P.res.missed.filter(id=>!G.ridden.includes(id));return res.missed.length<was.length?was.filter(id=>!res.missed.includes(id)):[]}
 function autoCheck(src){if(!AUTO.on||!G.plan||!G.started||G.over||RT.catching||(typeof DPV!=='undefined'&&DPV.edit))return;
   if(src==='tick'&&Date.now()-AUTO.lastReal<1000)return;let rs;try{rs=autoReasons()}catch(e){return}if(!rs.length)return;
-  const urgent=rs.some(r=>r.k==='down'||r.k==='up'||r.k==='hop'||r.k==='ll');if(!urgent&&G.t-AUTO.last<AUTO_COOL)return;autoReplan(rs)}
+  const urgent=rs.some(r=>r.k==='down'||r.k==='up'||r.k==='hop'||r.k==='ll');if(!urgent&&G.t-AUTO.last<AUTO_COOL)return;if(!urgent&&G.t<(AUTO.pause||-1e9))return;autoReplan(rs)}
 function autoKick(text){if(!AUTO.on||!G.plan||G.over)return;let rs=[];try{rs=autoReasons()}catch(e){}autoReplan([{k:'sync',text}].concat(rs.filter(r=>r.k!=='behind'&&r.k!=='ahead')))}
-function autoReplan(rs,manual){const P=G.plan;if(!P)return null;const pr=dpProgress(),dropCur=rs.some(r=>r.cur),cur=autoCur();
+function autoReplan(rs,manual){const P=G.plan;if(!P)return null;const pr=dpProgress(),dropCur=rs.some(r=>r.cur),cur=autoCur(),nx0=cdNextSig();
   const old={res:P.res,rem:P.res.steps.filter((s,i)=>s.k==='ride'&&!pr.done[i]&&!(cur&&!dropCur&&s.rid===cur.id))};
   let res;try{res=dpMakeGame(P.settings,dropCur?{dropCur:true}:null)}catch(e){showErr(e);return null}
   AUTO.last=G.t;AUTO.lastReal=Date.now();const note={t:G.t,text:`${rs.slice(0,2).map(r=>r.text).join(' · ')} → ${autoDiff(old,res)}`,manual:!!manual};
   G.plan.notes=[note].concat(G.plan.notes||[]).slice(0,8);runDirty();
   // a replan that changes nothing that matters updates times quietly (the note is still kept in the Plan sheet)
-  const loud=rs.some(r=>r.k==='sync')||AUTO.diffLoud;if(!manual){if(loud)dpToast('Plan adjusted · '+note.text);if(!sheet.hidden&&sheetIn.querySelector('#dpRe'))openPlan()}return note}
+  AUTO.undo=manual?null:{t:note.t,plan:P};
+  // plan-only view (row 71): a change goes to the log (dot on Plan, Undo); it only interrupts when what's next changed
+  const loud=rs.some(r=>r.k==='sync')||AUTO.diffLoud;if(!manual){if(PV.on){AUTO.unseen=true;planDotUI();if(cdNextSig()!==nx0)dpToast(`Plan changed · next: ${cdNextLabel()} · ${note.text}`)}else if(loud)dpToast('Plan adjusted · '+note.text);if(!sheet.hidden&&sheetIn.querySelector('#dpRe'))openPlan()}return note}
 function autoDiff(old,res){const S=id=>RIDE_BY[id].short,a=old.rem.map(s=>s.rid),bs=res.steps.filter(s=>s.k==='ride'),b=bs.map(s=>s.rid),out=[];
   const lost=a.filter(id=>res.missed.includes(id)),won=old.res.missed.filter(id=>b.includes(id));
   if(lost.length)out.push(`dropped ${lost.map(id=>`${S(id)} (won't fit${res.why&&res.why[id]&&res.why[id].short?': '+res.why[id].short:''})`).join(', ')}`);if(won.length)out.push(`${won.map(S).join(', ')} fits again`);
@@ -4368,7 +4438,8 @@ function autoDiff(old,res){const S=id=>RIDE_BY[id].short,a=old.rem.map(s=>s.rid)
   const n=res.nMust;if(n){const d=Math.round(res.endMust-old.res.endMust),same=n-res.nDone===old.res.nMust-old.res.nDone;if(same&&Math.abs(d)>=10)AUTO.diffLoud=true;out.push(`${res.nDone===n?'must-dos':res.nDone+' of '+n+' must-dos'} done by ${fmtClock(res.endMust)}${same&&Math.abs(d)>=5?` (${d>0?'+':'−'}${fmtDur(Math.abs(d))})`:''}`)}
   return out.slice(0,3).join('; ')}
 function autoNoteHTML(){const N=G.plan&&G.plan.notes;if(!N||!N.length)return '';const n=N[0],more=N.slice(1,5);
-  return `<div class="callout chg"><b style="color:#5bc0ff">${n.manual?'Replanned':'Auto-adjusted'} ${fmtClock(n.t)}:</b> ${n.text}${more.length?`<details style="margin-top:4px"><summary style="font-size:12px;opacity:.75">Earlier changes</summary>${more.map(x=>`<div style="font-size:12px;opacity:.8;margin-top:3px">${fmtClock(x.t)} · ${x.text}</div>`).join('')}</details>`:''}</div>`}
+  const und=!n.manual&&AUTO.undo&&AUTO.undo.t===n.t&&G.t-n.t<=30?` <button class="btn sm" data-auto-undo="1">Undo</button>`:'';
+  return `<div class="callout chg"><b style="color:#5bc0ff">${n.manual?'Replanned':'Auto-adjusted'} ${fmtClock(n.t)}:</b> ${n.text}${und}${G.t<(AUTO.pause||-1e9)?`<div style="font-size:12px;opacity:.8;margin-top:3px">Auto-adjust waits until ${fmtClock(AUTO.pause)} (a ride going down still replans)</div>`:''}${more.length?`<details style="margin-top:4px"><summary style="font-size:12px;opacity:.75">Earlier changes</summary>${more.map(x=>`<div style="font-size:12px;opacity:.8;margin-top:3px">${fmtClock(x.t)} · ${x.text}</div>`).join('')}</details>`:''}</div>`}
 
 // ================= LIGHTNING LANE ODDS & LIVE CONFIDENCE (roadmap rows 43, 45) =================
 // Odds (row 43): each planned in-day booking gets a spread instead of llNext's single curve: sell-out hour, return-time
@@ -4730,6 +4801,7 @@ function pvLLHTML(){const act=G.LL.passes.filter(p=>p.st==='active'||p.st==='mep
 function pvRefresh(force){try{pvRefresh0(force)}catch(e){PV.sig='';const m=String(e&&e.message||e);if(PV.err!==m){PV.err=m;toast('Plan view hiccup: '+m.slice(0,80));console.error(e)}}}
 function pvRefresh0(force){if(!PV.on||!G.started||G.over)return;const now=performance.now();
   if(!force&&(now-PV.last<2000||now-PV.touch<1500))return;
+  try{cdRender()}catch(e){showErr(e)}
   const cur=G.segs&&G.segs[G.seg],pk=NODES[effectiveStart().node].park||(G.plan?G.plan.res.pk:currentPark());
   const sig=[G.plan?G.plan.made+':'+G.plan.notes.length+':'+Object.keys(G.plan.blkDone||{}).length+':'+G.plan.lunchAt:'-',G.ridden.length,G.seg,G.segs?G.segs.length:0,cur?cur.k+(cur.started?1:0)+(cur.hold?1:0)+(cur.tap?1:0)+(cur.act||''):'',G.node,(G.log||[]).length,
     G.LL.passes.map(p=>p.rid+p.st+p.start).join(),LIVE.got,CONF&&CONF.ver,Math.floor(G.t/(G.real?1:5)),DPV.clr,AUTO.on,pk,G.LL.tapped].join('|');
@@ -4740,9 +4812,9 @@ function pvRefresh0(force){if(!PV.on||!G.started||G.over)return;const now=perfor
   el.innerHTML=html;$('#pv').scrollTop=sc;
   try{if(v)planBind(el,v);else nowBind(el)}catch(e){showErr(e)}
   try{nowBarRender(v)}catch(e){showErr(e)}
-  bindAll(el,{'[data-pvr]':b=>openRide(RIDE_BY[b.dataset.pvr]),'[data-pvll]':()=>{llView.confirm=null;openLL()}})}
-function pvSizes(){const t=$('#top'),b=$('#bottom'),n=$('#pvNow'),r=document.documentElement.style;r.setProperty('--topH',(t.hidden?0:t.offsetHeight)+'px');r.setProperty('--botH',(b.hidden?0:b.offsetHeight)+'px');r.setProperty('--nowH',(n&&n.firstChild?n.offsetHeight:0)+'px')}
-if(window.ResizeObserver){const ro=new ResizeObserver(pvSizes);ro.observe($('#top'));ro.observe($('#bottom'));ro.observe($('#pvNow'))}
+  bindAll(el,{'[data-pvr]':b=>openRide(RIDE_BY[b.dataset.pvr]),'[data-pvll]':()=>{llView.confirm=null;openLL()},'[data-auto-undo]':()=>autoUndo()});planDotUI()}
+function pvSizes(){const t=$('#top'),b=$('#bottom'),n=$('#pvNow'),r=document.documentElement.style;r.setProperty('--topH',(t.hidden?0:t.offsetHeight)+'px');r.setProperty('--botH',(b.hidden?0:b.offsetHeight)+'px');r.setProperty('--nowH',(n&&n.firstChild?n.offsetHeight:0)+'px');const sp=$('#pvStrip');r.setProperty('--stripH',(sp&&sp.firstChild?sp.offsetHeight:0)+'px')}
+if(window.ResizeObserver){const ro=new ResizeObserver(pvSizes);ro.observe($('#top'));ro.observe($('#bottom'));ro.observe($('#pvNow'));ro.observe($('#pvStrip'))}
 $('#pv').addEventListener('pointerdown',()=>{PV.touch=performance.now()},{passive:true});$('#pv').addEventListener('scroll',()=>{PV.touch=performance.now()},{passive:true});
 $('#bView').onclick=()=>setView(PV.on?'map':'plan');segPick('#segView',b=>setView(b.dataset.v));setView(PV.on?'plan':'map');
 
@@ -4787,6 +4859,9 @@ function pushPlan(){const out={items:[],watch:[]};if(!G.started||G.over||!G.real
     for(const p of act){const r=llR(p);if(PUSH.cats.down)W(r);if(!PUSH.cats.ll)continue;const eta=D?Math.round(D.dist[NI[r.nodeId]]||0):15;
       if(tgt!==r&&!G.LL.rem['go'+p.id])add('llgo:'+p.id,p.start-eta-10,`⚡ Head to ${r.short} now`,`Lightning Lane ${fmtClock(p.start)}–${fmtClock(p.end)} · about ${fmtDur(eta)} away`);
       if(!G.LL.rem['end'+p.id])add('llend:'+p.id,p.end-15,`⚡ ${r.short} window ends ${fmtClock(p.end)}`,'Tap points usually allow about an hour late, but don\'t count on it')}}
+  try{for(const o of cdList()){if(!o.money||o.onWay||CD.dis[o.key]!=null||o.slackNow<CD_LOST)continue;if(o.k==='ll'?!PUSH.cats.ll:!PUSH.cats.plan)continue;
+      let at=o.dl-o.tFin-o.rem-CD_ACT;if(at<=nowM+1)at=CD.pushAt[o.key]=CD.pushAt[o.key]||nowM+1.5;else delete CD.pushAt[o.key];
+      add('act:'+o.key,at,`‼️ Leave now for ${o.name}`,`${o.k==='ll'?'Lightning Lane window ends':'Booked for'} ${fmtClock(o.dl)} · about ${fmtDur(Math.max(1,Math.round(o.tFin)))} away`)}}catch(e){}
   const P=G.plan;if(P&&P.res){let pr=null;try{pr=dpProgress()}catch(e){}
     if(pr){const st=P.res.steps;
       if(PUSH.cats.plan){if(pr.step){const s=pr.step,r=RIDE_BY[s.rid],hop=dpHopBefore(st,pr.next),hp=!!hop&&currentPark()!==hop.to;
@@ -4851,7 +4926,7 @@ function tick(now){const pv=PV.on;if(pv&&(G.real||!G.started||G.over)&&now-PV.ti
     camStep(now);controls.update();skyDome.position.copy(camera.position);renderFrame();updateLabels()}
   if(G.started){updateHUD();runTick();try{pushTick()}catch(e){}try{confTick()}catch(e){}if(pv)pvRefresh(false)}
 }
-window.WDW={DBG,dbgText,bindAll,PIN,pinPage,showTick:()=>{showClock=0;showTick(1)},showHeldAll,setView:v=>setView(v),openSteps:()=>openSteps(),openDoing:()=>openDoing(),testReset:()=>{DPV={edit:false};FIX.open=false;closeSheet()},nowModel:()=>NOWC.m,nowTarget,nowTap,openFix:()=>openFix(),stepsRefresh:()=>stepsRefresh(),dpvEdit:()=>{DPV.edit=true;DPV.S=null},SHOWS,showIngest,showsFor,showEventsReal,openShows,showBlock,showNode,showRideTimes,showPoll,showAddGame,showGo,PUSH,pushPlan,pushSync,openPush,pushSupport,pushDataText,pushDataImport,llOdds,llObs,llObsAdd,llCalFor,CONF,confRun,confOpts,confCompare,confCardHTML,openLLEnter,endDay,resBuild,resHTML,resShow,resLoad,resLatest,RUN,runSave,runLoad,runClear,runResume,runState,runBox,runFind,AUTO,RT,autoCheck,autoReasons,autoReplan,autoDiff,rtRodeIt,rtAt,rtNow,openWhere,dpGameOpts,camera,controls,RF,rfCompact,rfStore,rfLoad,rfResid,rfCalibrate,rfEstimate,rfBacktest,rfUpdateToday,rfApplyDay,rfMul,rfCal,openRF,rfAfterUpdate,rfNoteUpdate,rfTick,rfBannerHTML,liveMatch,stRun,stHTML,stCalib,stModelDay,dpParseTP,dpApplyImport,scene,setGfx,LIGHT,sunDir,fwShows,fwSim:(n,dt)=>{for(let i=0;i<n;i++)updateFireworks(dt)},holdTime:t=>{G.holdT=t==null?null:t*60;if(t!=null)G.t=t*60},dpRun,dpRunDay,dpLegs,dpAllMust,getDPS:()=>DPS,dpStartOpts:S=>dpStartOpts(S),dpMakeGame,dpProgress,dpLoad,dpSave,openPlan,openDaySetup,prepDay,llFromPlan,llFresh,llBook,llNext,llRecs,llUse,llHeld,llTick,llPlanErrors,llSuggest,llLoadPlan,openLL,openRides,openPicks,LIVE,liveIngest,liveFor,curveAt,orlandoNow,livePoll,G,go,flyTo,setFollow,RIDE_BY,PARKS,camera,controls,openRide,closeSheet,rawWait,waitAt,dayFactor,holiday,hoursFor,applyHours,accessOpen,lastClose,renderer,dijkstra,NI,NODES,RESORTS,RIDES,LINES};
+window.WDW={DBG,dbgText,bindAll,PIN,pinPage,showTick:()=>{showClock=0;showTick(1)},showHeldAll,setView:v=>setView(v),openSteps:()=>openSteps(),openDoing:()=>openDoing(),testReset:()=>{DPV={edit:false};FIX.open=false;closeSheet()},cdList:()=>cdList(),cdRender:()=>{CD.html='';cdRender()},CD,planTo,autoUndo,nowModel:()=>NOWC.m,nowTarget,nowTap,openFix:()=>openFix(),stepsRefresh:()=>stepsRefresh(),dpvEdit:()=>{DPV.edit=true;DPV.S=null},SHOWS,showIngest,showsFor,showEventsReal,openShows,showBlock,showNode,showRideTimes,showPoll,showAddGame,showGo,PUSH,pushPlan,pushSync,openPush,pushSupport,pushDataText,pushDataImport,llOdds,llObs,llObsAdd,llCalFor,CONF,confRun,confOpts,confCompare,confCardHTML,openLLEnter,endDay,resBuild,resHTML,resShow,resLoad,resLatest,RUN,runSave,runLoad,runClear,runResume,runState,runBox,runFind,AUTO,RT,autoCheck,autoReasons,autoReplan,autoDiff,rtRodeIt,rtAt,rtNow,openWhere,dpGameOpts,camera,controls,RF,rfCompact,rfStore,rfLoad,rfResid,rfCalibrate,rfEstimate,rfBacktest,rfUpdateToday,rfApplyDay,rfMul,rfCal,openRF,rfAfterUpdate,rfNoteUpdate,rfTick,rfBannerHTML,liveMatch,stRun,stHTML,stCalib,stModelDay,dpParseTP,dpApplyImport,scene,setGfx,LIGHT,sunDir,fwShows,fwSim:(n,dt)=>{for(let i=0;i<n;i++)updateFireworks(dt)},holdTime:t=>{G.holdT=t==null?null:t*60;if(t!=null)G.t=t*60},dpRun,dpRunDay,dpLegs,dpAllMust,getDPS:()=>DPS,dpStartOpts:S=>dpStartOpts(S),dpMakeGame,dpProgress,dpLoad,dpSave,openPlan,openDaySetup,prepDay,llFromPlan,llFresh,llBook,llNext,llRecs,llUse,llHeld,llTick,llPlanErrors,llSuggest,llLoadPlan,openLL,openRides,openPicks,LIVE,liveIngest,liveFor,curveAt,orlandoNow,livePoll,G,go,flyTo,setFollow,RIDE_BY,PARKS,camera,controls,openRide,closeSheet,rawWait,waitAt,dayFactor,holiday,hoursFor,applyHours,accessOpen,lastClose,renderer,dijkstra,NI,NODES,RESORTS,RIDES,LINES};
 requestAnimationFrame(frame);
 })();
 </script>
