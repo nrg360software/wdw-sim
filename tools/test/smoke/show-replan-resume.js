@@ -11,8 +11,8 @@ ck(out.held0.length===1,'no show held: '+JSON.stringify(out.held0));
 // replan from the plan panel
 out.replan=await pg.evaluate(async()=>{WDW.closeSheet();WDW.openPlan();const b=document.querySelector('#dpRe');if(!b)return 'no #dpRe';const r0=WDW.G.plan.res;b.click();await new Promise(z=>setTimeout(z,800));return WDW.G.plan.res!==r0?'ok':'plan not remade'});
 ck(out.replan==='ok','replan: '+out.replan);
-// start walking to the next step, then save
-await pg.evaluate(()=>{WDW.closeSheet();const b=document.querySelector('#pvIn #dpNext');if(b)b.click()});await pg.waitForTimeout(800);
+// start walking to the next step (the Now card's Go, row 70), then save
+await pg.evaluate(()=>{WDW.closeSheet();const b=document.querySelector('#pvNow [data-nc="go"]');if(b)b.click()});await pg.waitForTimeout(800);
 await pg.evaluate(()=>window.adv(3));await pg.waitForTimeout(1500);
 const snap=()=>pg.evaluate(()=>{const G=WDW.G,P=G.plan;return {held:(P.settings.blocks||[]).filter(b=>b.user).map(b=>b.name+'@'+b.at),showStep:P.res.steps.flatMap(s=>s.blocks||[]).filter(b=>b.user).map(b=>b.name+(b.missed?' missed':'')),
  steps:P.res.steps.filter(s=>s.k==='ride').map(s=>s.rid),ll:G.LL.passes.map(p=>p.rid+':'+p.start+':'+p.st),mp:G.LL.mp,segs:(G.segs||[]).map(s=>s.k),seg:G.seg,node:WDW.NODES[G.node]&&WDW.NODES[G.node].id,date:G.date,real:G.real,trip:G.trip&&G.trip.rid}});
