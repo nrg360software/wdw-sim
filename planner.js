@@ -71,7 +71,9 @@ function dpTimed(ctx,N,blocks,force,only){for(let i=0;i<ctx.timed.length;i++){co
       const st=Math.max(a,go),late=Math.max(0,Math.round(a-go));blocks.push({id:b.id,name:b.name,meal:false,at:b.at,walk:Math.round(w),dur:Math.round(b.at+b.show-st),start:st,end:b.at+b.show,show:true,user:1,meet:b.meet,node:b.node,late});
       N.t=b.at+b.show;N.nw=null;N.sw=i;if(late)N.pen=(N.pen||0)+2*late;continue}
     const a=N.t+(b.walk||0);
-    if(!force&&a<b.at-25)continue;const st=Math.max(a,b.at-15);blocks.push({id:b.id,name:b.name,meal:true,at:b.at,walk:b.walk||0,dur:b.dur,start:st,end:st+b.dur,tp:b.tp,late:Math.max(0,Math.round(a-b.at))});
+    if(!force&&a<b.at-25)continue;const st=Math.max(a,b.at-15),late=Math.max(0,Math.round(a-b.at));blocks.push({id:b.id,name:b.name,meal:true,at:b.at,walk:b.walk||0,dur:b.dur,start:st,end:st+b.dur,tp:b.tp,late});
+    // a dining reservation is a commitment (a no-show is charged): late costs 2/min, 15+ min late counts like a missed show
+    if(late){N.pen=(N.pen||0)+2*late;if(late>15){N.mm=(N.mm||0)+1;N.pen+=150}}
     N.t=st+b.dur;N.tb=(N.tb||0)|(1<<i);N.nw=null;N.sw=null;N.lunch=true}}
 // shows with showtimes: the first showtime reachable at least min(pre,10) min early; none left = missed
 function dpBlocks(ctx,key,t){const out=[];let next=null;for(const b of ctx.blkAfter[key]||[]){const a=t+(b.walk||0);next=b.walkNext!=null?b.walkNext:null;
@@ -97,10 +99,14 @@ function dpBook(ctx,S,t,pool){const L=S.ll,out=[];if(!L.mp)return out;let ord=ct
     if(!best)break;L.held=L.held.concat([{rid:best.r.id,start:best.ret,end:best.ret+E.LL_WIN,type:'mp'}]);L.booked=Object.assign({},L.booked,{[best.r.id]:1});out.push({rid:best.r.id,ret:best.ret,at:t})}
   return out}
 // a ride that would make you miss a held show (row 54): also try going to the show first (from S, if you can still make it), then the ride
-function dpExpand(ctx,S,r,useLL,pool){const N=dpExpand0(ctx,S,r,useLL,pool);if(!N||!ctx.sd||(N.ms||0)<=(S.ms||0))return N;
-  let S2=null;for(let i=0;i<ctx.timed.length;i++){const b=ctx.timed[i];if(!b.user||(S.tb||0)&(1<<i)||!((N.tb||0)&(1<<i)))continue;if(S.t+dpShowWalk(ctx,S,i)>b.at+5)continue;
+// a step that would miss a held show or make a dining reservation 15+ min late: also try taking that block first (walk there and
+// wait for its time), e.g. lunch at 1:30 between a pass at 12:25 and one at 2:00 instead of after both
+const dpMiss=X=>(X.ms||0)+(X.mm||0);
+function dpExpand(ctx,S,r,useLL,pool){const N=dpExpand0(ctx,S,r,useLL,pool);if(!N||!ctx.timed.length||dpMiss(N)<=dpMiss(S))return N;
+  let S2=null;for(let i=0;i<ctx.timed.length;i++){const b=ctx.timed[i];if((S.tb||0)&(1<<i)||!((N.tb||0)&(1<<i)))continue;
+    if(b.user){if(S.t+dpShowWalk(ctx,S,i)>b.at+5)continue}else if(!b.meal||S.t+(b.walk||0)>b.at+15)continue;
     if(!S2)S2=Object.assign({},S,{step:Object.assign({},S.step,{blocks:(S.step&&S.step.blocks||[]).slice()})});dpTimed(ctx,S2,S2.step.blocks,true,i)}
-  if(!S2)return N;const N2=dpExpand0(ctx,S2,r,useLL,pool);return N2&&(N2.ms||0)<(N.ms||0)?N2:N}
+  if(!S2)return N;const N2=dpExpand0(ctx,S2,r,useLL,pool);return N2&&dpMiss(N2)<dpMiss(N)?N2:N}
 function dpExpand0(ctx,S,r,useLL,pool){
   if(S.done&ctx.bit[r.id])return null;const P=ctx.pace,str0=S.str||0;let rest=0;
   if(P&&P.rest&&!useLL&&str0>=P.cap*P.rf){const a0=S.t+dpTravel(ctx,S,r);if(isFinite(a0)&&a0>=E.accessOpen(r.pk)&&dpWait(r,a0+P.rest)>=DP_LONG)rest=P.rest}
@@ -131,7 +137,7 @@ function dpExpand0(ctx,S,r,useLL,pool){
   for(const p of wasted){const pr=E.RIDE_BY[p.rid];pen+=DP_WASTE+Math.max(0,dpWait(pr,Math.min(p.start+30,E.PARKS[pr.pk].close*60-1))-DP_LLQ)}
   if(!ctx.passOnly[r.id])pen+=0.04*(end-ctx.t0); // tie-break: must-dos done earlier (stops a pinned pass window from making idle mornings look free)
   if(how==='standby'||how==='rope')pen+=0.03*wait; // tie-break: among orders that end at the same time (e.g. pinned by a later pass window), less time in line
-  const N={t:end,at:r.id,done:S.done|ctx.bit[r.id],ll,lunch:S.lunch,n:S.n+(ctx.passOnly[r.id]?0.01:1),par:S,step:null,tb:S.tb||0,ms:S.ms||0,str,pen};
+  const N={t:end,at:r.id,done:S.done|ctx.bit[r.id],ll,lunch:S.lunch,n:S.n+(ctx.passOnly[r.id]?0.01:1),par:S,step:null,tb:S.tb||0,ms:S.ms||0,mm:S.mm||0,str,pen};
   const step={k:'ride',rid:r.id,how,leave:S.t+rest,rest,str:Math.round(str),fav:ctx.fav===r.id&&q0>=ctx.eve-10,arr,q0,wait:Math.round(wait),end,books:[],meal:null,must:ctx.must.includes(r.id)&&!ctx.passOnly[r.id],pass:!!ctx.passOnly[r.id],win:tap?tap.start:null,late:tap&&arr>tap.end?Math.round(arr-tap.end):0,tp:ctx.tp[r.id],blocks:[],down:Math.round(down)};
   const pl=pool?pool(N):dpRem(ctx,N);
   step.books=dpBook(ctx,N,tap&&tap.type==='mp'?q0:end,pl);
@@ -159,7 +165,7 @@ function dpBeam(ctx,root,W){let beam=[root],best=root;
 // after the must-dos: keep adding the best fun-per-hour ride (no repeats) until the park closes
 function dpExtras(ctx,S,until,hold){const val=r=>4+r.thrill*1.6+r.base/12;const pool=N=>ctx.park.filter(r=>!(N.done&ctx.bit[r.id])).map(r=>r.id);
   for(let g=0;g<30;g++){let best=null,bs=-1;
-    for(const r of ctx.park){if(S.done&ctx.bit[r.id]||r.id===hold)continue;for(const u of r.ll?[false,true]:[false]){const N=dpExpand(ctx,S,r,u,pool);if(!N||(until!=null&&N.t>until)||(N.ms||0)>(S.ms||0))continue;const sc=val(r)/(N.t-S.t+15+Math.max(0,(N.pen||0)-(S.pen||0)))*60;if(sc>bs){bs=sc;best=N}}}
+    for(const r of ctx.park){if(S.done&ctx.bit[r.id]||r.id===hold)continue;for(const u of r.ll?[false,true]:[false]){const N=dpExpand(ctx,S,r,u,pool);if(!N||(until!=null&&N.t>until)||dpMiss(N)>dpMiss(S))continue;const sc=val(r)/(N.t-S.t+15+Math.max(0,(N.pen||0)-(S.pen||0)))*60;if(sc>bs){bs=sc;best=N}}}
     if(!best)break;best.step.extra=true;S=best}
   return S}
 // Fill idle gaps inside the plan (e.g. an hour before a Lightning Lane window): try short standby rides from the state before

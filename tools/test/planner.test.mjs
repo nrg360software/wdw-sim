@@ -126,3 +126,16 @@ test('a held show the plan cannot reach is marked missed but keeps where it is (
   assert.ok(!held(res).missed);
   assert.ok(held(res2).missed, 'should be missed'); assert.equal(held(res2).node, 'TP:d');
 });
+
+test('a dining reservation between two pass windows is kept on time, and both passes still fit (Nov 22 DAK day)', () => {
+  // done with the morning at 12:52; lunch booked 1:30; passes for a (2:00–3:00) and b (2:30–3:30); plan ends 3:30
+  const L = env.llFresh(); L.mp = 'TP';
+  L.passes.push({ id: 'p1', rid: 'a', type: 'mp', start: 840, end: 900, st: 'active', pre: true }, { id: 'p2', rid: 'b', type: 'sp', start: 870, end: 930, st: 'active', pre: true });
+  const meal = { id: 'm1', name: 'Lunch spot', walk: 2, dur: 45, at: 810, meal: true };
+  const res = P.dpRunDay(base({ must: ['a'], ll: 'mine', t: 772, L, end: 930, pace: 'bal', blocks: [meal] }));
+  const m = res.steps.flatMap(s => s.blocks || []).find(b => b.meal);
+  assert.ok(m, 'lunch not planned'); assert.ok(m.late <= 15, `lunch ${m.late} min late`);
+  assert.equal(res.nDone, 1, 'a dropped: ' + JSON.stringify(res.missed));
+  assert.ok(rides(res).some(s => s.rid === 'b'), 'b (pass only) dropped');
+  for (const s of rides(res)) assert.ok(s.end <= m.start + 1e-6 || s.q0 >= m.end - 1e-6, `${s.rid} (${s.q0}–${s.end}) overlaps lunch ${m.start}–${m.end}`);
+});

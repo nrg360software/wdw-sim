@@ -3977,9 +3977,10 @@ function openPlan(){
     openSheet(`<div class="sh">${G.plan?'<button class="x" aria-label="Back" style="font-size:15px" data-back>‹</button>':''}<h2>Plan my day</h2><span class="paused">Clock paused</span><button class="x" aria-label="Close">×</button></div><div class="sb">
     <p class="note">Plans the rest of today from where you are (${fmtClock(G.t)}).</p>${dpEditorHTML(S,G.LL,true)}
     <button class="btn pri" id="dpGo" style="width:100%" ${dpAllMust(S).length?'':'disabled'}>Make plan from here</button></div>`);
-    const bk=sheetIn.querySelector('[data-back]');if(bk)bk.onclick=()=>{DPV.edit=false;DPV.S=null;openPlan()};
+    const bk=sheetIn.querySelector('[data-back]');if(bk)bk.onclick=()=>{DPV.edit=false;DPV.S=null;if(PV.on&&planNothingLeft())closeSheet();else openPlan()};
     sheetIn.querySelector('#dpGo').onclick=()=>{try{if(G.plan)G.plan.legI=0;dpMakeGame(S)}catch(e){showErr(e)}DPV.edit=false;DPV.S=null;openPlan()};
     try{dpBindEditor(sheetIn,S,openPlan,true)}catch(e){showErr(e)}return}
+  if(PV.on&&planNothingLeft()){DPV.edit=true;DPV.S=null;openPlan();return}
   if(PV.on){if(!sheet.hidden)closeSheet();pvRefresh(true);const pv=$('#pv'),h=pv.querySelector('#pvPlanH');
     const toTL=pv.scrollTop<40&&h,y=toTL?Math.max(0,h.offsetTop-8):0;try{pv.scrollTo({top:y,behavior:'smooth'})}catch(e){pv.scrollTop=y}
     const f=toTL?h:pv.querySelector('.pvh');if(f){f.classList.remove('flash');void f.offsetWidth;f.classList.add('flash')}return}
@@ -4032,6 +4033,7 @@ function planBind(root,v){const pr=v.pr,s=v.s;try{nowBind(root)}catch(e){showErr
   '#dpClr':()=>{if(DPV.clr){G.plan=null;DPV.clr=false;planDone();toast('Plan cleared')}else{DPV.clr=true;planRefresh();setTimeout(()=>{DPV.clr=false;if(PV.on)pvRefresh(true)},4000)}}})}
 function dpStartBlk(pr){if(G.segs&&!effectiveStart().can){toast('Finish this ride first');return}if(pr.blk.user){const b=showHeldBlock(pr.blk.id)||pr.blk;if(showStartHeld(b)){sayBubble('Showtime!');planDone()}return}const b=pr.blk,dur=Math.max(b.walk+b.dur,b.at?b.at-(b.meal?15:0)+b.dur-G.t:0);G.plan.blkDone[b.id]=1;if(b.meal)G.plan.lunchAt=G.t;G.segs=[{k:'snack',dur:Math.round(dur),el:0,started:false,name:b.name,act:b.meal?'dine':undefined}];G.seg=0;sayBubble(b.meal?'Food!':'Off we go');planDone()}
 function dpTakeLunch(){if(G.segs&&!effectiveStart().can){toast('Finish this ride first');return}G.plan.lunchAt=G.t;G.segs=[{k:'snack',dur:DP_LUNCH,el:0,started:false,act:'dine',name:'Lunch'}];G.seg=0;sayBubble('Lunch!');planDone()}
+function planNothingLeft(){const P=G.plan;if(!P)return false;const pr=dpProgress();return !pr.step&&!pr.blk&&!pr.meal&&!(G.segs&&G.segs.length)}
 function planDone(){if(PV.on)pvRefresh(true);else closeSheet()}
 function planRefresh(){if(PV.on)pvRefresh(true);else openPlan()}
 
@@ -4194,9 +4196,12 @@ function nowInLine(q){return !!(q&&q.started&&(q.tap||!G.real))}
 const nowHM=t=>fmtClock(t).replace(/ [AP]M/,'');
 // what the main button confirms next: boarding a bus / boat / monorail (the sim holds at the stop), getting in line, off the ride
 function nowTarget(){const segs=G.segs;if(!segs)return null;const s=segs[G.seg];if(!s||s.k==='snack')return null;const st=tripSteps(segs),c=stepCur(st);if(c<0)return null;
+  const show=segs[segs.length-1].k==='snack';
   if(s.k==='onride'||(s.k==='queue'&&nowInLine(s)))return{j:st.length,label:'Off the ride',k:'rode'};
   if(s.k==='queue')return{j:c,label:"I'm in line",k:'line'};
   for(let j=c+1;j<st.length;j++){const x=st[j];if(x.k==='transit'&&st[j-1].k==='twait')return{j,label:"I'm on the "+MODE[segs[x.i0].line.mode].toLowerCase(),k:'board'};if(x.k==='queue')return{j,label:"I'm in line",k:'line'}}
+  // a held show or meet trip (row 54) ends in the show itself
+  if(show)return{j:st.length-1,label:"I'm there",k:'there'};
   return{j:st.length,label:'Off the ride',k:'rode'}}
 // you reached step j (st.length = off the ride): earlier steps are done now; the line starts at the tap
 function nowTap(j){const segs=G.segs;if(!segs)return;const st=tripSteps(segs),c=stepCur(st);if(c<0)return;
@@ -4241,6 +4246,10 @@ function nowModel(v){if(!G.started||G.over)return null;const R=G.real,segs=G.seg
     m.sub=R&&A?`Started ${fmtClock(s.t0!=null?s.t0:G.t)} · ${fmtDur(s.el)} so far`:`${fmtDur(Math.max(0,s.dur-s.el))} left`;
     if(R&&A&&s.hold)m.nudge='Taking longer than planned. The plan waits for your tap.';
     if(R&&A)m.btn={k:'actdone',label:'✓ '+A.done,cls:'pri'};m.foot=nowThen();return m}
+  if(segs&&s&&!segs[segs.length-1].ride){const last=segs[segs.length-1],st=tripSteps(segs),c=stepCur(st),t=nowTarget();let left=0;for(let j=Math.max(0,c);j<st.length-1;j++)left+=st[j].est;
+    // a held show or meet (row 54): walk there, then it starts
+    m.tag='Next';m.big=`Head to ${last.name||(NODES[G.tripEnd]&&NODES[G.tripEnd].label)||'next stop'}`;m.sub=`~${fmtDur(Math.max(1,left))} to get there`;
+    if(R&&t)m.btn={k:'tap',tk:t.k,j:t.j,label:t.label,cls:'pri'};m.foot=nowLastDone();return m}
   if(segs&&s){const r=segs[segs.length-1].ride;if(!r)return m;const q=nowQ(),t=nowTarget(),inQ=s.k==='queue'&&nowInLine(s),onR=s.k==='onride',how=nowHow(q);
     if(onR){m.big=`Riding ${r.short}`;m.sub=`${how} · about ${fmtDur(Math.max(1,(s.dur||0)-(s.el||0)))} left`}
     else if(inQ){const est=s.base!=null?s.base:s.dur;m.big=`In line · ${r.short}`;m.sub=`${how} · ${fmtDur(s.el)} so far · est. ${fmtDur(est)}`;if(R&&(s.hold||s.el>est+3))m.nudge='Taking longer than expected. The plan waits for your tap.'}
@@ -4261,19 +4270,19 @@ function nowModel(v){if(!G.started||G.over)return null;const R=G.real,segs=G.seg
     m.sub=x.hp?`First there: ${r.short} · leave ${fmtClock(x.hop.leave)}`:`${how}${eta!=null?' · '+fmtDur(eta)+' to get there':''}${x.late<-2&&x.early==null?' · leave by '+fmtClock(x.s.leave):''}`;
     m.btn=x.early!=null?{k:'wait',label:`Leave by ${fmtClock(x.early)}`,cls:'ll',dis:1}:x.busyNow?{k:'wait',label:'Finish this first',cls:'',dis:1}:{k:'go',label:x.hp?`Go · hop to ${PARKS[x.hop.to].short}`:`Go · ${x.canLL?'⚡ ':''}${r.short}`,cls:x.canLL?'ll':'pri'};
     if(rideState(r,G.t)==='down')m.nudge=`${r.short} is down right now. Wait it out or replan.`;else if(x.late>10&&!x.hp)m.nudge=`About ${fmtDur(x.late)} behind plan.`}
-  else{m.big=G.plan.res.nMust?'All planned rides done':'Nothing planned yet';m.sub='Replan to fill the rest of the day.';m.btn={k:'replan',label:'Replan from here',cls:'pri'}}
+  else{m.big=G.plan.res.nMust?'All planned rides done':'Nothing left in your plan';m.sub='Add must-dos and the sim plans the rest of today from here.';m.btn={k:'more',label:'＋ Add must-dos',cls:'pri'}}
   return m}
 function nowBarHTML(m){if(!m)return '';
   return `<div class="ncard" id="ncard"><div class="nct">${m.tag}</div><div class="ncb">${m.big}</div>${m.sub?`<div class="ncs">${m.sub}</div>`:''}${m.nudge?`<div class="ncn">${m.nudge}</div>`:''}${m.btn?`<button class="btn ${m.btn.cls} ncgo" data-nc="${m.btn.k}" ${m.btn.dis?'disabled':''}>${m.btn.label}</button>`:''}<div class="ncf">${m.fix?'<button class="ncfix" data-nc="fix" type="button">Fix steps</button>':'<span></span>'}<span class="ncft">${m.foot||''}</span></div></div>`}
 function nowBarBind(root){bindAll(root,{'[data-nc]':b=>{const k=b.dataset.nc,m=NOWC.m;
-  if(k==='fix'){openFix();return}if(k==='make'){DPV.edit=false;DPV.S=null;openPlan();return}
+  if(k==='fix'){openFix();return}if(k==='make'){DPV.edit=false;DPV.S=null;openPlan();return}if(k==='more'){DPV.edit=true;DPV.S=null;openPlan();return}
   if(k==='actdone'){actDone();stepsRefresh();return}if(k==='blk'){dpStartBlk(dpProgress());return}if(k==='lunch'){dpTakeLunch();return}
   if(k==='replan'){autoReplan([{k:'manual',text:'You replanned'}],true);toast('Plan updated from here');planRefresh();return}
   if(k==='go'){const x=NOWC.v&&NOWC.v.nx;if(x)go(x.r,!!x.canLL);stepsRefresh();return}
   if(k==='tap'){const t=nowTarget();
     // only do what the button said: if the day moved on since it was drawn, just redraw
-    if(!t||!m||!m.btn||t.k!==m.btn.tk||t.j!==m.btn.j){stepsRefresh();return}const r=G.segs[G.segs.length-1].ride;
-    nowDo(t.k==='rode'?`✓ Rode ${r.short}`:t.k==='line'?`✓ In line · ${r.short}`:'✓ '+t.label.replace(/^I'm /,''),()=>nowTap(t.j))}}})}
+    if(!t||!m||!m.btn||t.k!==m.btn.tk||t.j!==m.btn.j){stepsRefresh();return}const r=G.segs[G.segs.length-1].ride||{short:''};
+    nowDo(t.k==='there'?'✓ You\'re there':t.k==='rode'?`✓ Rode ${r.short}`:t.k==='line'?`✓ In line · ${r.short}`:'✓ '+t.label.replace(/^I'm /,''),()=>nowTap(t.j))}}})}
 function nowBarRender(v){const el=$('#pvNow');if(!el)return;NOWC.v=v;NOWC.m=nowModel(v);el.innerHTML=nowBarHTML(NOWC.m);nowBarBind(el)}
 // ---- Fix steps: "Where are you now?" for the current trip
 function fixGuess(){const segs=G.segs,r=segs[segs.length-1].ride,q=nowQ(),start=G.trip?G.trip.start:G.t;
