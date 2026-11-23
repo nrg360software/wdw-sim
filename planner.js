@@ -67,7 +67,7 @@ function dpShowWalk(ctx,N,i){const b=ctx.timed[i],sd=ctx.sd&&ctx.sd[i],k=(1+0.4*
   return b.walk||10}
 function dpTimed(ctx,N,blocks,force,only){for(let i=0;i<ctx.timed.length;i++){const b=ctx.timed[i];if(N.tb&(1<<i)||(only!=null&&i!==only))continue;
     if(b.user){const w=dpShowWalk(ctx,N,i),a=N.t+w,go=b.at-(b.pre||0);if(!force&&a<go-20)continue;N.tb=(N.tb||0)|(1<<i);
-      if(a>b.at+5){blocks.push({id:b.id,name:b.name,meal:false,at:b.at,walk:Math.round(w),dur:0,start:a,end:a,show:true,user:1,meet:b.meet,missed:true});N.ms=(N.ms||0)+1;N.pen=(N.pen||0)+150;continue}
+      if(a>b.at+5){blocks.push({id:b.id,name:b.name,meal:false,at:b.at,walk:Math.round(w),dur:0,start:a,end:a,show:true,user:1,meet:b.meet,node:b.node,missed:true});N.ms=(N.ms||0)+1;N.pen=(N.pen||0)+150;continue}
       const st=Math.max(a,go),late=Math.max(0,Math.round(a-go));blocks.push({id:b.id,name:b.name,meal:false,at:b.at,walk:Math.round(w),dur:Math.round(b.at+b.show-st),start:st,end:b.at+b.show,show:true,user:1,meet:b.meet,node:b.node,late});
       N.t=b.at+b.show;N.nw=null;N.sw=i;if(late)N.pen=(N.pen||0)+2*late;continue}
     const a=N.t+(b.walk||0);

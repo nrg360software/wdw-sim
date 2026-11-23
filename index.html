@@ -334,7 +334,7 @@ setTimeout(function(){if(!window.WDW&&!document.getElementById('oldPhone')){var 
 <script type="module">
 import * as THREE0 from 'three';
 // day planner engine (row 67). Bump ?v= whenever planner.js changes so phones don't pair a new index.html with a cached planner.js.
-import {plannerInit,DP_KEY,DP_LLQ,DP_LUNCH,DP_GRACE,DP_LATE_PEN,DP_WASTE,DP_IDLE_PEN,DP_LONG,DP_PACE,DP_PACE_NAME,DP_TM,dpMatrix,dpWait,dpParkEnd,dpLLFrom,dpCtx,dpRoot,dpShowWalk,dpTimed,dpBlocks,dpRem,dpTravel,dpRet,dpBook,dpExpand,dpExpand0,dpH,dpCost,dpBetter,dpBeam,dpExtras,dpReplay,dpFillGaps,dpSteps,dpSaveFav,dpPack,dpPaceStats,dpScore,dpSuggest,dpRun,DP_HOP_MAX,dpLegs,dpAllMust,dpGateNode,dpHopTravel,dpLastNode,dpParksLabel,dpHopBefore,dpRunDay,dpWhy} from './planner.js?v=67a';
+import {plannerInit,DP_KEY,DP_LLQ,DP_LUNCH,DP_GRACE,DP_LATE_PEN,DP_WASTE,DP_IDLE_PEN,DP_LONG,DP_PACE,DP_PACE_NAME,DP_TM,dpMatrix,dpWait,dpParkEnd,dpLLFrom,dpCtx,dpRoot,dpShowWalk,dpTimed,dpBlocks,dpRem,dpTravel,dpRet,dpBook,dpExpand,dpExpand0,dpH,dpCost,dpBetter,dpBeam,dpExtras,dpReplay,dpFillGaps,dpSteps,dpSaveFav,dpPack,dpPaceStats,dpScore,dpSuggest,dpRun,DP_HOP_MAX,dpLegs,dpAllMust,dpGateNode,dpHopTravel,dpLastNode,dpParksLabel,dpHopBefore,dpRunDay,dpWhy} from './planner.js?v=67d';
 import {MapControls} from 'three/addons/controls/MapControls.js';
 import {EffectComposer} from 'three/addons/postprocessing/EffectComposer.js';
 import {RenderPass} from 'three/addons/postprocessing/RenderPass.js';
@@ -350,7 +350,7 @@ const WALK_PARK=26, WALK_OUT=20; // world units per park minute
 // Every error is kept (last 20) with what was tapped just before; the red box shows the latest one with a count and a
 // "Copy debug info" button. Stalls (no frame for 2.5 s+ while visible) are logged with the last tap. A heartbeat in
 // localStorage lets the next load tell that the page froze after a tap (iOS kills a hung page without pagehide).
-const BUILD='2026-11-22 row67c';
+const BUILD='2026-11-22 row67d';
 const DBG={err:[],tap:[],stall:[],prev:null,box:null,n:0,hbT:0,frameT:0,visT:0};
 function dbgClock(t){try{return new Date(t).toLocaleTimeString([],{hour:'numeric',minute:'2-digit',second:'2-digit'})}catch(e){return String(t)}}
 function dbgLabel(el){const b=el&&el.closest&&el.closest('button,a,summary,[data-must],[data-sha],[data-shx],.chip,.pvc');if(!b)return null;
@@ -870,6 +870,29 @@ function showAddGame(it,pk,T){const P=G.plan;if(!P){toast('Make a day plan first
   toast(got&&got.missed?`⚠ ${b.name} ${fmtClock(T)} doesn't fit around your plan`:`🎭 ${b.name} ${fmtClock(T)} is in your plan${note?' · '+note.text.split(' → ')[1]:''}`);runDirty()}
 function showRemoveGame(it){const P=G.plan;if(!P)return;const L=[P.settings].concat(P.settings.legs||[]);for(const l of L)l.blocks=(l.blocks||[]).filter(b=>!(b.user&&b.sid===it.id));
   autoReplan([{k:'sync',text:`You removed ${showMeta(liveNorm(it.n)).sh||it.n}`}],true);toast('Removed from your plan');runDirty()}
+// ---- held shows during the day (Nick, Nov 22): a leave-by warning for every held show; Start always walks you there,
+// however far; once a show's time passes without you, hold that show's next time today, or drop it if there's none.
+let showClock=0;
+function showHeldAll(){const P=G.plan,out=[];if(!P)return out;for(const l of [P.settings].concat(P.settings.legs||[]))for(const b of l.blocks||[])if(b.user)out.push({b,l});return out}
+function showHeldBlock(id){const x=showHeldAll().find(x=>x.b.id===id);return x?x.b:null}
+function showHeadingTo(b){const s=G.segs&&G.segs[G.segs.length-1];return !!(s&&s.k==='snack'&&s.act==='show'&&s.name===b.name)}
+function showItemOf(b){const S=showsFor(b.pk,G.date);return S&&S.items?S.items.find(i=>i.id===b.sid)||null:null}
+function showStartHeld(b){if(!b.node){toast('No map spot for '+b.name+' yet');return false}
+  if(!showGoSegs(b.node,b.name,Math.max(10,b.at+(b.show||0)-G.t)))return false;G.plan.blkDone=G.plan.blkDone||{};G.plan.blkDone[b.id]=1;return true}
+function showToast(b,text){const el=document.createElement('div');el.className='toast ll';el.innerHTML=`<span>${text}</span>`;
+  el.onclick=()=>{try{if(G.started&&!G.over&&!showHeadingTo(b)&&(!G.segs||effectiveStart().can)&&showStartHeld(b)){el.remove();sayBubble('Showtime!')}else openPlan()}catch(e){showErr(e)}};
+  const box=$('#toasts');box.appendChild(el);while(box.children.length>3)box.firstChild.remove();setTimeout(()=>el.remove(),9000);
+  if(G.speed>1){const sb=$('#speedSeg [data-s="1"]');if(sb)sb.click()}}
+function showTick(dt){showClock-=dt;if(showClock>0||!G.plan||G.over)return;showClock=1;const P=G.plan,t=G.t;P.showRem=P.showRem||{};let D=null;
+  for(const {b,l} of showHeldAll()){if((P.blkDone&&P.blkDone[b.id])||showHeadingTo(b)||t<b.at-(b.pre||0)-150)continue;
+    if(!D)D=dijkstra(effectiveStart().node,t/60);const walk=(b.node&&NI[b.node]!=null&&isFinite(D.dist[NI[b.node]])?D.dist[NI[b.node]]:10)+(b.extra||0);
+    if(t>b.at+5){const it=showItemOf(b),next=it?showSlots(it,t+walk+(b.pre||0)).find(x=>x>b.at):null;l.blocks=l.blocks.filter(x=>x!==b);
+      if(next!=null){const nb=showBlock(it,b.pk,next);l.blocks.push(nb);autoReplan([{k:'sync',text:`Missed ${b.name} ${fmtClock(b.at)} · holding ${fmtClock(next)}`}],true);toast(`🎭 Missed ${b.name} at ${fmtClock(b.at)} · moved to ${fmtClock(next)}`)}
+      else{autoReplan([{k:'sync',text:`${b.name} ${fmtClock(b.at)} passed · dropped (no later time today)`}],true);toast(`🎭 ${b.name} at ${fmtClock(b.at)} has passed · dropped from your plan`)}
+      runDirty();if(PV.on)pvRefresh(true);return}
+    const leave=b.at-(b.pre||0)-walk;
+    if(t>=leave-10&&!P.showRem['go'+b.id]){P.showRem['go'+b.id]=1;const late=Math.round(t-leave);
+      showToast(b,late>0?`🎭 Leave now for ${b.name} · ${b.meet?'line up':'starts'} ${fmtClock(b.at)} · ${fmtDur(walk)} walk, about ${fmtDur(late)} late · tap to go`:`🎭 Time to head to ${b.name} · ${b.meet?'line up':'starts'} ${fmtClock(b.at)} · leave by ${fmtClock(leave)} (${fmtDur(walk)} walk) · tap to go`)}}}
 // walk to the show and hold there until it ends (meets: until the line and greeting are done)
 function showGoSegs(node,name,hold){const st=effectiveStart();if(!st.can){toast('Finish this ride first');return false}const D=dijkstra(st.node,G.t/60),tgt=NI[node];if(tgt==null||!isFinite(D.dist[tgt])){toast('No walking route there from here');return false}
   const segs=buildSegs({st,edges:pathEdges(D,tgt)},{dur:0},false);segs.splice(-2);const walk=D.dist[tgt];
@@ -3271,7 +3294,7 @@ function periodic(dt){qTimer-=dt;downTimer-=dt;
   autoTimer-=dt;if(autoTimer<=0){autoTimer=2;autoCheck('tick')}
   if(downTimer<=0&&!G.real){downTimer=10;for(const r of RIDES){if(rideState(r,G.t)==='open'&&Math.random()<(r.thrill>=6?0.018:0.008)){r.downUntil=G.t+rnd(15,55)}}}
   if(qTimer<=0){qTimer=3;rebuildQueues();refreshPins()}
-  llTick(dt);
+  llTick(dt);showTick(dt);
   const closeAll=lastClose();if(G.t>=closeAll&&!G.over)endDay()}
 function waitClass(w){return w<=20?'g':w<=40?'m':w<=65?'o':'b'}
 const WCOL={g:0x4fd18d,m:0xe6d35b,o:0xf6a347,b:0xf2665f,x:0x6b7489};
@@ -3977,7 +4000,7 @@ function planBind(root,v){const pr=v.pr,s=v.s;try{nowBind(root)}catch(e){showErr
   bindAll(root,{'#dpPush':()=>openPush(),'#dpShows':()=>openShows(G.plan&&dpLegs(G.plan.settings)[G.plan.legI||0]?dpLegs(G.plan.settings)[G.plan.legI||0].pk:currentPark()),
   '#dpAuto':()=>{AUTO.on=!AUTO.on;try{localStorage.setItem('wdwsim.auto',AUTO.on?'1':'0')}catch(e){}planRefresh();if(AUTO.on)autoCheck('toggle')},
   '#dpNext':()=>{const r=RIDE_BY[s.rid],wantLL=s.how!=='rope'&&s.how!=='standby';go(r,wantLL&&!!llUse(r))},
-  '#dpBlk':()=>{if(G.segs&&!effectiveStart().can){toast('Finish this ride first');return}if(pr.blk.user&&pr.blk.node){const b=pr.blk;if(showGoSegs(b.node,b.name,Math.max(10,b.end-G.t))){G.plan.blkDone[b.id]=1;sayBubble('Showtime!');planDone()}return}const b=pr.blk,dur=Math.max(b.walk+b.dur,b.at?b.at-(b.meal?15:0)+b.dur-G.t:0);G.plan.blkDone[b.id]=1;if(b.meal)G.plan.lunchAt=G.t;G.segs=[{k:'snack',dur:Math.round(dur),el:0,started:false,name:b.name,act:b.meal?'dine':undefined}];G.seg=0;sayBubble(b.meal?'Food!':'Off we go');planDone()},
+  '#dpBlk':()=>{if(G.segs&&!effectiveStart().can){toast('Finish this ride first');return}if(pr.blk.user){const b=showHeldBlock(pr.blk.id)||pr.blk;if(showStartHeld(b)){sayBubble('Showtime!');planDone()}return}const b=pr.blk,dur=Math.max(b.walk+b.dur,b.at?b.at-(b.meal?15:0)+b.dur-G.t:0);G.plan.blkDone[b.id]=1;if(b.meal)G.plan.lunchAt=G.t;G.segs=[{k:'snack',dur:Math.round(dur),el:0,started:false,name:b.name,act:b.meal?'dine':undefined}];G.seg=0;sayBubble(b.meal?'Food!':'Off we go');planDone()},
   '#dpLunch':()=>{if(G.segs&&!effectiveStart().can){toast('Finish this ride first');return}G.plan.lunchAt=G.t;G.segs=[{k:'snack',dur:DP_LUNCH,el:0,started:false,act:'dine',name:'Lunch'}];G.seg=0;sayBubble('Lunch!');planDone()},
   '[data-bk]':b=>{const r=RIDE_BY[b.dataset.bk];if(G.real){openLLEnter(r);return}const res=llBook(r,G.t);toast(res.ok?`Booked ${r.short} · ${fmtClock(res.p.start)}–${fmtClock(res.p.end)}`:res.why);planRefresh()},
   '#dpRe':()=>{autoReplan([{k:'manual',text:'You replanned'}],true);toast('Plan updated from here');planRefresh()},
@@ -4667,7 +4690,7 @@ function tick(now){const pv=PV.on;if(pv&&(G.real||!G.started||G.over)&&now-PV.ti
     camStep(now);controls.update();skyDome.position.copy(camera.position);renderFrame();updateLabels()}
   if(G.started){updateHUD();runTick();try{pushTick()}catch(e){}try{confTick()}catch(e){}if(pv)pvRefresh(false)}
 }
-window.WDW={DBG,dbgText,bindAll,PIN,pinPage,setView:v=>setView(v),openSteps:()=>openSteps(),openDoing:()=>openDoing(),testReset:()=>{DPV={edit:false};closeSheet()},dpvEdit:()=>{DPV.edit=true;DPV.S=null},SHOWS,showIngest,showsFor,showEventsReal,openShows,showBlock,showNode,showRideTimes,showPoll,showAddGame,showGo,PUSH,pushPlan,pushSync,openPush,pushSupport,pushDataText,pushDataImport,llOdds,llObs,llObsAdd,llCalFor,CONF,confRun,confOpts,confCompare,confCardHTML,openLLEnter,endDay,resBuild,resHTML,resShow,resLoad,resLatest,RUN,runSave,runLoad,runClear,runResume,runState,runBox,runFind,AUTO,RT,autoCheck,autoReasons,autoReplan,autoDiff,rtRodeIt,rtAt,rtNow,openWhere,dpGameOpts,camera,controls,RF,rfCompact,rfStore,rfLoad,rfResid,rfCalibrate,rfEstimate,rfBacktest,rfUpdateToday,rfApplyDay,rfMul,rfCal,openRF,rfAfterUpdate,rfNoteUpdate,rfTick,rfBannerHTML,liveMatch,stRun,stHTML,stCalib,stModelDay,dpParseTP,dpApplyImport,scene,setGfx,LIGHT,sunDir,fwShows,fwSim:(n,dt)=>{for(let i=0;i<n;i++)updateFireworks(dt)},holdTime:t=>{G.holdT=t==null?null:t*60;if(t!=null)G.t=t*60},dpRun,dpRunDay,dpLegs,dpAllMust,getDPS:()=>DPS,dpStartOpts:S=>dpStartOpts(S),dpMakeGame,dpProgress,dpLoad,dpSave,openPlan,openDaySetup,prepDay,llFromPlan,llFresh,llBook,llNext,llRecs,llUse,llHeld,llTick,llPlanErrors,llSuggest,llLoadPlan,openLL,openRides,openPicks,LIVE,liveIngest,liveFor,curveAt,orlandoNow,livePoll,G,go,flyTo,setFollow,RIDE_BY,PARKS,camera,controls,openRide,closeSheet,rawWait,waitAt,dayFactor,holiday,hoursFor,applyHours,accessOpen,lastClose,renderer,dijkstra,NI,NODES,RESORTS,RIDES,LINES};
+window.WDW={DBG,dbgText,bindAll,PIN,pinPage,showTick:()=>{showClock=0;showTick(1)},showHeldAll,setView:v=>setView(v),openSteps:()=>openSteps(),openDoing:()=>openDoing(),testReset:()=>{DPV={edit:false};closeSheet()},dpvEdit:()=>{DPV.edit=true;DPV.S=null},SHOWS,showIngest,showsFor,showEventsReal,openShows,showBlock,showNode,showRideTimes,showPoll,showAddGame,showGo,PUSH,pushPlan,pushSync,openPush,pushSupport,pushDataText,pushDataImport,llOdds,llObs,llObsAdd,llCalFor,CONF,confRun,confOpts,confCompare,confCardHTML,openLLEnter,endDay,resBuild,resHTML,resShow,resLoad,resLatest,RUN,runSave,runLoad,runClear,runResume,runState,runBox,runFind,AUTO,RT,autoCheck,autoReasons,autoReplan,autoDiff,rtRodeIt,rtAt,rtNow,openWhere,dpGameOpts,camera,controls,RF,rfCompact,rfStore,rfLoad,rfResid,rfCalibrate,rfEstimate,rfBacktest,rfUpdateToday,rfApplyDay,rfMul,rfCal,openRF,rfAfterUpdate,rfNoteUpdate,rfTick,rfBannerHTML,liveMatch,stRun,stHTML,stCalib,stModelDay,dpParseTP,dpApplyImport,scene,setGfx,LIGHT,sunDir,fwShows,fwSim:(n,dt)=>{for(let i=0;i<n;i++)updateFireworks(dt)},holdTime:t=>{G.holdT=t==null?null:t*60;if(t!=null)G.t=t*60},dpRun,dpRunDay,dpLegs,dpAllMust,getDPS:()=>DPS,dpStartOpts:S=>dpStartOpts(S),dpMakeGame,dpProgress,dpLoad,dpSave,openPlan,openDaySetup,prepDay,llFromPlan,llFresh,llBook,llNext,llRecs,llUse,llHeld,llTick,llPlanErrors,llSuggest,llLoadPlan,openLL,openRides,openPicks,LIVE,liveIngest,liveFor,curveAt,orlandoNow,livePoll,G,go,flyTo,setFollow,RIDE_BY,PARKS,camera,controls,openRide,closeSheet,rawWait,waitAt,dayFactor,holiday,hoursFor,applyHours,accessOpen,lastClose,renderer,dijkstra,NI,NODES,RESORTS,RIDES,LINES};
 requestAnimationFrame(frame);
 })();
 </script>

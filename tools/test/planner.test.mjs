@@ -117,3 +117,12 @@ test('two parks: hops after the first park and does the second park\'s must-dos'
   const e = rides(res).find(s => s.rid === 'e');
   assert.ok(e.arr >= hop.arr - 1e-6, 'rode e before arriving');
 });
+
+test('a held show the plan cannot reach is marked missed but keeps where it is (so Start can still walk there)', () => {
+  const show = { id: 'u2', user: 1, sid: 's2', pk: 'TP', name: 'Far show', at: 545, pre: 0, show: 20, dur: 20, meal: false, node: 'TP:d', meet: 0 };
+  const res = P.dpRun(base({ must: ['b'], t: 540, blocks: [show] })); // 4 min walk, starts in 5 → reachable
+  const res2 = P.dpRun(base({ must: ['b'], t: 540, node: NI['TQ:front'], blocks: [show] })); // other park, 15+ min away → missed
+  const held = r => r.steps.flatMap(s => s.blocks || []).find(b => b.user);
+  assert.ok(!held(res).missed);
+  assert.ok(held(res2).missed, 'should be missed'); assert.equal(held(res2).node, 'TP:d');
+});
