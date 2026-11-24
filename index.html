@@ -239,10 +239,12 @@ body.pvmode #start,body.pvmode #end{background:var(--night)}
 #pvStrip{position:fixed;left:0;right:0;top:var(--topH,76px);z-index:5;padding:4px max(12px,env(safe-area-inset-right,0px)) 0 max(12px,env(safe-area-inset-left,0px));pointer-events:none}
 #pvStrip:empty{display:none}
 /* plan view tabs (row 72): Now · Plan · Waits; Plan = Done (collapsed, actual times) / Now / Later, 🔒 commitments, change log */
-.pvtabs{position:sticky;top:0;z-index:3;display:flex;gap:4px;padding:4px;margin:0 0 8px;background:rgba(14,21,42,.97);border:1px solid var(--line);border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,.3)}
-.pvtabs button{flex:1;min-height:40px;border:0;border-radius:9px;background:none;color:var(--muted);font:inherit;font-size:14px;font-weight:700;position:relative;cursor:pointer}
-.pvtabs button[aria-selected="true"]{background:var(--chip);color:var(--text);box-shadow:inset 0 0 0 1px var(--line)}
-.pvtabs .pvdot{position:absolute;top:8px;right:calc(50% - 24px);width:8px;height:8px;border-radius:50%;background:#5bc0ff}
+.pvt{display:none}
+body.pvmode.pvtabs-on #bRides,body.pvmode.pvtabs-on #bPicks,body.pvmode.pvtabs-on #bBreak{display:none}
+body.pvmode.pvtabs-on .pvt{display:inline-flex;align-items:center;justify-content:center}
+body.pvmode.pvtabs-on #bNow{order:1}body.pvmode.pvtabs-on #bPlan{order:2}body.pvmode.pvtabs-on #bWaits{order:3}body.pvmode.pvtabs-on #bMore{order:4;flex:0 0 52px;font-size:20px}
+body.pvmode.pvtabs-on [data-tab][aria-selected="true"]{background:var(--gold);color:#1a1300;border-color:var(--gold)}
+.morel{display:flex;flex-direction:column;gap:8px;margin:6px 0 4px}.morel .btn{min-height:48px;font-size:16px}
 .lock{border:1px solid rgba(255,201,77,.45);background:rgba(255,201,77,.07);border-radius:12px;padding:8px 10px;margin:8px 0;font-size:13px;line-height:1.55}
 .lock .lkh{font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--gold)}
 .tlx{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.4}.tlx .lk{color:var(--gold);font-weight:700}.tl .pd{opacity:.7}
@@ -272,7 +274,6 @@ body.pvmode #start,body.pvmode #end{background:var(--night)}
 body.pvmode #rtRow{display:none!important}
 /* plan view: toasts sit under the countdown strip so they never cover an Act now banner (row 71) */
 body.pvmode #toasts{top:calc(var(--topH,76px) + var(--stripH,0px) + 8px)}
-body.pvmode.pvtabs-on #toasts{top:calc(var(--topH,76px) + var(--stripH,0px) + 60px)}
 .toast.undo{pointer-events:auto}.toast.undo .btn{padding:4px 12px;margin-left:4px}
 .fxl{display:flex;flex-direction:column;gap:8px;margin:8px 0 12px}
 .fxo{display:flex;align-items:center;gap:10px;text-align:left;background:var(--chip);border:1px solid var(--line);border-radius:12px;padding:12px;font:inherit;font-size:15px;font-weight:600;color:var(--text);min-height:48px;cursor:pointer}
@@ -301,8 +302,11 @@ body.pvmode.pvtabs-on #toasts{top:calc(var(--topH,76px) + var(--stripH,0px) + 60
     <div id="status"><span class="st" id="statusT">Pick a ride to start your day</span><span class="eta" id="statusE"></span></div>
     <div id="prog"><i id="progI"></i></div>
     <div class="row">
+      <button class="btn pvt" id="bNow" data-tab="now">Now</button>
       <button class="btn pri" id="bRides">Rides</button>
-      <button class="btn" id="bPlan">Plan</button>
+      <button class="btn" id="bPlan" data-tab="plan">Plan</button>
+      <button class="btn pvt" id="bWaits" data-tab="waits">Waits</button>
+      <button class="btn pvt" id="bMore" aria-label="More: Rides, Top picks, Eat · shop">⋯</button>
       <button class="btn" id="bPicks">Top picks</button>
       <button class="btn" id="bBreak">Eat · shop</button>
     </div>
@@ -4014,9 +4018,9 @@ function openPlan(){AUTO.unseen=false;planDotUI();
   if(PV.on&&planNothingLeft()){DPV.edit=true;DPV.S=null;openPlan();return}
   // plan view: the Plan tab (row 72); tapping Plan again while at the top scrolls to Now
   if(PV.on){if(!sheet.hidden)closeSheet();const pv=$('#pv'),was=PV.tab;PV.tab='plan';PV.sig='';pvRefresh(true);if(was!=='plan'){pv.scrollTop=0;return}
-    const h=pv.querySelector('#pvPlanH'),tb=pv.querySelector('.pvtabs'),toNow=pv.scrollTop<40&&h&&tb;
-    const y=toNow?Math.max(0,pv.scrollTop+h.getBoundingClientRect().top-tb.getBoundingClientRect().bottom-6):0;try{pv.scrollTo({top:y,behavior:'smooth'})}catch(e){pv.scrollTop=y}
-    const f=toNow?h:pv.querySelector('.pvtabs');if(f){f.classList.remove('flash');void f.offsetWidth;f.classList.add('flash')}return}
+    const h=pv.querySelector('#pvPlanH'),toNow=pv.scrollTop<40&&h;
+    const y=toNow?Math.max(0,pv.scrollTop+h.getBoundingClientRect().top-$('#top').getBoundingClientRect().bottom-($('#pvStrip').offsetHeight||0)-8):0;try{pv.scrollTo({top:y,behavior:'smooth'})}catch(e){pv.scrollTop=y}
+    const f=toNow?h:pv.querySelector('.pvh');if(f){f.classList.remove('flash');void f.offsetWidth;f.classList.add('flash')}return}
   const v=planViewHTML();openSheet(`<div class="sh"><h2>Your day plan · ${dpParksLabel(G.plan.res)}</h2><span class="paused">Clock paused</span><button class="x" aria-label="Close">×</button></div><div class="sb">${v.top}${v.rest}</div>`);planBind(sheetIn,v)}
 // the plan's "what's next" block (top) and timeline (rest); shared by the Plan sheet and the plan-only view (row 56)
 function planViewHTML(){
@@ -4802,7 +4806,7 @@ function setView(v){PV.on=v==='plan';try{localStorage.setItem('wdwsim.view',PV.o
   document.body.classList.toggle('pvmode',PV.on);document.querySelectorAll('#segView button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===(PV.on?'plan':'map')?'true':'false'));
   $('#bView').textContent=PV.on?'🗺 3D map':'☰ List';PV.sig='';pvSync();
   if(PV.on){pvRefresh(true)}else if(G.started&&!G.over){checkSize();setFollow(true);controls.target.set(G.pos[0],0,G.pos[2]);flyTo(G.pos[0],G.pos[2],420,600)}}
-function pvSync(){const want=PV.on&&G.started&&!G.over,el=$('#pv');if(el.hidden===want)el.hidden=!want}
+function pvSync(){const want=PV.on&&G.started&&!G.over,el=$('#pv');if(el.hidden===want)el.hidden=!want;try{pvTabsUI()}catch(e){}}
 function pvCloseEditor(){if(!sheet.hidden&&sheetIn.querySelector('#dpGo'))closeSheet()}
 function pvWaitsHTML(pk){const st=effectiveStart(),D=dijkstra(st.node,G.t/60),plan=new Set();
   if(G.plan){const pr=dpProgress();G.plan.res.steps.forEach((s,i)=>{if(s.rid&&!pr.done[i])plan.add(s.rid)})}
@@ -4866,8 +4870,13 @@ function pvPlanTabHTML(v){const{sum,todo}=pvRows(v);
   ${todo.length>1?`<h3 class="pvsec">Later <small>${todo.length-1} step${todo.length===2?'':'s'}</small></h3>${todo.slice(1).join('')}`:''}${pvChangesHTML()}${v.edit}${v.made}`}
 function pvNowTabHTML(v){const{todo}=pvRows(v),up=todo.slice(1,4);
   return `${pvLLHTML()}${v.head}${up.length?`<h3>Coming up</h3>${up.join('')}`:''}<button class="btn pvmore" data-pvtab="plan">Full plan · done, later, changes ›</button>${v.edit}`}
-function pvTabsHTML(){return `<div class="pvtabs" role="tablist">${[['now','Now'],['plan','Plan'],['waits','Waits']].map(([k,l])=>`<button role="tab" data-pvtab="${k}" aria-selected="${PV.tab===k}">${l}${k==='plan'&&AUTO.unseen?'<i class="pvdot"></i>':''}</button>`).join('')}</div>`}
-function pvTab(k){PV.tab=k;if(k==='plan'){AUTO.unseen=false;planDotUI()}PV.sig='';pvRefresh(true);const pv=$('#pv');pv.scrollTop=0}
+// in the plan view with a plan, the dock's row is the tab bar: Now · Plan · Waits · ⋯ (Rides, Top picks, Eat · shop)
+function pvTabsUI(){const on=!!(PV.on&&G.plan&&G.started&&!G.over),sig=on+PV.tab;if(sig===PV.tabSig)return;PV.tabSig=sig;document.body.classList.toggle('pvtabs-on',on);
+  document.querySelectorAll('#dock [data-tab]').forEach(b=>{if(on){b.setAttribute('role','tab');b.setAttribute('aria-selected',String(PV.tab===b.dataset.tab))}else{b.removeAttribute('role');b.removeAttribute('aria-selected')}})}
+function openMore(){openSheet(`<div class="sh"><h2>More</h2><button class="x" aria-label="Close">×</button></div><div class="sb"><div class="morel">
+  <button class="btn" data-more="bRides">🎢 Rides</button><button class="btn" data-more="bPicks">⭐ Top picks</button><button class="btn" data-more="bBreak" ${$('#bBreak').disabled?'disabled':''}>🍔 Eat · shop</button></div></div>`);
+  bindAll(sheetIn,{'[data-more]':b=>{const id=b.dataset.more;closeSheet();$('#'+id).onclick()}})}
+function pvTab(k){if(!sheet.hidden)closeSheet();PV.tab=k;if(k==='plan'){AUTO.unseen=false;planDotUI()}PV.sig='';pvRefresh(true);const pv=$('#pv');pv.scrollTop=0}
 function pvRefresh(force){try{pvRefresh0(force)}catch(e){PV.sig='';const m=String(e&&e.message||e);if(PV.err!==m){PV.err=m;toast('Plan view hiccup: '+m.slice(0,80));console.error(e)}}}
 function pvRefresh0(force){if(!PV.on||!G.started||G.over)return;const now=performance.now();
   if(!force&&(now-PV.last<2000||now-PV.touch<1500))return;
@@ -4877,14 +4886,15 @@ function pvRefresh0(force){if(!PV.on||!G.started||G.over)return;const now=perfor
     G.LL.passes.map(p=>p.rid+p.st+p.start).join(),LIVE.got,CONF&&CONF.ver,Math.floor(G.t/(G.real?1:5)),DPV.clr,AUTO.on,pk,G.LL.tapped,PV.tab,AUTO.unseen?1:0].join('|');
   PV.last=now;if(!force&&sig===PV.sig)return;PV.sig=sig;
   const el=$('#pvIn'),sc=$('#pv').scrollTop;let html,v=null;
-  if(G.plan){v=planViewHTML();html=`<div class="pvh"><h2>Your plan · ${dpParksLabel(G.plan.res)}</h2><span>${G.real?'● Real time':fmtClock(G.t)}</span></div>${pvTabsHTML()}${PV.tab==='plan'?pvPlanTabHTML(v):PV.tab==='waits'?pvWaitsHTML(pk):pvNowTabHTML(v)}`}
+  if(G.plan){v=planViewHTML();html=`<div class="pvh"><h2>Your plan · ${dpParksLabel(G.plan.res)}</h2><span>${G.real?'● Real time':fmtClock(G.t)}</span></div>${PV.tab==='plan'?pvPlanTabHTML(v):PV.tab==='waits'?pvWaitsHTML(pk):pvNowTabHTML(v)}`}
   else html=`<div class="pvh"><h2>No plan yet</h2><span>${G.real?'● Real time':fmtClock(G.t)}</span></div>${pvLLHTML()}<p class="note">Pick your must-dos and the sim plans the rest of today from where you are.</p>${pvWaitsHTML(pk)}`;
   el.innerHTML=html;$('#pv').scrollTop=sc;
   try{if(v)planBind(el,v);else nowBind(el)}catch(e){showErr(e)}
   try{nowBarRender(v)}catch(e){showErr(e)}
-  // the Now card belongs to the Now tab (row 72): Plan and Waits get the room; the countdown strip stays on every tab
-  {const nw=$('#pvNow'),hid=!!G.plan&&PV.tab!=='now';if(nw.hidden!==hid){nw.hidden=hid;pvSizes()}document.body.classList.toggle('pvtabs-on',!!G.plan)}
+  // bottom tab bar (row 72, Nick: mockup's bottom tabs; the Now card shows on every tab)
+  pvTabsUI()
   bindAll(el,{'[data-pvr]':b=>openRide(RIDE_BY[b.dataset.pvr]),'[data-pvll]':()=>{llView.confirm=null;openLL()},'[data-auto-undo]':()=>autoUndo(),'[data-pvtab]':b=>pvTab(b.dataset.pvtab)});planDotUI()}
+$('#bNow').onclick=()=>pvTab('now');$('#bWaits').onclick=()=>pvTab('waits');$('#bMore').onclick=()=>openMore();
 function pvSizes(){const t=$('#top'),b=$('#bottom'),n=$('#pvNow'),r=document.documentElement.style;r.setProperty('--topH',(t.hidden?0:t.offsetHeight)+'px');r.setProperty('--botH',(b.hidden?0:b.offsetHeight)+'px');r.setProperty('--nowH',(n&&n.firstChild?n.offsetHeight:0)+'px');const sp=$('#pvStrip');r.setProperty('--stripH',(sp&&sp.firstChild?sp.offsetHeight:0)+'px')}
 if(window.ResizeObserver){const ro=new ResizeObserver(pvSizes);ro.observe($('#top'));ro.observe($('#bottom'));ro.observe($('#pvNow'));ro.observe($('#pvStrip'))}
 $('#pv').addEventListener('pointerdown',()=>{PV.touch=performance.now()},{passive:true});$('#pv').addEventListener('scroll',()=>{PV.touch=performance.now()},{passive:true});
