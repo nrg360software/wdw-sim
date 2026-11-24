@@ -235,6 +235,14 @@ body.pvmode #start,body.pvmode #end{background:var(--night)}
 .pvc .pll{color:var(--ll);font-size:11px}
 #speedSeg button{padding:6px 7px}#bFollow,#bMap,#bView{padding:7px 8px}
 .pvll{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
+.lltask{border:2px solid var(--ll);border-radius:16px;background:rgba(182,156,255,.08);padding:12px 14px;margin:0 0 12px;display:flex;flex-direction:column;gap:6px}
+.lltask .ltt{font-size:11.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--ll)}
+.lltask .ltb{font-size:18px;font-weight:800;line-height:1.2}
+.lltask .lts{font-size:13.5px;color:var(--text);opacity:.85;line-height:1.35}
+.lltask .ltr{display:flex;gap:8px;margin-top:4px}
+.lltask .ltr .btn{min-height:46px;margin:0}
+.lltask .ltr .btn.ll{flex:1}
+.lltask .note{margin:0}
 /* countdown strip (row 71) */
 #pvStrip{position:fixed;left:0;right:0;top:var(--topH,76px);z-index:5;padding:4px max(12px,env(safe-area-inset-right,0px)) 0 max(12px,env(safe-area-inset-left,0px));pointer-events:none}
 #pvStrip:empty{display:none}
@@ -267,6 +275,7 @@ body.pvmode.pvtabs-on [data-tab][aria-selected="true"]{background:var(--gold);co
 .ncb{font-family:var(--display);font-size:22px;font-weight:600;line-height:1.2;margin:1px 0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ncs{font-size:13px;color:var(--muted);line-height:1.35}
 .ncn{font-size:12.5px;color:var(--warn);line-height:1.35;margin-top:4px}
+.ncw{font-size:14px;font-weight:600;color:var(--warn);line-height:1.35;margin-top:6px}
 .ncgo{width:100%;min-height:50px;font-size:17px;margin-top:8px}
 .ncf{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:40px}
 .ncfix{background:none;border:0;color:var(--text);font:inherit;font-size:13px;font-weight:700;text-decoration:underline;text-underline-offset:3px;padding:10px 4px;min-height:40px;cursor:pointer}
@@ -4025,7 +4034,7 @@ function openPlan(){AUTO.unseen=false;planDotUI();
 // the plan's "what's next" block (top) and timeline (rest); shared by the Plan sheet and the plan-only view (row 56)
 function planViewHTML(){
   const P=G.plan,pr=dpProgress(),s=pr.step,books=dpPendingBooks(pr);let status='',btns='',nx=null;
-  if(pr.blk){const b=pr.blk,dur=Math.round(b.user?Math.max(b.walk||0,b.end-G.t):Math.max(b.walk+b.dur,b.at?b.at-(b.meal?15:0)+b.dur-G.t:0));status=`<b>Next:</b> ${b.name}${b.at?` (${b.user?(b.meet?'line up':'show'):'booked'} ${fmtClock(b.at)})`:''} · about ${fmtDur(dur)} including the walk${b.at&&b.at>G.t+b.walk?' and waiting for your time':''}. ${b.user&&b.node?'Start walks you there.':'The sim holds this as time; it doesn\'t walk you there.'}`;btns+=`<button class="btn pri" id="dpBlk">Start · ${b.name.length>26?b.name.slice(0,24)+'…':b.name} · ${fmtDur(dur)}</button>`}
+  if(pr.blk){const b=pr.blk,dur=Math.round(b.user?Math.max(b.walk||0,b.end-G.t):Math.max(b.walk+b.dur,b.at?b.at-(b.meal?15:0)+b.dur-G.t:0));status=`<b>Next:</b> ${b.name}${b.at?` (${b.user?(b.meet?'line up':'show'):'booked'} ${fmtClock(b.at)})`:''} · about ${fmtDur(dur)} including the walk${b.at&&b.at>G.t+b.walk?' and waiting for your time':''}. ${b.user&&b.node?'Start walks you there.':'The sim holds this as time; it doesn\'t walk you there.'}`;{const g=dinGraceFor({blk:b.id});if(g)status+=`<br><span style="color:var(--warn)">${dinGraceMsg(g)}.</span>`}btns+=`<button class="btn pri" id="dpBlk">Start · ${b.name.length>26?b.name.slice(0,24)+'…':b.name} · ${fmtDur(dur)}</button>`}
   else if(pr.meal){status=`<b>Lunch break</b> is next in your plan (${DP_LUNCH} min).`;btns+=`<button class="btn pri" id="dpLunch">Take lunch · ${DP_LUNCH} min</button>`}
   if(s){const hop=dpHopBefore(P.res.steps,pr.next),hp=!!hop&&currentPark()!==hop.to,lv=hp?hop.leave:s.leave;
     const r=RIDE_BY[s.rid],late=Math.round(G.t-lv),u=llUse(r),wantLL=s.how!=='rope'&&s.how!=='standby';
@@ -4042,7 +4051,7 @@ function planViewHTML(){
     const busyNow=!!G.segs&&!effectiveStart().can;let early=null;if(canLL&&u.kind==='pass'){const pl=planTo(r,true);if(pl.arr<u.p.start-LL_EARLY-20)early=u.p.start-LL_EARLY-pl.eta-10}
     const tgt=G.segs&&G.segs.length?G.segs[G.segs.length-1].ride:null,cs=G.segs&&G.segs[G.seg];
     nx={r,s,canLL,u,early,hop,hp,busyNow,late};
-    if(pr.blk)status+=`<br>Then: ${r.name}.`;btns+=tgt&&tgt.id===r.id?`<button class="btn" id="dpNext" disabled>${cs&&cs.k==='queue'&&nowInLine(cs)?(cs.ll?'In the Lightning Lane':'In line'):cs&&cs.k==='onride'?'Riding':'On your way'} · ${r.short}${G.real&&cs&&((cs.k==='queue'&&nowInLine(cs))||cs.k==='onride')?' · tap ✓ when off':''}</button>`:early!=null?`<button class="btn ll" id="dpNext" disabled>${r.short} window ${fmtClock(u.p.start)} · leave by ${fmtClock(early)}</button>`:`<button class="btn ${canLL?'ll':pr.meal?'':'pri'}" id="dpNext" ${busyNow?'disabled':''}>Go · ${hp?'hop to '+PARKS[hop.to].short+' · ':''}${r.short} ${canLL?'with Lightning Lane':'standby'}</button>`;
+    if(pr.blk)status+=`<br>Then: ${r.name}.`;else if(!hp){const g=dinGraceFor({rid:r.id,i:pr.next});if(g)status+=`<br><span style="color:var(--warn)">${dinGraceMsg(g)}.</span>`}btns+=tgt&&tgt.id===r.id?`<button class="btn" id="dpNext" disabled>${cs&&cs.k==='queue'&&nowInLine(cs)?(cs.ll?'In the Lightning Lane':'In line'):cs&&cs.k==='onride'?'Riding':'On your way'} · ${r.short}${G.real&&cs&&((cs.k==='queue'&&nowInLine(cs))||cs.k==='onride')?' · tap ✓ when off':''}</button>`:early!=null?`<button class="btn ll" id="dpNext" disabled>${r.short} window ${fmtClock(u.p.start)} · leave by ${fmtClock(early)}</button>`:`<button class="btn ${canLL?'ll':pr.meal?'':'pri'}" id="dpNext" ${busyNow?'disabled':''}>Go · ${hp?'hop to '+PARKS[hop.to].short+' · ':''}${r.short} ${canLL?'with Lightning Lane':'standby'}</button>`;
     if(early!=null)status+=`<br>Too early for that window. Do something nearby until ${fmtClock(early)}, or Replan.`}
   else if(!pr.meal)status=P.res.nMust?'<b>All planned rides done.</b> Replan to fill the rest of the day.':'';
   let bkH=books.map(({r,b})=>{const c=llCanBook(r,G.t);return `<button class="btn ll" data-bk="${r.id}" ${c.ok?'':'disabled'}>Book ${r.short} · ${c.ok?'returns '+fmtClock(c.ret):c.why}</button>`}).join('');
@@ -4053,7 +4062,7 @@ function planViewHTML(){
     if(rec)bkH+=`<button class="btn ll" data-bk="${rec.r.id}">⚡ Free slot · book ${rec.r.short} · returns ~${fmtClock(rec.ret)} (saves ~${fmtDur(rec.save)})</button>`}
   // plan-only view: what to do now and its button live in the Now card at the bottom (row 70)
   const head=`${PV.on?'':nowCardHTML()}${confCardHTML()}${autoNoteHTML()}${status?`<p class="note" style="color:var(--text)">${status}</p>`:''}
-  <div class="go">${PV.on?'':btns}${bkH}</div>${bkH?'<p class="note">Your plan books these as soon as you tap in. Return times shown are live.</p>':''}`;
+  ${PV.on?'':`<div class="go">${btns}${bkH}</div>${bkH?'<p class="note">Your plan books these as soon as you tap in. Return times shown are live.</p>':''}`}`;
   const edit=`<div class="row" style="margin:10px 0 4px;flex-wrap:wrap"><button class="btn sm" id="dpRe">Replan from here</button><button class="btn sm" id="dpEdit">Change must-dos</button><button class="btn sm" id="dpClr">${DPV.clr?'Tap again to clear':'Clear plan'}</button><button class="btn sm tog" id="dpAuto" aria-pressed="${AUTO.on}">Auto-adjust ${AUTO.on?'on':'off'}</button><button class="btn sm tog" id="dpPush" aria-pressed="${PUSH.on}">📳 Alerts ${PUSH.on?'on':'off'}</button><button class="btn sm" id="dpShows">🎭 Shows</button><button class="btn sm" data-dbgcopy type="button">🐞 Debug info</button></div>`,top=head+edit;
   const made=`<p class="note">Made at ${fmtClock(P.made)} from typical waits${liveActive()?' and live waits':''}. ${AUTO.on?'Auto-adjust replans by itself when you fall behind, a ride goes down, the crowd read shifts or live waits drift.':'Breakdowns and slow buses will push it around; replan when you fall behind.'}</p>`;
   const rest=(PV.on?'':dpTimelineHTML(P.res,pr))+made;
@@ -4278,6 +4287,18 @@ function nowHow(q){return q&&q.ll?(q.use&&q.use.kind==='pass'?`Lightning Lane ${
 function nowLastDone(){const L=G.log||[];for(let i=L.length-1;i>=0;i--){const e=L[i];if(e.done&&!e.left&&e.end!=null&&RIDE_BY[e.rid])return `Done: ${RIDE_BY[e.rid].short} ${nowHM(e.end)}`}return ''}
 function nowThen(){const P=G.plan,pr=P&&dpProgress();if(!pr||pr.next<0)return '';const cur=autoCur(),steps=P.res.steps;let i=pr.next;if(cur&&steps[i]&&steps[i].rid===cur.id)i++;
   for(;i<steps.length;i++){const x=steps[i];if(x.rid&&RIDE_BY[x.rid])return `Then: ${RIDE_BY[x.rid].short}${x.q0!=null?' ~'+nowHM(x.q0):''}`}return ''}
+// dining reservations the plan seats late but inside the 15-min grace (Nick, Nov 23: OK, but warn before you start the step that
+// leads into it). lead = what comes right before the meal: {rid,i} a ride step, {blk} an earlier block in that step, or {self}
+// (nothing left before it: the walk to the meal itself)
+function dinGrace(){const P=G.plan,out=[];if(!P||!P.res)return out;const done=P.blkDone||{};let pr=null;try{pr=dpProgress()}catch(e){}
+  P.res.steps.forEach((h,i)=>(h.blocks||[]).forEach((b,k)=>{if(!b.meal||b.at==null||!(b.late>0)||b.late>15||done[b.id])return;
+    const pb=k>0?h.blocks[k-1]:null;let lead;
+    if(pb&&!done[pb.id])lead={blk:pb.id,name:pb.name};else if(!pb&&h.k==='ride'&&!(pr&&pr.done[i]))lead={rid:h.rid,i,name:RIDE_BY[h.rid].short};else lead={self:b.id,name:b.name};
+    out.push({b,lead})}));return out}
+function dinGraceFor(o){return dinGrace().find(g=>o.rid?g.lead.rid===o.rid&&(o.i==null||g.lead.i===o.i):o.blk?g.lead.blk===o.blk||g.lead.self===o.blk:false)||null}
+function dinGraceMsg(g){return `⚠ ${g.lead.self?'You\'ll reach':'This gets you to'} ${g.b.name} ~${g.b.late}m late (within the 15-min grace)`}
+// Act-now threshold for a planned-late meal: you already chose that lateness, so alarm when it slips past it (or nears the grace end)
+function dinGraceThr(b){return b&&b.meal&&b.late>0&&b.late<=15?-Math.max(b.late+2,Math.min(12,b.late+5)):CD_ACT}
 function nowModel(v){if(!G.started||G.over)return null;const R=G.real,segs=G.segs,s=segs&&segs[G.seg],m={tag:'Now',big:'',sub:'',nudge:'',btn:null,foot:'',fix:R};
   if(s&&s.k==='snack'){const A=s.act&&ACT[s.act];m.big=`${A?A.ic:'☕'} ${s.name||(A?A.n:'Break')}`;
     m.sub=R&&A?`Started ${fmtClock(s.t0!=null?s.t0:G.t)} · ${fmtDur(s.el)} so far`:`${fmtDur(Math.max(0,s.dur-s.el))} left`;
@@ -4299,18 +4320,19 @@ function nowModel(v){if(!G.started||G.over)return null;const R=G.real,segs=G.seg
   const n=NODES[G.node];m.foot=nowLastDone();
   if(!G.plan){m.big=`📍 At ${n.ride?n.ride.short:n.label}`;m.sub='No plan yet: pick your must-dos and the sim plans the rest of today from here.';m.btn={k:'make',label:'🗺 Plan my day from here',cls:'pri'};return m}
   const pr=dpProgress();m.tag='Next';
-  if(pr.blk){const b=pr.blk;m.big=b.name;m.sub=b.at?`${b.user?(b.meet?'Line up':'Show'):'Booked'} ${fmtClock(b.at)}${b.walk?' · '+fmtDur(b.walk)+' walk':''}`:'In your plan';m.btn={k:'blk',label:'Start',cls:'pri'}}
+  if(pr.blk){const b=pr.blk;m.big=b.name;m.sub=b.at?`${b.user?(b.meet?'Line up':'Show'):'Booked'} ${fmtClock(b.at)}${b.walk?' · '+fmtDur(b.walk)+' walk':''}`:'In your plan';m.btn={k:'blk',label:'Start',cls:'pri'};{const g=dinGraceFor({blk:b.id});if(g)m.warn=dinGraceMsg(g)}}
   else if(pr.meal){m.big='Lunch break';m.sub=`${DP_LUNCH} min in your plan`;m.btn={k:'lunch',label:'Take lunch',cls:'pri'}}
   else if(v&&v.nx){const x=v.nx,r=x.r;let eta=null;try{eta=planTo(r,x.canLL).eta}catch(e){}
     const how=x.canLL?(x.u.kind==='pass'?`Lightning Lane ${nowHM(x.u.p.start)}–${fmtClock(x.u.p.end)}`:'Lightning Lane'):`Standby ~${fmtDur(rawWait(r,G.t))}`;
     m.big=x.hp?`Hop to ${PARKS[x.hop.to].short}`:`Head to ${r.short}`;
     m.sub=x.hp?`First there: ${r.short} · leave ${fmtClock(x.hop.leave)}`:`${how}${eta!=null?' · '+fmtDur(eta)+' to get there':''}${x.late<-2&&x.early==null?' · leave by '+fmtClock(x.s.leave):''}`;
     m.btn=x.early!=null?{k:'wait',label:`Leave by ${fmtClock(x.early)}`,cls:'ll',dis:1}:x.busyNow?{k:'wait',label:'Finish this first',cls:'',dis:1}:{k:'go',label:x.hp?`Go · hop to ${PARKS[x.hop.to].short}`:`Go · ${x.canLL?'⚡ ':''}${r.short}`,cls:x.canLL?'ll':'pri'};
-    if(rideState(r,G.t)==='down')m.nudge=`${r.short} is down right now. Wait it out or replan.`;else if(x.late>10&&!x.hp)m.nudge=`About ${fmtDur(x.late)} behind plan.`}
+    if(rideState(r,G.t)==='down')m.nudge=`${r.short} is down right now. Wait it out or replan.`;else if(x.late>10&&!x.hp)m.nudge=`About ${fmtDur(x.late)} behind plan.`;
+    if(!x.hp){const g=dinGraceFor({rid:r.id,i:pr.next});if(g)m.warn=dinGraceMsg(g)}}
   else{m.big=G.plan.res.nMust?'All planned rides done':'Nothing left in your plan';m.sub='Add must-dos and the sim plans the rest of today from here.';m.btn={k:'more',label:'＋ Add must-dos',cls:'pri'}}
   return m}
 function nowBarHTML(m){if(!m)return '';
-  return `<div class="ncard" id="ncard"><div class="nct">${m.tag}</div><div class="ncb">${m.big}</div>${m.sub?`<div class="ncs">${m.sub}</div>`:''}${m.nudge?`<div class="ncn">${m.nudge}</div>`:''}${m.btn?`<button class="btn ${m.btn.cls} ncgo" data-nc="${m.btn.k}" ${m.btn.dis?'disabled':''}>${m.btn.label}</button>`:''}<div class="ncf">${m.fix?'<button class="ncfix" data-nc="fix" type="button">Fix steps</button>':'<span></span>'}<span class="ncft">${m.foot||''}</span></div></div>`}
+  return `<div class="ncard" id="ncard"><div class="nct">${m.tag}</div><div class="ncb">${m.big}</div>${m.sub?`<div class="ncs">${m.sub}</div>`:''}${m.nudge?`<div class="ncn">${m.nudge}</div>`:''}${m.warn?`<div class="ncw" role="note">${m.warn}</div>`:''}${m.btn?`<button class="btn ${m.btn.cls} ncgo" data-nc="${m.btn.k}" ${m.btn.dis?'disabled':''}>${m.btn.label}</button>`:''}<div class="ncf">${m.fix?'<button class="ncfix" data-nc="fix" type="button">Fix steps</button>':'<span></span>'}<span class="ncft">${m.foot||''}</span></div></div>`}
 function nowBarBind(root){bindAll(root,{'[data-nc]':b=>{const k=b.dataset.nc,m=NOWC.m;
   if(k==='fix'){openFix();return}if(k==='make'){DPV.edit=false;DPV.S=null;openPlan();return}if(k==='more'){DPV.edit=true;DPV.S=null;openPlan();return}
   if(k==='actdone'){actDone();stepsRefresh();return}if(k==='blk'){dpStartBlk(dpProgress());return}if(k==='lunch'){dpTakeLunch();return}
@@ -4372,12 +4394,12 @@ function cdList(){if(!G.started||G.over)return[];const t=G.t,out=[],segs=G.segs,
     for(const h of P.res.steps)for(const b of h.blocks||[]){if(b.at==null||!(b.meal||b.user)||done[b.id]||seen.has(b.id))continue;seen.add(b.id);
       if(cur&&cur.k==='snack'&&cur.name===b.name)continue; // you're there
       const n=b.node!=null&&NI[b.node]!=null?NI[b.node]:null,w=b.walk||0,tn=n!=null?dN(n):w,tf=n!=null?dF(n):w,onWay=!!(last&&last.k==='snack'&&last.name===b.name);
-      add({k:b.meal?'dine':'show',key:'blk:'+b.id,b,ic:b.meal?'🍽':'🎭',name:b.name,start:b.at,dl:b.at,tNow:tn??w,tFin:onWay?0:(tf??w),rem:onWay?0:rem,onWay,money:!!b.meal})}
+      add({k:b.meal?'dine':'show',key:'blk:'+b.id,b,ic:b.meal?'🍽':'🎭',name:b.name,start:b.at,dl:b.at,tNow:tn??w,tFin:onWay?0:(tf??w),rem:onWay?0:rem,onWay,money:!!b.meal,thr:dinGraceThr(b)})}
     let pr=null;try{pr=dpProgress()}catch(e){}
     if(pr&&pr.next>=0)for(let i=pr.next;i<P.res.steps.length;i++){const h=P.res.steps[i];if(h.k==='hop'&&currentPark()!==h.to){add({k:'hop',key:'hop:'+h.to,ic:'🚝',name:PARKS[h.to].short,start:h.leave,dl:h.leave,tNow:0,tFin:0,rem,onWay:false,money:false});break}}}
   for(const o of out){const lead=o.k==='ll'?10:15,dis=CD.dis[o.key]!=null;
     if(o.onWay)o.tier=o.slackNow<0?'late':'fyi';
-    else if(o.money&&o.slackFin<=CD_ACT&&o.slackNow>=CD_LOST&&!dis)o.tier='act';
+    else if(o.money&&o.slackFin<=(o.thr??CD_ACT)&&o.slackNow>=CD_LOST&&!dis)o.tier='act';
     else if(o.money&&o.slackNow<CD_LOST)o.tier='late';
     else if(t>=o.start-o.tNow-lead||o.slackFin<=20||dis)o.tier='heads';
     else o.tier='fyi'}
@@ -4390,6 +4412,8 @@ function cdHTML(o){if(!o)return '';const t=G.t,away=`${fmtDur(Math.max(1,Math.ro
     let go='';if(o.k==='ll'){try{if(planTo(o.r,true).st.can)go='<button class="btn pri" data-cd="go">Go now</button>'}catch(e){}}
     return `<div class="cds act" role="alert"><span class="cdt">Act now</span><b class="big">${o.ic} Leave now for ${o.name}</b>${o.k==='ll'?'Window ends':'Booked for'} ${fmtClock(o.dl)} · ${away}. ${why}<div class="cdb">${go}<button class="btn" data-cd="dis">Not going</button></div></div>`}
   if(o.tier==='late')return `<div class="cds late">⚠ <b>${o.name}</b> · ${when} · you'd get there ~${fmtClock(t+o.tNow)}${o.onWay?' (on your way)':''}</div>`;
+  // a meal the plan seats late on purpose (within grace): say so instead of "time to head there"
+  if((o.tier==='heads'||o.tier==='fyi')&&o.k==='dine'&&o.b.late>0&&o.b.late<=15&&o.slackFin<0)return `<div class="cds heads">🍽 <b>${o.name}</b> · ${when} · plan gets you there ~${fmtDur(Math.round(-o.slackFin))} late (within the 15-min grace)</div>`;
   if(o.tier==='heads')return `<div class="cds heads">${o.ic} <b>${o.k==='hop'?'Time to hop to '+o.name:'Time to head to '+o.name}</b> · ${when}${o.k==='hop'?'':' · '+away}</div>`;
   const lv=o.latest-t;return `<div class="cds">${o.ic} <b>${o.name}</b> · ${when}${o.onWay?' · on your way':o.k==='hop'?` · in ${fmtDur(Math.max(1,Math.round(lv)))}`:` · leave by ${fmtClock(o.latest)} · in ${fmtDur(Math.max(1,Math.round(lv)))}`}</div>`}
 function cdRender(){const el=$('#pvStrip');if(!el)return;const o=cdTop(),h=cdHTML(o);CD.top=o;if(h===CD.html)return;CD.html=h;el.innerHTML=h;
@@ -4853,7 +4877,7 @@ function pvDoneHTML(){const P=G.plan,rows=[];
 function pvLockItems(){const P=G.plan,pr=dpProgress(),out=[];if(!P)return out;const steps=P.res.steps;
   for(const p of G.LL.passes.filter(p=>p.st==='active').sort((a,b)=>a.start-b.start)){const j=steps.findIndex((x,j)=>x.k==='ride'&&x.rid===p.rid&&!pr.done[j]&&x.how!=='standby'&&x.how!=='rope');
     out.push({k:'ll:'+p.rid,ok:j>=0,h:`⚡ <b>${RIDE_BY[p.rid].short}</b> ${fmtClock(p.start).replace(/ [AP]M/,'')}–${fmtClock(p.end)} · ${j>=0?`planned ${fmtClock(steps[j].q0)}${steps[j].late?` <span style="color:var(--warn)">(${steps[j].late}m after the window)</span>`:''}`:'<span style="color:var(--warn)">⚠ not in the plan — Replan</span>'}`})}
-  for(const s of steps)for(const b of s.blocks||[])if(b.meal&&b.at&&!(P.blkDone&&P.blkDone[b.id]))out.push({k:'din:'+b.id,ok:!b.missed&&!(b.late>15),h:`🍽 <b>${b.name}</b> ${fmtClock(b.at)} · ${b.missed?'<span style="color:var(--warn)">⚠ can\'t make it</span>':b.late>15?`<span style="color:var(--warn)">⚠ ${b.late}m late</span>`:b.late>0?`${b.late}m late (within grace)`:`seat ~${fmtClock(Math.max(b.start,b.at-15))}`}`});
+  for(const s of steps)for(const b of s.blocks||[])if(b.meal&&b.at&&!(P.blkDone&&P.blkDone[b.id]))out.push({k:'din:'+b.id,ok:!b.missed&&!(b.late>15),h:`🍽 <b>${b.name}</b> ${fmtClock(b.at)} · ${b.missed?'<span style="color:var(--warn)">⚠ can\'t make it</span>':b.late>15?`<span style="color:var(--warn)">⚠ ${b.late}m late</span>`:b.late>0?`seat ~${fmtClock(Math.max(b.start,b.at-15))} · ~${b.late}m late (within the 15-min grace)`:`seat ~${fmtClock(Math.max(b.start,b.at-15))}`}`});
   return out}
 function pvLockHTML(){const it=pvLockItems();if(!it.length)return '';
   return `<div class="lock"><div class="lkh">🔒 Locked · replans keep these</div>${it.map(x=>`<div>${x.h}</div>`).join('')}</div>`}
@@ -4868,8 +4892,32 @@ function pvRows(v){const rows=dpTimelineHTML(G.plan.res,v.pr,{split:true});let h
 function pvPlanTabHTML(v){const{sum,todo}=pvRows(v);
   return `${sum}${pvLockHTML()}<h3 class="pvsec">Done</h3>${pvDoneHTML()}<h3 class="pvsec" id="pvPlanH">Now</h3>${todo[0]||'<p class="note">Nothing left in the plan.</p>'}
   ${todo.length>1?`<h3 class="pvsec">Later <small>${todo.length-1} step${todo.length===2?'':'s'}</small></h3>${todo.slice(1).join('')}`:''}${pvChangesHTML()}${v.edit}${v.made}`}
+// ---- Lightning Lane task card (row 73): the one booking to make now, shown only when booking is allowed. Source: the plan's own
+// bookings that are due (dpPendingBooks), else the best use of a free Multi Pass slot (same rule as the old "Free slot" button).
+// Real day: "I booked it" → enter the return time from Disney's app (openLLEnter). Sim day: books the return shown.
+// "Not now" snoozes that ride for LLT_SNOOZE min, or until a pass is used or your held count changes.
+const LLT_SNOOZE=20;var LLT={dis:{}};
+function llOddsWord(o){if(!o)return '';const m=o.by!=null?o.by:o.p;return m>=0.8?'likely available':m>=0.5?'may go soon':'often gone by now'}
+function llTask(){const P=G.plan;if(!P||!G.started||G.over)return null;const pr=dpProgress();if(!pr)return null;const held=llHeld().length;
+  const snoozed=r=>{const d=LLT.dis[r.id];return !!d&&G.t-d.t<LLT_SNOOZE&&d.n===held&&d.u===G.LL.used};
+  const books=dpPendingBooks(pr).filter(x=>llCanBook(x.r,G.t).ok);let pick=null;
+  for(const x of books){if(snoozed(x.r))continue;const r=x.r,c=llCanBook(r,G.t),j=P.res.steps.findIndex((s,j)=>s.k==='ride'&&s.rid===r.id&&!pr.done[j]&&s.how!=='standby'&&s.how!=='rope');
+    const need=j>=0?P.res.steps[j].q0:null,aim=x.b.ret!=null?Math.max(x.b.ret,c.ret):c.ret;let odds=null;try{odds=llOdds(r,G.t,need)}catch(e){}
+    pick={src:'plan',r,c,aim,save:Math.max(0,waitAt(r,Math.min(aim+30,PARKS[r.pk].close*60-1))-8),odds:c.noEst?'may be sold out':llOddsWord(odds)};break}
+  if(!pick&&!books.length&&G.LL.mp&&llCanBookAny(G.t)){const pks=new Set([currentPark()]);(P.res.legs||[]).forEach((l,i)=>{if(i>=(P.legI||0))pks.add(l.pk)});
+    const rec=llRecs(G.t,true).find(x=>x.save>=3&&pks.has(x.r.pk)&&(x.away==null||x.ret>=G.t+x.away-5)&&!snoozed(x.r));
+    if(rec)pick={src:'free',r:rec.r,c:llCanBook(rec.r,G.t),aim:rec.ret,save:rec.save,odds:rec.why.includes('sells out soon')?'sells out soon':''}}
+  if(pick)pick.more=books.filter(x=>x.r!==pick.r).map(x=>x.r.short);return pick}
+function llTaskHTML(k){if(!k)return '';const r=k.r;
+  return `<div class="lltask" id="llTask"><div class="ltt">⚡ To do · ${k.src==='free'?'you have a free Lightning Lane slot':'you can book another'}</div><div class="ltb">Book ${r.name}</div>
+  <div class="lts">Aim for about ${fmtClock(k.aim)}${k.save>=3?` · saves ~${fmtDur(Math.round(k.save))}`:''}${k.odds?' · '+k.odds:''}${k.more.length?`<br>Then: ${k.more.join(', ')}`:''}</div>
+  <div class="ltr"><button class="btn ll" data-llt="book" data-rid="${r.id}">${G.real?'I booked it':`Book · returns ${fmtClock(k.c.ret)}`}</button><button class="btn" data-llt="later" data-rid="${r.id}">Not now</button></div>
+  <p class="note">${G.real?'Book in Disney\'s app, then enter the return time here.':'Sim day: books the return time shown.'}</p></div>`}
+function llTaskDo(b){const r=RIDE_BY[b.dataset.rid];if(!r)return;
+  if(b.dataset.llt==='later'){LLT.dis[r.id]={t:G.t,n:llHeld().length,u:G.LL.used};toast(`OK · ${r.short} can wait. It comes back in ${LLT_SNOOZE} min or when you use a pass`);planRefresh();return}
+  if(G.real){openLLEnter(r);return}const res=llBook(r,G.t);toast(res.ok?`Booked ${r.short} · ${fmtClock(res.p.start)}–${fmtClock(res.p.end)}`:res.why);if(res.ok)try{autoKick('Lightning Lane changed')}catch(e){}planRefresh()}
 function pvNowTabHTML(v){const{todo}=pvRows(v),up=todo.slice(1,4);
-  return `${pvLLHTML()}${v.head}${up.length?`<h3>Coming up</h3>${up.join('')}`:''}<button class="btn pvmore" data-pvtab="plan">Full plan · done, later, changes ›</button>${v.edit}`}
+  return `${llTaskHTML(llTask())}${pvLLHTML()}${v.head}${up.length?`<h3>Coming up</h3>${up.join('')}`:''}<button class="btn pvmore" data-pvtab="plan">Full plan · done, later, changes ›</button>${v.edit}`}
 // in the plan view with a plan, the dock's row is the tab bar: Now · Plan · Waits · ⋯ (Rides, Top picks, Eat · shop)
 function pvTabsUI(){const on=!!(PV.on&&G.plan&&G.started&&!G.over),sig=on+PV.tab;if(sig===PV.tabSig)return;PV.tabSig=sig;document.body.classList.toggle('pvtabs-on',on);
   document.querySelectorAll('#dock [data-tab]').forEach(b=>{if(on){b.setAttribute('role','tab');b.setAttribute('aria-selected',String(PV.tab===b.dataset.tab))}else{b.removeAttribute('role');b.removeAttribute('aria-selected')}})}
@@ -4893,7 +4941,7 @@ function pvRefresh0(force){if(!PV.on||!G.started||G.over)return;const now=perfor
   try{nowBarRender(v)}catch(e){showErr(e)}
   // bottom tab bar (row 72, Nick: mockup's bottom tabs; the Now card shows on every tab)
   pvTabsUI()
-  bindAll(el,{'[data-pvr]':b=>openRide(RIDE_BY[b.dataset.pvr]),'[data-pvll]':()=>{llView.confirm=null;openLL()},'[data-auto-undo]':()=>autoUndo(),'[data-pvtab]':b=>pvTab(b.dataset.pvtab)});planDotUI()}
+  bindAll(el,{'[data-pvr]':b=>openRide(RIDE_BY[b.dataset.pvr]),'[data-pvll]':()=>{llView.confirm=null;openLL()},'[data-auto-undo]':()=>autoUndo(),'[data-pvtab]':b=>pvTab(b.dataset.pvtab),'[data-llt]':b=>llTaskDo(b)});planDotUI()}
 $('#bNow').onclick=()=>pvTab('now');$('#bWaits').onclick=()=>pvTab('waits');$('#bMore').onclick=()=>openMore();
 function pvSizes(){const t=$('#top'),b=$('#bottom'),n=$('#pvNow'),r=document.documentElement.style;r.setProperty('--topH',(t.hidden?0:t.offsetHeight)+'px');r.setProperty('--botH',(b.hidden?0:b.offsetHeight)+'px');r.setProperty('--nowH',(n&&n.firstChild?n.offsetHeight:0)+'px');const sp=$('#pvStrip');r.setProperty('--stripH',(sp&&sp.firstChild?sp.offsetHeight:0)+'px')}
 if(window.ResizeObserver){const ro=new ResizeObserver(pvSizes);ro.observe($('#top'));ro.observe($('#bottom'));ro.observe($('#pvNow'));ro.observe($('#pvStrip'))}
@@ -4942,7 +4990,7 @@ function pushPlan(){const out={items:[],watch:[]};if(!G.started||G.over||!G.real
       if(tgt!==r&&!G.LL.rem['go'+p.id])add('llgo:'+p.id,p.start-eta-10,`⚡ Head to ${r.short} now`,`Lightning Lane ${fmtClock(p.start)}–${fmtClock(p.end)} · about ${fmtDur(eta)} away`);
       if(!G.LL.rem['end'+p.id])add('llend:'+p.id,p.end-15,`⚡ ${r.short} window ends ${fmtClock(p.end)}`,'Tap points usually allow about an hour late, but don\'t count on it')}}
   try{for(const o of cdList()){if(!o.money||o.onWay||CD.dis[o.key]!=null||o.slackNow<CD_LOST)continue;if(o.k==='ll'?!PUSH.cats.ll:!PUSH.cats.plan)continue;
-      let at=o.dl-o.tFin-o.rem-CD_ACT;if(at<=nowM+1)at=CD.pushAt[o.key]=CD.pushAt[o.key]||nowM+1.5;else delete CD.pushAt[o.key];
+      let at=o.dl-o.tFin-o.rem-(o.thr??CD_ACT);if(at<=nowM+1)at=CD.pushAt[o.key]=CD.pushAt[o.key]||nowM+1.5;else delete CD.pushAt[o.key];
       add('act:'+o.key,at,`‼️ Leave now for ${o.name}`,`${o.k==='ll'?'Lightning Lane window ends':'Booked for'} ${fmtClock(o.dl)} · about ${fmtDur(Math.max(1,Math.round(o.tFin)))} away`)}}catch(e){}
   const P=G.plan;if(P&&P.res){let pr=null;try{pr=dpProgress()}catch(e){}
     if(pr){const st=P.res.steps;
@@ -5008,7 +5056,7 @@ function tick(now){const pv=PV.on;if(pv&&(G.real||!G.started||G.over)&&now-PV.ti
     camStep(now);controls.update();skyDome.position.copy(camera.position);renderFrame();updateLabels()}
   if(G.started){updateHUD();runTick();try{pushTick()}catch(e){}try{confTick()}catch(e){}if(pv)pvRefresh(false)}
 }
-window.WDW={DBG,dbgText,bindAll,PIN,pinPage,PV,pvTab:k=>pvTab(k),showTick:()=>{showClock=0;showTick(1)},showHeldAll,setView:v=>setView(v),openSteps:()=>openSteps(),openDoing:()=>openDoing(),testReset:()=>{DPV={edit:false};FIX.open=false;closeSheet()},cdList:()=>cdList(),cdRender:()=>{CD.html='';cdRender()},CD,planTo,autoUndo,nowModel:()=>NOWC.m,nowTarget,nowTap,openFix:()=>openFix(),stepsRefresh:()=>stepsRefresh(),dpvEdit:()=>{DPV.edit=true;DPV.S=null},SHOWS,showIngest,showsFor,showEventsReal,openShows,showBlock,showNode,showRideTimes,showPoll,showAddGame,showGo,PUSH,pushPlan,pushSync,openPush,pushSupport,pushDataText,pushDataImport,llOdds,llObs,llObsAdd,llCalFor,CONF,confRun,confOpts,confCompare,confCardHTML,openLLEnter,endDay,resBuild,resHTML,resShow,resLoad,resLatest,RUN,runSave,runLoad,runClear,runResume,runState,runBox,runFind,AUTO,RT,autoCheck,autoReasons,autoReplan,autoDiff,rtRodeIt,rtAt,rtNow,openWhere,dpGameOpts,camera,controls,RF,rfCompact,rfStore,rfLoad,rfResid,rfCalibrate,rfEstimate,rfBacktest,rfUpdateToday,rfApplyDay,rfMul,rfCal,openRF,rfAfterUpdate,rfNoteUpdate,rfTick,rfBannerHTML,liveMatch,stRun,stHTML,stCalib,stModelDay,dpParseTP,dpApplyImport,scene,setGfx,LIGHT,sunDir,fwShows,fwSim:(n,dt)=>{for(let i=0;i<n;i++)updateFireworks(dt)},holdTime:t=>{G.holdT=t==null?null:t*60;if(t!=null)G.t=t*60},dpRun,dpRunDay,dpLegs,dpAllMust,getDPS:()=>DPS,dpStartOpts:S=>dpStartOpts(S),dpMakeGame,dpProgress,dpLoad,dpSave,openPlan,openDaySetup,prepDay,llFromPlan,llFresh,llBook,llNext,llRecs,llUse,llHeld,llTick,llPlanErrors,llSuggest,llLoadPlan,openLL,openRides,openPicks,LIVE,liveIngest,liveFor,curveAt,orlandoNow,livePoll,G,go,flyTo,setFollow,RIDE_BY,PARKS,camera,controls,openRide,closeSheet,rawWait,waitAt,dayFactor,holiday,hoursFor,applyHours,accessOpen,lastClose,renderer,dijkstra,NI,NODES,RESORTS,RIDES,LINES};
+window.WDW={DBG,dbgText,bindAll,PIN,pinPage,PV,pvRefresh:f=>pvRefresh(f),planViewHTML:()=>planViewHTML(),pvLockItems:()=>pvLockItems(),dinGrace:()=>dinGrace(),llTask:()=>llTask(),LLT,pvTab:k=>pvTab(k),showTick:()=>{showClock=0;showTick(1)},showHeldAll,setView:v=>setView(v),openSteps:()=>openSteps(),openDoing:()=>openDoing(),testReset:()=>{DPV={edit:false};FIX.open=false;closeSheet()},cdList:()=>cdList(),cdRender:()=>{CD.html='';cdRender()},CD,planTo,autoUndo,nowModel:()=>NOWC.m,nowTarget,nowTap,openFix:()=>openFix(),stepsRefresh:()=>stepsRefresh(),dpvEdit:()=>{DPV.edit=true;DPV.S=null},SHOWS,showIngest,showsFor,showEventsReal,openShows,showBlock,showNode,showRideTimes,showPoll,showAddGame,showGo,PUSH,pushPlan,pushSync,openPush,pushSupport,pushDataText,pushDataImport,llOdds,llObs,llObsAdd,llCalFor,CONF,confRun,confOpts,confCompare,confCardHTML,openLLEnter,endDay,resBuild,resHTML,resShow,resLoad,resLatest,RUN,runSave,runLoad,runClear,runResume,runState,runBox,runFind,AUTO,RT,autoCheck,autoReasons,autoReplan,autoDiff,rtRodeIt,rtAt,rtNow,openWhere,dpGameOpts,camera,controls,RF,rfCompact,rfStore,rfLoad,rfResid,rfCalibrate,rfEstimate,rfBacktest,rfUpdateToday,rfApplyDay,rfMul,rfCal,openRF,rfAfterUpdate,rfNoteUpdate,rfTick,rfBannerHTML,liveMatch,stRun,stHTML,stCalib,stModelDay,dpParseTP,dpApplyImport,scene,setGfx,LIGHT,sunDir,fwShows,fwSim:(n,dt)=>{for(let i=0;i<n;i++)updateFireworks(dt)},holdTime:t=>{G.holdT=t==null?null:t*60;if(t!=null)G.t=t*60},dpRun,dpRunDay,dpLegs,dpAllMust,getDPS:()=>DPS,dpStartOpts:S=>dpStartOpts(S),dpMakeGame,dpProgress,dpLoad,dpSave,openPlan,openDaySetup,prepDay,llFromPlan,llFresh,llBook,llNext,llRecs,llUse,llHeld,llTick,llPlanErrors,llSuggest,llLoadPlan,openLL,openRides,openPicks,LIVE,liveIngest,liveFor,curveAt,orlandoNow,livePoll,G,go,flyTo,setFollow,RIDE_BY,PARKS,camera,controls,openRide,closeSheet,rawWait,waitAt,dayFactor,holiday,hoursFor,applyHours,accessOpen,lastClose,renderer,dijkstra,NI,NODES,RESORTS,RIDES,LINES};
 requestAnimationFrame(frame);
 })();
 </script>
