@@ -161,3 +161,54 @@ test('untimed stops float in free order, and stops between the same two rides st
   const ka = kept.steps.find(s => s.rid === 'a');
   assert.deepEqual((ka.blocks || []).map(b => b.id), ['g1', 'g2', 'g3']);
 });
+
+// ---- row 72: 🔒 commitments ------------------------------------------------------------------------------------
+// Held Lightning Lane passes and dining reservations are locked: whatever a replan does (mid-day, late start, tight plan end,
+// extras/gap filling, pacing), every held pass is used inside its window (+grace) and every reservation is kept, ≤15 min late,
+// and nothing in the plan overlaps anything else.
+function lockCheck(res, L, meals, label) {
+  const iv = [];
+  for (const s of res.steps) {
+    if (s.k === 'ride') iv.push({ a: s.leave != null ? s.leave + (s.rest || 0) : s.arr, b: s.end, what: s.rid, q0: s.q0 });
+    if (s.k === 'hop') iv.push({ a: s.leave, b: s.arr, what: 'hop' });
+    for (const b of s.blocks || []) if (!b.missed && b.end > b.start) iv.push({ a: b.start - (b.walk || 0), b: b.end, what: b.name });
+    if (s.meal) iv.push({ a: s.meal.start, b: s.meal.end, what: 'lunch' });
+  }
+  iv.sort((x, y) => x.a - y.a || x.b - y.b);
+  for (let i = 1; i < iv.length; i++) assert.ok(iv[i].a >= iv[i - 1].b - 1e-6, `${label}: ${iv[i].what} (${iv[i].a}–${iv[i].b}) overlaps ${iv[i - 1].what} (${iv[i - 1].a}–${iv[i - 1].b})`);
+  for (const p of L.passes.filter(p => p.st === 'active')) {
+    const s = rides(res).find(s => s.rid === p.rid && s.how !== 'standby' && s.how !== 'rope');
+    assert.ok(s, `${label}: held pass for ${p.rid} (${p.start}–${p.end}) dropped; passMissed=${JSON.stringify(res.passMissed)}`);
+    assert.ok(s.q0 >= p.start - env.LL_EARLY - 1e-6 && s.arr <= p.end + 30 + 1e-6, `${label}: pass ${p.rid} used at ${s.arr}/${s.q0}, window ${p.start}–${p.end}`);
+  }
+  const bl = res.steps.flatMap(s => s.blocks || []);
+  for (const m of meals) {
+    const b = bl.find(b => b.id === m.id);
+    assert.ok(b, `${label}: reservation ${m.name} @${m.at} dropped`);
+    assert.ok(!b.missed && b.late <= 15, `${label}: reservation ${m.name} @${m.at} ${b.late} min late`);
+    assert.ok(b.start >= m.at - 15 - 1e-6, `${label}: reservation ${m.name} @${m.at} seated at ${b.start}`);
+  }
+}
+
+test('🔒 replans never drop or overlap held passes and dining reservations (mid-day, late start, tight end)', () => {
+  let n = 0;
+  const passSets = [
+    [['a', 'mp', 660]], [['a', 'mp', 840], ['b', 'sp', 870]], [['c', 'mp', 780], ['e', 'mp', 900]],
+    [['a', 'mp', 720], ['b', 'mp', 760], ['c', 'mp', 800]], [['b', 'mp', 900]],
+  ];
+  for (const ps of passSets) for (const mealAt of [null, 750, 810, 1080]) for (const t of [600, 700, 772, 850])
+    for (const tight of [false, true]) for (const extras of [false, true]) for (const pace of ['fast', 'bal']) for (const must of [['a', 'b', 'c', 'd'], ['d']]) {
+      const passes = ps.filter(([rid]) => RIDE_BY[rid].pk === 'TP').map(([rid, type, start], i) => ({ id: 'p' + i, rid, type, start, end: start + 60, st: 'active', pre: true }));
+      if (passes.some(p => p.end < t + 10)) continue; // a window that already ended isn't held any more
+      const meals = mealAt != null && mealAt > t + 5 ? [{ id: 'm1', name: 'Dining', walk: 3, dur: 45, at: mealAt, meal: true }] : [];
+      const lastEnd = Math.max(t, ...passes.map(p => p.end), ...meals.map(m => m.at + m.dur + 5));
+      const L = env.llFresh(); L.mp = 'TP'; L.passes.push(...passes);
+      const o = base({ must, ll: 'mine', t, L, pace, extras, lunch: !meals.length, blocks: meals, end: tight ? lastEnd + 15 : undefined });
+      const label = JSON.stringify({ ps, mealAt, t, tight, extras, pace, must });
+      lockCheck(P.dpRunDay(o), L, meals, label); n++;
+      // and after a replan that has already used the first pass (done) — the rest stay locked
+      if (passes.length > 1) { const L2 = env.llFresh(); L2.mp = 'TP'; L2.tapped = true; L2.passes.push(Object.assign({}, passes[0], { st: 'used' }), ...passes.slice(1));
+        lockCheck(P.dpRunDay(Object.assign({}, o, { L: L2, done: [passes[0].rid], t: Math.max(t, passes[0].start + 20) })), L2, meals.filter(m => m.at > Math.max(t, passes[0].start + 20) + 5), label + ' after first pass'); n++ }
+    }
+  assert.ok(n > 200, 'too few cases: ' + n);
+});

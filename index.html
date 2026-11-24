@@ -238,6 +238,18 @@ body.pvmode #start,body.pvmode #end{background:var(--night)}
 /* countdown strip (row 71) */
 #pvStrip{position:fixed;left:0;right:0;top:var(--topH,76px);z-index:5;padding:4px max(12px,env(safe-area-inset-right,0px)) 0 max(12px,env(safe-area-inset-left,0px));pointer-events:none}
 #pvStrip:empty{display:none}
+/* plan view tabs (row 72): Now · Plan · Waits; Plan = Done (collapsed, actual times) / Now / Later, 🔒 commitments, change log */
+.pvtabs{position:sticky;top:0;z-index:3;display:flex;gap:4px;padding:4px;margin:0 0 8px;background:rgba(14,21,42,.97);border:1px solid var(--line);border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,.3)}
+.pvtabs button{flex:1;min-height:40px;border:0;border-radius:9px;background:none;color:var(--muted);font:inherit;font-size:14px;font-weight:700;position:relative;cursor:pointer}
+.pvtabs button[aria-selected="true"]{background:var(--chip);color:var(--text);box-shadow:inset 0 0 0 1px var(--line)}
+.pvtabs .pvdot{position:absolute;top:8px;right:calc(50% - 24px);width:8px;height:8px;border-radius:50%;background:#5bc0ff}
+.lock{border:1px solid rgba(255,201,77,.45);background:rgba(255,201,77,.07);border-radius:12px;padding:8px 10px;margin:8px 0;font-size:13px;line-height:1.55}
+.lock .lkh{font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--gold)}
+.tlx{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.4}.tlx .lk{color:var(--gold);font-weight:700}.tl .pd{opacity:.7}
+.pvdone{margin:0 0 4px}.pvdone summary{cursor:pointer;font-size:13px;font-weight:700;padding:8px 4px;color:var(--muted);min-height:24px}
+.pvsec{display:flex;align-items:baseline;gap:8px}
+.chglog .cl{display:grid;grid-template-columns:50px 1fr;gap:8px;padding:6px 4px;font-size:12.5px;line-height:1.4;border-bottom:1px solid rgba(255,255,255,.07)}.chglog .cl .tt{font-weight:700;font-variant-numeric:tabular-nums}
+.pvmore{width:100%;margin:6px 0 2px}
 .cds{pointer-events:auto;max-width:560px;margin:0 auto;border-radius:12px;padding:7px 12px;font-size:13.5px;line-height:1.35;background:rgba(20,29,54,.97);border:1px solid rgba(255,255,255,.16);color:var(--text);box-shadow:0 4px 16px rgba(0,0,0,.35)}
 .cds.heads,.cds.late{background:#3b2f0c;border-color:#e0a82e;color:#ffe6a8}
 .cds.act{background:#5e1414;border:2px solid #ff6b6b;color:#fff;padding:10px 12px;font-size:14px;box-shadow:0 6px 28px rgba(0,0,0,.55)}
@@ -260,6 +272,7 @@ body.pvmode #start,body.pvmode #end{background:var(--night)}
 body.pvmode #rtRow{display:none!important}
 /* plan view: toasts sit under the countdown strip so they never cover an Act now banner (row 71) */
 body.pvmode #toasts{top:calc(var(--topH,76px) + var(--stripH,0px) + 8px)}
+body.pvmode.pvtabs-on #toasts{top:calc(var(--topH,76px) + var(--stripH,0px) + 60px)}
 .toast.undo{pointer-events:auto}.toast.undo .btn{padding:4px 12px;margin-left:4px}
 .fxl{display:flex;flex-direction:column;gap:8px;margin:8px 0 12px}
 .fxo{display:flex;align-items:center;gap:10px;text-align:left;background:var(--chip);border:1px solid var(--line);border-radius:12px;padding:12px;font:inherit;font-size:15px;font-weight:600;color:var(--text);min-height:48px;cursor:pointer}
@@ -3822,8 +3835,8 @@ function dpProgress(){const P=G.plan;if(!P)return null;const rides=G.ridden.slic
   let meal=null;for(let i=0;i<steps.length;i++){const s=steps[i];if(s.meal&&!P.lunchAt&&done[i]){meal=s;break}}
   let blk=null;P.blkDone=P.blkDone||{};for(let i=0;i<steps.length&&!blk;i++){const s=steps[i];if(s.k!=='start'&&!done[i])continue;for(const b of s.blocks||[])if(!P.blkDone[b.id]){blk=b;break}}
   return{done,next,step:next>=0?steps[next]:null,meal,blk}}
-function dpTimelineHTML(res,prog){const n=res.nMust,parts=[];
-  if(!n)return '<p class="note">Pick at least one must-do.</p>';
+function dpTimelineHTML(res,prog,opt){const n=res.nMust,parts=[],sp=!!(opt&&opt.split),tlX=sp?tlExtras(res):null;
+  if(!n)return sp?[]:'<p class="note">Pick at least one must-do.</p>';
   const miss=res.missed.map(id=>RIDE_BY[id].short).join(', ');
   let sum=res.nDone===n?`All ${n} must-do${n===1?'':'s'} done by <b>${fmtClock(res.endMust)}</b>.`:`${res.nDone} of ${n} must-dos fit, done by <b>${fmtClock(res.endMust)}</b>. Won't fit: ${miss}.`;
   sum+=dpPaceHTML(res);
@@ -3835,7 +3848,7 @@ function dpTimelineHTML(res,prog){const n=res.nMust,parts=[];
   if(res.noLL){const a=res.noLL;sum+=`<br>Standby only: ${a.nDone===n?'all done':a.nDone+' of '+n} by ${fmtClock(a.endMust)}${a.nDone===res.nDone&&a.endMust-res.endMust>=10?` · Lightning Lane saves about ${fmtDur(a.endMust-res.endMust)}`:''}.`}
   if(res.pre&&res.pre.length)sum+=`<br><b>Suggested Multi Pass pre-books</b> (≈$${llPrice(LL_MP_PRICE[res.pk],G.pf[res.pk])}/person): ${res.pre.map(p=>`${RIDE_BY[p.rid].short} ${fmtClock(p.start)}`).join(' · ')}.`;
   else if(res.mode==='suggest')sum+='<br>No pre-books help this list; plain day-of booking is just as good.';
-  parts.push(`<div class="callout">${sum}${dpWhyHTML(res)}</div>`);
+  parts.push({d:'sum',h:`<div class="callout">${sum}${dpWhyHTML(res)}</div>`});
   // row 43: odds that each planned booking is still there (and on time) when you get to book it
   const now0=G.started&&prog?G.t:(res.steps[0]&&res.steps[0].t!=null?res.steps[0].t:res.t0);
   const bk=s=>s.books.map(b=>{const r=RIDE_BY[b.rid],held=!!prog&&G.LL.passes.some(p=>p.rid===b.rid&&p.st!=='cancelled'),st=res.steps.find(x=>x.k==='ride'&&x.rid===b.rid);let od='';
@@ -3843,20 +3856,20 @@ function dpTimelineHTML(res,prog){const n=res.nMust,parts=[];
     return `<div class="bk">⚡ ${held?'Booked':s.k==='start'?'Book':'Then book'} ${r.short} · returns ~${fmtClock(b.ret)}${od}</div>`}).join('');
   let extraHdr=false;
   res.steps.forEach((s,i)=>{
-    const blk=s=>(s.blocks||[]).forEach(b=>parts.push(`<div class="tl meal ${G.plan&&G.plan.blkDone&&G.plan.blkDone[b.id]&&prog?'done':''}"><span class="tt">${fmtClock(b.start).replace(/ [AP]M/,'')}<small>${fmtClock(b.start).slice(-2)}</small></span><div><div class="n">${b.meal?'🍽':b.user?(b.meet?'🤝':'🎭'):'📍'} ${b.name}</div><div class="m">${b.missed?`<span style="color:var(--warn)">⚠ ${b.user?`can't make ${fmtClock(b.at)} around your rides`:'no showtime left you can reach'}</span>`:`${b.walk?`walk ~${b.walk}m · `:''}${b.dur} min${b.show&&b.at?` · ${b.meet?'line up':'show'} at ${fmtClock(b.at)}`:b.at?` · booked for ${fmtClock(b.at)}`:''}${b.late>15?` <span style="color:var(--warn)">(${b.late}m late${b.user?'':' for the reservation'})</span>`:b.late>0?` (${b.late}m late)`:''} · ${b.act?(blkLinked(b)?'linked stop':'stop'):'held as fixed time'} · done ${fmtClock(b.end)}`}${b.tp!=null?` · <span class="tpx">TP ${fmtClock(b.tp)}</span>`:''}</div></div></div>`));
-    if(s.k==='hop'){const dn=prog&&prog.next>i;parts.push(`<div class="tl hop ${dn?'done':''}"><span class="tt">${fmtClock(s.leave).replace(/ [AP]M/,'')}<small>${fmtClock(s.leave).slice(-2)}</small></span><div><div class="n">🚝 Park hop · ${PARKS[s.from].short} → ${PARKS[s.to].name}</div><div class="m">${s.idle>=10?`free time in ${PARKS[s.from].short} ${fmtDur(s.idle)} · `:''}leave ${fmtClock(s.leave)}${s.target!=null?' (your hop time)':' (after the must-dos)'} · ~${s.travel} min to the gate · there ${fmtClock(s.arr)}</div></div></div>`);return}
-    if(s.k==='start'&&res.legs){const L=res.legs[s.leg]||{};extraHdr=false;parts.push(`<h3>${PARKS[L.pk].name} <small>${L.nMust?`${L.nDone} of ${L.nMust} must-do${L.nMust===1?'':'s'}${L.nDone?' by '+fmtClock(L.endMust):''}`:'no must-dos'}${res.hops&&res.hops[s.leg]?` · leave ${fmtClock(res.hops[s.leg].leave)}`:''}</small></h3>`)}
-    if(s.k==='start'){if(s.books.length)parts.push(`<div class="tl"><span class="tt">${fmtClock(s.t).replace(/ [AP]M/,'')}</span><div><div class="n">Start${res.mode==='suggest'?' · after your pre-books':''}</div>${bk(s)}</div></div>`);blk(s);return}
-    if(s.gap&&!(res.steps[i-1]&&res.steps[i-1].gap)){const nx=res.steps.slice(i).find(x=>!x.gap&&x.rid),nr=nx&&RIDE_BY[nx.rid];if(nr)parts.push(`<div class="tl meal"><span class="tt">${fmtClock(s.leave).replace(/ [AP]M/,'')}<small>${fmtClock(s.leave).slice(-2)}</small></span><div><div class="n">🎈 Free time before ${nr.short}</div><div class="m">${nx.win!=null?'your window opens '+fmtClock(nx.win):'nothing else fits until then'} · ideas that still get you there by ${fmtClock(nx.q0)}</div></div></div>`)}
-    if(s.extra&&!s.gap&&!extraHdr){extraHdr=true;const fv=res.steps.slice(i).find(x=>x.k==='ride'&&x.must&&x.fav);parts.push(`<h3>Free time ideas <small>${fv?'before ⭐ '+RIDE_BY[fv.rid].short+' this evening':'after your must-dos'}</small></h3>`)}
+    const blk=s=>(s.blocks||[]).forEach(b=>{const bd=!!(G.plan&&G.plan.blkDone&&G.plan.blkDone[b.id]&&prog);parts.push({d:bd,h:`<div class="tl meal ${bd?'done':''}"><span class="tt">${fmtClock(b.start).replace(/ [AP]M/,'')}<small>${fmtClock(b.start).slice(-2)}</small></span><div><div class="n">${b.meal?'🍽':b.user?(b.meet?'🤝':'🎭'):'📍'} ${b.name}</div><div class="m">${b.missed?`<span style="color:var(--warn)">⚠ ${b.user?`can't make ${fmtClock(b.at)} around your rides`:'no showtime left you can reach'}</span>`:`${b.walk?`walk ~${b.walk}m · `:''}${b.dur} min${b.show&&b.at?` · ${b.meet?'line up':'show'} at ${fmtClock(b.at)}`:b.at?` · booked for ${fmtClock(b.at)}`:''}${b.late>15?` <span style="color:var(--warn)">(${b.late}m late${b.user?'':' for the reservation'})</span>`:b.late>0?` (${b.late}m late)`:''} · ${b.act?(blkLinked(b)?'linked stop':'stop'):'held as fixed time'} · done ${fmtClock(b.end)}`}${b.tp!=null?` · <span class="tpx">TP ${fmtClock(b.tp)}</span>`:''}</div>${tlX?tlX.blk(b):''}</div></div>`})});
+    if(s.k==='hop'){const dn=prog&&prog.next>i;parts.push({d:!!dn,h:`<div class="tl hop ${dn?'done':''}"><span class="tt">${fmtClock(s.leave).replace(/ [AP]M/,'')}<small>${fmtClock(s.leave).slice(-2)}</small></span><div><div class="n">🚝 Park hop · ${PARKS[s.from].short} → ${PARKS[s.to].name}</div><div class="m">${s.idle>=10?`free time in ${PARKS[s.from].short} ${fmtDur(s.idle)} · `:''}leave ${fmtClock(s.leave)}${s.target!=null?' (your hop time)':' (after the must-dos)'} · ~${s.travel} min to the gate · there ${fmtClock(s.arr)}</div></div></div>`});return}
+    if(s.k==='start'&&res.legs){const L=res.legs[s.leg]||{};extraHdr=false;parts.push({d:null,h:`<h3>${PARKS[L.pk].name} <small>${L.nMust?`${L.nDone} of ${L.nMust} must-do${L.nMust===1?'':'s'}${L.nDone?' by '+fmtClock(L.endMust):''}`:'no must-dos'}${res.hops&&res.hops[s.leg]?` · leave ${fmtClock(res.hops[s.leg].leave)}`:''}</small></h3>`})}
+    if(s.k==='start'){if(s.books.length)parts.push({d:!!prog&&(prog.next<0||prog.next>i||s.books.every(b=>G.LL.passes.some(p=>p.rid===b.rid&&p.st!=='cancelled'))),h:`<div class="tl"><span class="tt">${fmtClock(s.t).replace(/ [AP]M/,'')}</span><div><div class="n">Start${res.mode==='suggest'?' · after your pre-books':''}</div>${bk(s)}</div></div>`});blk(s);return}
+    if(s.gap&&!(res.steps[i-1]&&res.steps[i-1].gap)){const nx=res.steps.slice(i).find(x=>!x.gap&&x.rid),nr=nx&&RIDE_BY[nx.rid];if(nr)parts.push({d:!!(prog&&prog.done[i]),h:`<div class="tl meal"><span class="tt">${fmtClock(s.leave).replace(/ [AP]M/,'')}<small>${fmtClock(s.leave).slice(-2)}</small></span><div><div class="n">🎈 Free time before ${nr.short}</div><div class="m">${nx.win!=null?'your window opens '+fmtClock(nx.win):'nothing else fits until then'} · ideas that still get you there by ${fmtClock(nx.q0)}</div></div></div>`})}
+    if(s.extra&&!s.gap&&!extraHdr){extraHdr=true;const fv=res.steps.slice(i).find(x=>x.k==='ride'&&x.must&&x.fav);parts.push({d:null,h:`<h3>Free time ideas <small>${fv?'before ⭐ '+RIDE_BY[fv.rid].short+' this evening':'after your must-dos'}</small></h3>`})}
     const r=RIDE_BY[s.rid],h=DP_HOW[s.how],cls=[prog&&prog.done[i]?'done':'',prog&&prog.next===i?'nx':'',s.extra?'ex':''].join(' ');
-    if(s.free>=10){const b0=s.leave-s.free;parts.push(`<div class="tl meal ${prog&&prog.done[i]?'done':''}"><span class="tt">${fmtClock(b0).replace(/ [AP]M/,'')}<small>${fmtClock(b0).slice(-2)}</small></span><div><div class="n">🎈 Free time · ${fmtDur(s.free)}</div><div class="m">shows, snacks, shops, a re-ride · leave ${fmtClock(s.leave)} for ⭐ ${r.short}</div></div></div>`)}
-    if(s.rest){const b0=s.leave-s.rest;parts.push(`<div class="tl meal ${prog&&prog.done[i]?'done':''}"><span class="tt">${fmtClock(b0).replace(/ [AP]M/,'')}<small>${fmtClock(b0).slice(-2)}</small></span><div><div class="n">☕ Break</div><div class="m">${s.rest} min · snack or shade before a long line · leave ${fmtClock(s.leave)}</div></div></div>`)}
+    if(s.free>=10){const b0=s.leave-s.free;parts.push({d:!!(prog&&(prog.done[i]||G.t>=s.leave)),h:`<div class="tl meal ${prog&&prog.done[i]?'done':''}"><span class="tt">${fmtClock(b0).replace(/ [AP]M/,'')}<small>${fmtClock(b0).slice(-2)}</small></span><div><div class="n">🎈 Free time · ${fmtDur(s.free)}</div><div class="m">shows, snacks, shops, a re-ride · leave ${fmtClock(s.leave)} for ⭐ ${r.short}</div></div></div>`})}
+    if(s.rest){const b0=s.leave-s.rest;parts.push({d:!!(prog&&(prog.done[i]||G.t>=s.leave)),h:`<div class="tl meal ${prog&&prog.done[i]?'done':''}"><span class="tt">${fmtClock(b0).replace(/ [AP]M/,'')}<small>${fmtClock(b0).slice(-2)}</small></span><div><div class="n">☕ Break</div><div class="m">${s.rest} min · snack or shade before a long line · leave ${fmtClock(s.leave)}</div></div></div>`})}
     const win=s.win!=null?` · window ${fmtClock(s.win).replace(/ [AP]M/,'')}–${fmtClock(s.win+LL_WIN).replace(/ [AP]M/,'')}${s.late?` <span style="color:var(--warn)">(${s.late}m after it ends: relies on the grace period)</span>`:''}`:'';
     const idle=s.q0-s.arr>2?` · ${fmtDur(s.q0-s.arr)} until ${s.how==='rope'?'it opens':'your window'}`:'';
-    parts.push(`<div class="tl ${cls}"><span class="tt">${fmtClock(s.q0).replace(/ [AP]M/,'')}<small>${fmtClock(s.q0).slice(-2)}</small></span><div><div class="n">${prog&&prog.done[i]?'✓ ':''}${r.name} <span class="tag ${h[1]}">${h[0]}</span>${s.pass?' <small>your pass</small>':''}</div><div class="m">leave ${fmtClock(s.leave)} · get there ${fmtDur(s.arr-s.leave)}${idle} · ${s.how==='ll'||s.how==='sp'||s.how==='prem'||s.how==='mep'?'LL line':'wait'} ~${s.wait}m${s.down?` <span class="dn">(incl. ~${s.down}m for it to reopen)</span>`:''}${win} · done ${fmtClock(s.end)}${s.fav?' · ⭐ saved for the evening':''}${s.tp!=null?` · <span class="tpx">TP ${fmtClock(s.tp)} (${s.q0-s.tp>=0?'+':'−'}${Math.round(Math.abs(s.q0-s.tp))}m)</span>`:''}</div>${bk(s)}</div></div>`);blk(s);
-    if(s.meal)parts.push(`<div class="tl meal ${prog&&G.plan&&G.plan.lunchAt?'done':''}"><span class="tt">${fmtClock(s.meal.start).replace(/ [AP]M/,'')}<small>${fmtClock(s.meal.start).slice(-2)}</small></span><div><div class="n">🍔 Lunch</div><div class="m">${DP_LUNCH} min · quick service nearby · back at it ${fmtClock(s.meal.end)}</div></div></div>`)});
-  return parts.join('')}
+    parts.push({d:!!(prog&&prog.done[i]),h:`<div class="tl ${cls}"><span class="tt">${fmtClock(s.q0).replace(/ [AP]M/,'')}<small>${fmtClock(s.q0).slice(-2)}</small></span><div><div class="n">${prog&&prog.done[i]?'✓ ':''}${r.name} <span class="tag ${h[1]}">${h[0]}</span>${s.pass?' <small>your pass</small>':''}</div><div class="m">leave ${fmtClock(s.leave)} · get there ${fmtDur(s.arr-s.leave)}${idle} · ${s.how==='ll'||s.how==='sp'||s.how==='prem'||s.how==='mep'?'LL line':'wait'} ~${s.wait}m${s.down?` <span class="dn">(incl. ~${s.down}m for it to reopen)</span>`:''}${win} · done ${fmtClock(s.end)}${s.fav?' · ⭐ saved for the evening':''}${s.tp!=null?` · <span class="tpx">TP ${fmtClock(s.tp)} (${s.q0-s.tp>=0?'+':'−'}${Math.round(Math.abs(s.q0-s.tp))}m)</span>`:''}</div>${tlX?tlX.ride(s,i):''}${bk(s)}</div></div>`});blk(s);
+    if(s.meal)parts.push({d:!!(prog&&G.plan&&G.plan.lunchAt),h:`<div class="tl meal ${prog&&G.plan&&G.plan.lunchAt?'done':''}"><span class="tt">${fmtClock(s.meal.start).replace(/ [AP]M/,'')}<small>${fmtClock(s.meal.start).slice(-2)}</small></span><div><div class="n">🍔 Lunch</div><div class="m">${DP_LUNCH} min · quick service nearby · back at it ${fmtClock(s.meal.end)}</div></div></div>`})});
+  return sp?parts:parts.map(x=>x.h).join('')}
 // ---- TouringPlans import (print PDF from touringplans.com/plans/<id>/print.pdf, or its text pasted)
 const PDFJS='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/';
 function dpLoadPdfJs(){if(window.pdfjsLib)return Promise.resolve(window.pdfjsLib);return new Promise((ok,no)=>{const sc=document.createElement('script');sc.src=PDFJS+'pdf.min.js';
@@ -3999,9 +4012,11 @@ function openPlan(){AUTO.unseen=false;planDotUI();
     sheetIn.querySelector('#dpGo').onclick=()=>{try{if(G.plan)G.plan.legI=0;dpMakeGame(S)}catch(e){showErr(e)}DPV.edit=false;DPV.S=null;openPlan()};
     try{dpBindEditor(sheetIn,S,openPlan,true)}catch(e){showErr(e)}return}
   if(PV.on&&planNothingLeft()){DPV.edit=true;DPV.S=null;openPlan();return}
-  if(PV.on){if(!sheet.hidden)closeSheet();pvRefresh(true);const pv=$('#pv'),h=pv.querySelector('#pvPlanH');
-    const toTL=pv.scrollTop<40&&h,y=toTL?Math.max(0,h.offsetTop-8):0;try{pv.scrollTo({top:y,behavior:'smooth'})}catch(e){pv.scrollTop=y}
-    const f=toTL?h:pv.querySelector('.pvh');if(f){f.classList.remove('flash');void f.offsetWidth;f.classList.add('flash')}return}
+  // plan view: the Plan tab (row 72); tapping Plan again while at the top scrolls to Now
+  if(PV.on){if(!sheet.hidden)closeSheet();const pv=$('#pv'),was=PV.tab;PV.tab='plan';PV.sig='';pvRefresh(true);if(was!=='plan'){pv.scrollTop=0;return}
+    const h=pv.querySelector('#pvPlanH'),tb=pv.querySelector('.pvtabs'),toNow=pv.scrollTop<40&&h&&tb;
+    const y=toNow?Math.max(0,pv.scrollTop+h.getBoundingClientRect().top-tb.getBoundingClientRect().bottom-6):0;try{pv.scrollTo({top:y,behavior:'smooth'})}catch(e){pv.scrollTop=y}
+    const f=toNow?h:pv.querySelector('.pvtabs');if(f){f.classList.remove('flash');void f.offsetWidth;f.classList.add('flash')}return}
   const v=planViewHTML();openSheet(`<div class="sh"><h2>Your day plan · ${dpParksLabel(G.plan.res)}</h2><span class="paused">Clock paused</span><button class="x" aria-label="Close">×</button></div><div class="sb">${v.top}${v.rest}</div>`);planBind(sheetIn,v)}
 // the plan's "what's next" block (top) and timeline (rest); shared by the Plan sheet and the plan-only view (row 56)
 function planViewHTML(){
@@ -4033,12 +4048,12 @@ function planViewHTML(){
     const rec=llRecs(G.t,true).find(x=>x.save>=3&&pks.has(x.r.pk)&&(x.away==null||x.ret>=G.t+x.away-5));
     if(rec)bkH+=`<button class="btn ll" data-bk="${rec.r.id}">⚡ Free slot · book ${rec.r.short} · returns ~${fmtClock(rec.ret)} (saves ~${fmtDur(rec.save)})</button>`}
   // plan-only view: what to do now and its button live in the Now card at the bottom (row 70)
-  const top=`${PV.on?'':nowCardHTML()}${confCardHTML()}${autoNoteHTML()}${status?`<p class="note" style="color:var(--text)">${status}</p>`:''}
-  <div class="go">${PV.on?'':btns}${bkH}</div>${bkH?'<p class="note">Your plan books these as soon as you tap in. Return times shown are live.</p>':''}
-  <div class="row" style="margin:10px 0 4px;flex-wrap:wrap"><button class="btn sm" id="dpRe">Replan from here</button><button class="btn sm" id="dpEdit">Change must-dos</button><button class="btn sm" id="dpClr">${DPV.clr?'Tap again to clear':'Clear plan'}</button><button class="btn sm tog" id="dpAuto" aria-pressed="${AUTO.on}">Auto-adjust ${AUTO.on?'on':'off'}</button><button class="btn sm tog" id="dpPush" aria-pressed="${PUSH.on}">📳 Alerts ${PUSH.on?'on':'off'}</button><button class="btn sm" id="dpShows">🎭 Shows</button><button class="btn sm" data-dbgcopy type="button">🐞 Debug info</button></div>`;
-  const rest=`${dpTimelineHTML(P.res,pr)}
-  <p class="note">Made at ${fmtClock(P.made)} from typical waits${liveActive()?' and live waits':''}. ${AUTO.on?'Auto-adjust replans by itself when you fall behind, a ride goes down, the crowd read shifts or live waits drift.':'Breakdowns and slow buses will push it around; replan when you fall behind.'}</p>`;
-  return {top,rest,pr,s,nx}}
+  const head=`${PV.on?'':nowCardHTML()}${confCardHTML()}${autoNoteHTML()}${status?`<p class="note" style="color:var(--text)">${status}</p>`:''}
+  <div class="go">${PV.on?'':btns}${bkH}</div>${bkH?'<p class="note">Your plan books these as soon as you tap in. Return times shown are live.</p>':''}`;
+  const edit=`<div class="row" style="margin:10px 0 4px;flex-wrap:wrap"><button class="btn sm" id="dpRe">Replan from here</button><button class="btn sm" id="dpEdit">Change must-dos</button><button class="btn sm" id="dpClr">${DPV.clr?'Tap again to clear':'Clear plan'}</button><button class="btn sm tog" id="dpAuto" aria-pressed="${AUTO.on}">Auto-adjust ${AUTO.on?'on':'off'}</button><button class="btn sm tog" id="dpPush" aria-pressed="${PUSH.on}">📳 Alerts ${PUSH.on?'on':'off'}</button><button class="btn sm" id="dpShows">🎭 Shows</button><button class="btn sm" data-dbgcopy type="button">🐞 Debug info</button></div>`,top=head+edit;
+  const made=`<p class="note">Made at ${fmtClock(P.made)} from typical waits${liveActive()?' and live waits':''}. ${AUTO.on?'Auto-adjust replans by itself when you fall behind, a ride goes down, the crowd read shifts or live waits drift.':'Breakdowns and slow buses will push it around; replan when you fall behind.'}</p>`;
+  const rest=(PV.on?'':dpTimelineHTML(P.res,pr))+made;
+  return {top,rest,pr,s,nx,head,edit,made}}
 function planBind(root,v){const pr=v.pr,s=v.s;try{nowBind(root)}catch(e){showErr(e)}
   bindAll(root,{'#dpPush':()=>openPush(),'#dpShows':()=>openShows(G.plan&&dpLegs(G.plan.settings)[G.plan.legI||0]?dpLegs(G.plan.settings)[G.plan.legI||0].pk:currentPark()),
   '#dpAuto':()=>{AUTO.on=!AUTO.on;try{localStorage.setItem('wdwsim.auto',AUTO.on?'1':'0')}catch(e){}planRefresh();if(AUTO.on)autoCheck('toggle')},
@@ -4524,7 +4539,7 @@ function confAgg(sims,fc){const n=sims.length,risk={},fk=new Set(fc.events.map(e
   const top=Object.values(risk).map(b=>Object.assign(b,{p:b.n/n})).filter(b=>b.p>=0.15).sort((a,b)=>b.p-a.p).slice(0,3);
   // headline: the rides the plan still fits on the expected day (fc) all get done, on how many modelled days
   return{n,all:sims.filter(m=>fc.did.every(id=>m.did.includes(id))).length/n,allMust:sims.filter(m=>m.nDone===m.nMust).length/n,holds:sims.filter(m=>!m.events.length).length/n,avgDone:sims.reduce((a,m)=>a+m.nDone,0)/n,
-    nMust:fc.nMust,fcDone:fc.nDone,fcFin:fc.endMust,fin50:stPct(sims.map(m=>m.endMust),0.5),fin90:stPct(sims.map(m=>m.endMust),0.9),top,known}}
+    per:Object.fromEntries(fc.did.map(id=>[id,sims.filter(m=>m.did.includes(id)).length/n])),nMust:fc.nMust,fcDone:fc.nDone,fcFin:fc.endMust,fin50:stPct(sims.map(m=>m.endMust),0.5),fin90:stPct(sims.map(m=>m.endMust),0.9),top,known}}
 function confYield(){return new Promise(r=>setTimeout(r,0))}
 // runs the sims a slice at a time; null if the plan changed meanwhile
 async function confSims(o,P,made){const now=o.t,fc=confFlat(o),sims=[],t0=performance.now();
@@ -4781,7 +4796,7 @@ runPrune();runBox();inDate.addEventListener('change',runBox);inDate.addEventList
 // For a day in the park: hides the 3D map and stops drawing it (saves battery); the game, clock, live waits, auto-adjust,
 // Lightning Lane reminders and save/resume keep running. The screen between the HUD and the dock becomes the plan:
 // next step + Go, waits now at the park you're in, then the timeline. Setting saved in localStorage wdwsim.view.
-var PV={on:false,last:0,touch:0,sig:'',tickT:0};
+var PV={on:false,last:0,touch:0,sig:'',tickT:0,tab:'now'};
 try{PV.on=localStorage.getItem('wdwsim.view')==='plan'}catch(e){}
 function setView(v){PV.on=v==='plan';try{localStorage.setItem('wdwsim.view',PV.on?'plan':'map')}catch(e){}
   document.body.classList.toggle('pvmode',PV.on);document.querySelectorAll('#segView button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===(PV.on?'plan':'map')?'true':'false'));
@@ -4798,21 +4813,78 @@ function pvWaitsHTML(pk){const st=effectiveStart(),D=dijkstra(st.node,G.t/60),pl
   return `<h3>Waits now · ${P.short} <small>${live?'live':'typical for today'} · shortest first · ★ in your plan</small></h3><div class="pvw">${rows.map(x=>`<button class="pvc${plan.has(x.r.id)?' pl':''}${x.rid?' rd':''}" data-pvr="${x.r.id}"><span class="nm">${plan.has(x.r.id)?'★ ':''}${x.rid?'✓ ':''}${x.r.short}${x.p&&x.p.st==='active'?` <span class="pll">⚡${fmtClock(x.p.start).replace(/ [AP]M/,'')}</span>`:''}</span><span class="w ${x.c}">${x.txt}</span></button>`).join('')}</div>${live?'<p class="note" style="margin-top:6px">Live waits <a href="https://queue-times.com/" target="_blank" rel="noopener" style="color:var(--muted)">Powered by Queue-Times.com</a>.</p>':''}`}
 function pvLLHTML(){const act=G.LL.passes.filter(p=>p.st==='active'||p.st==='mep').sort((a,b)=>a.start-b.start);if(!act.length)return '';
   return `<div class="pvll">${act.map(p=>`<button class="pvlb" data-pvll="1">⚡ ${RIDE_BY[p.rid].short} · ${p.st==='mep'?'any MP ride':fmtClock(p.start).replace(/ [AP]M/,'')+'–'+fmtClock(p.end)}</button>`).join('')}</div>`}
+// ---- Plan tab (row 72) ----
+// per-step extras on the plan's own rows: 🔒 for a held pass / dining reservation, why the step is where it is, and the live
+// confidence that the ride still gets done (CONF per-ride share of modelled days, plus a matching risk)
+function tlExtras(res){const R=CONF&&CONF.on&&G.plan&&G.plan.conf&&G.plan.conf.last,pk={};
+  const peak=r=>{if(pk[r.id]==null){const P=PARKS[r.pk];let m=0;for(let h=P.open;h<P.close;h++)m=Math.max(m,rawWait(r,h*60+30));pk[r.id]=Math.round(m)}return pk[r.id]};
+  return{ride:(s,i)=>{const r=RIDE_BY[s.rid];if(!r)return '';const out=[],ll=s.how!=='standby'&&s.how!=='rope';
+      if(ll&&G.LL.passes.some(p=>p.rid===s.rid&&p.st==='active'))out.push('<span class="lk">🔒 held pass</span>');
+      const w=tlWhy(s,r,ll,peak);if(w)out.push(w);
+      if(R&&R.per&&R.per[s.rid]!=null&&R.per[s.rid]<0.95&&!s.extra){const p=R.per[s.rid];out.push(`<span class="odds ${oddsCol(p)}">${pct(p)} likely</span>`)}
+      if(R&&R.top)for(const b of R.top)if(String(b.key).split(':')[1]===s.rid)out.push(`<span style="color:var(--warn)">⚠ ${b.what} · ${pct(b.p)}</span>`);
+      return out.length?`<div class="tlx">${out.join(' · ')}</div>`:''},
+    blk:b=>b.meal&&b.at&&!b.missed?`<div class="tlx"><span class="lk">🔒 reservation ${fmtClock(b.at)}</span> · replans keep it</div>`:''}}
+function tlWhy(s,r,ll,peak){if(s.pass)return 'why: uses a Lightning Lane you hold';if(s.fav)return 'why: your favourite, saved for the evening';
+  if(s.gap)return 'why: fits before your next window';if(s.extra)return 'why: free-time idea';
+  if(ll){const sb=Math.round(rawWait(r,s.q0));return sb-s.wait>=5?`why: Lightning Lane skips ~${sb-s.wait}m of standby`:'why: Lightning Lane'}
+  const p=peak(r);if(s.how==='rope')return `why: rope drop, ~${s.wait}m vs ~${p}m at its peak`;
+  return p-s.wait>=15?`why: standby while it's ~${s.wait}m (peaks ~${p}m)`:`why: standby ~${s.wait}m (~${p}m at its peak)`}
+const pvDv=d=>d>=3?` +${d}m`:d<=-3?` −${-d}m`:', on time';
+// Done: what actually happened today (results log, row 60) — the current plan only holds what's left after the last replan
+function pvDoneHTML(){const P=G.plan,rows=[];
+  for(const e of (G.log||[]).filter(e=>e.done&&!e.left)){const r=RIDE_BY[e.rid];if(!r)continue;const pl=e.pl,h=DP_HOW[e.how]||DP_HOW.standby,b=[];
+    if(e.q0!=null)b.push(`in line ${fmtClock(e.q0)}${pl&&pl.q0!=null?` <span class="pd">(plan ${fmtClock(pl.q0)}${pvDv(e.q0-pl.q0)})</span>`:''}`);
+    if(e.wait!=null)b.push(`${resIsLL(e.how)?'LL line':'waited'} ${e.wait}m${pl&&pl.wait!=null?` <span class="pd">(plan ${pl.wait}m)</span>`:e.est!=null?` <span class="pd">(est ${e.est}m)</span>`:''}`);else b.push('counted with ✓');
+    if(e.end!=null)b.push(`off ${fmtClock(e.end)}`);const t=e.q0!=null?e.q0:e.on;
+    rows.push({t,h:`<div class="tl done2"><span class="tt">${fmtClock(t).replace(/ [AP]M/,'')}<small>${fmtClock(t).slice(-2)}</small></span><div><div class="n">✓ ${r.name} <span class="tag ${h[1]}">${h[0]}</span></div><div class="m">${b.join(' · ')}</div></div></div>`})}
+  let mealRow=false;
+  if(P){for(const s of P.res.steps)for(const b of s.blocks||[])if(P.blkDone&&P.blkDone[b.id]){const t=b.meal&&P.lunchAt!=null?P.lunchAt:b.start;if(b.meal)mealRow=true;
+      rows.push({t,h:`<div class="tl done2"><span class="tt">${fmtClock(t).replace(/ [AP]M/,'')}<small>${fmtClock(t).slice(-2)}</small></span><div><div class="n">✓ ${b.meal?'🍽':b.user?'🎭':'📍'} ${b.name}</div><div class="m">${b.at?`booked ${fmtClock(b.at)} · `:''}started ~${fmtClock(t)}</div></div></div>`})}
+    if(P.lunchAt!=null&&!mealRow)rows.push({t:P.lunchAt,h:`<div class="tl done2"><span class="tt">${fmtClock(P.lunchAt).replace(/ [AP]M/,'')}<small>${fmtClock(P.lunchAt).slice(-2)}</small></span><div><div class="n">✓ 🍔 Lunch</div><div class="m">started ${fmtClock(P.lunchAt)}</div></div></div>`})}
+  if(!rows.length)return '<p class="note">Nothing done yet today.</p>';
+  rows.sort((a,b)=>a.t-b.t);const nr=(G.log||[]).filter(e=>e.done&&!e.left).length,last=(G.log||[]).filter(e=>e.done&&!e.left&&e.end!=null).map(e=>e.end).pop();
+  return `<details class="pvdone"><summary>${nr} ride${nr===1?'':'s'}${rows.length>nr?` + ${rows.length-nr} more`:''}${last!=null?` · last off ${fmtClock(last)}`:''} · actual times</summary>${rows.map(x=>x.h).join('')}</details>`}
+// 🔒 commitments the planner must keep (held passes, dining reservations): the same set the countdown strip's Act now covers (cdList)
+function pvLockItems(){const P=G.plan,pr=dpProgress(),out=[];if(!P)return out;const steps=P.res.steps;
+  for(const p of G.LL.passes.filter(p=>p.st==='active').sort((a,b)=>a.start-b.start)){const j=steps.findIndex((x,j)=>x.k==='ride'&&x.rid===p.rid&&!pr.done[j]&&x.how!=='standby'&&x.how!=='rope');
+    out.push({k:'ll:'+p.rid,ok:j>=0,h:`⚡ <b>${RIDE_BY[p.rid].short}</b> ${fmtClock(p.start).replace(/ [AP]M/,'')}–${fmtClock(p.end)} · ${j>=0?`planned ${fmtClock(steps[j].q0)}${steps[j].late?` <span style="color:var(--warn)">(${steps[j].late}m after the window)</span>`:''}`:'<span style="color:var(--warn)">⚠ not in the plan — Replan</span>'}`})}
+  for(const s of steps)for(const b of s.blocks||[])if(b.meal&&b.at&&!(P.blkDone&&P.blkDone[b.id]))out.push({k:'din:'+b.id,ok:!b.missed&&!(b.late>15),h:`🍽 <b>${b.name}</b> ${fmtClock(b.at)} · ${b.missed?'<span style="color:var(--warn)">⚠ can\'t make it</span>':b.late>15?`<span style="color:var(--warn)">⚠ ${b.late}m late</span>`:b.late>0?`${b.late}m late (within grace)`:`seat ~${fmtClock(Math.max(b.start,b.at-15))}`}`});
+  return out}
+function pvLockHTML(){const it=pvLockItems();if(!it.length)return '';
+  return `<div class="lock"><div class="lkh">🔒 Locked · replans keep these</div>${it.map(x=>`<div>${x.h}</div>`).join('')}</div>`}
+function autoCanUndo(n){return !!n&&!n.manual&&!!AUTO.undo&&AUTO.undo.t===n.t&&G.t-n.t<=30}
+function pvChangesHTML(){const N=(G.plan&&G.plan.notes)||[];if(!N.length)return '';
+  return `<h3>Changes <small>${AUTO.on?'auto-adjust log':'replans'} · newest first</small></h3><div class="chglog">${N.map((n,i)=>`<div class="cl"><span class="tt">${fmtClock(n.t).replace(/ [AP]M/,'')}</span><div>${n.manual?'Replanned':'Auto-adjusted'}: ${n.text}${i===0&&autoCanUndo(n)?` <button class="btn sm" data-auto-undo="1">Undo</button>`:''}</div></div>`).join('')}</div>`}
+// the plan's not-done rows split into Now (the first) and Later; headers stick to the row after them
+function pvRows(v){const rows=dpTimelineHTML(G.plan.res,v.pr,{split:true});let hdr=[];const todo=[];let sum='';
+  for(const x of rows){if(x.d==='sum'){sum=x.h;continue}if(x.d===null){hdr.push(x.h);continue}if(x.d){hdr=[];continue}
+    todo.push(hdr.join('')+x.h.replace(/class="tl([^"]*?) nx/,'class="tl$1'));hdr=[]}
+  if(todo.length)todo[0]=todo[0].replace(/class="tl( |")/,'class="tl nx$1');return{sum,todo}}
+function pvPlanTabHTML(v){const{sum,todo}=pvRows(v);
+  return `${sum}${pvLockHTML()}<h3 class="pvsec">Done</h3>${pvDoneHTML()}<h3 class="pvsec" id="pvPlanH">Now</h3>${todo[0]||'<p class="note">Nothing left in the plan.</p>'}
+  ${todo.length>1?`<h3 class="pvsec">Later <small>${todo.length-1} step${todo.length===2?'':'s'}</small></h3>${todo.slice(1).join('')}`:''}${pvChangesHTML()}${v.edit}${v.made}`}
+function pvNowTabHTML(v){const{todo}=pvRows(v),up=todo.slice(1,4);
+  return `${pvLLHTML()}${v.head}${up.length?`<h3>Coming up</h3>${up.join('')}`:''}<button class="btn pvmore" data-pvtab="plan">Full plan · done, later, changes ›</button>${v.edit}`}
+function pvTabsHTML(){return `<div class="pvtabs" role="tablist">${[['now','Now'],['plan','Plan'],['waits','Waits']].map(([k,l])=>`<button role="tab" data-pvtab="${k}" aria-selected="${PV.tab===k}">${l}${k==='plan'&&AUTO.unseen?'<i class="pvdot"></i>':''}</button>`).join('')}</div>`}
+function pvTab(k){PV.tab=k;if(k==='plan'){AUTO.unseen=false;planDotUI()}PV.sig='';pvRefresh(true);const pv=$('#pv');pv.scrollTop=0}
 function pvRefresh(force){try{pvRefresh0(force)}catch(e){PV.sig='';const m=String(e&&e.message||e);if(PV.err!==m){PV.err=m;toast('Plan view hiccup: '+m.slice(0,80));console.error(e)}}}
 function pvRefresh0(force){if(!PV.on||!G.started||G.over)return;const now=performance.now();
   if(!force&&(now-PV.last<2000||now-PV.touch<1500))return;
   try{cdRender()}catch(e){showErr(e)}
   const cur=G.segs&&G.segs[G.seg],pk=NODES[effectiveStart().node].park||(G.plan?G.plan.res.pk:currentPark());
   const sig=[G.plan?G.plan.made+':'+G.plan.notes.length+':'+Object.keys(G.plan.blkDone||{}).length+':'+G.plan.lunchAt:'-',G.ridden.length,G.seg,G.segs?G.segs.length:0,cur?cur.k+(cur.started?1:0)+(cur.hold?1:0)+(cur.tap?1:0)+(cur.act||''):'',G.node,(G.log||[]).length,
-    G.LL.passes.map(p=>p.rid+p.st+p.start).join(),LIVE.got,CONF&&CONF.ver,Math.floor(G.t/(G.real?1:5)),DPV.clr,AUTO.on,pk,G.LL.tapped].join('|');
+    G.LL.passes.map(p=>p.rid+p.st+p.start).join(),LIVE.got,CONF&&CONF.ver,Math.floor(G.t/(G.real?1:5)),DPV.clr,AUTO.on,pk,G.LL.tapped,PV.tab,AUTO.unseen?1:0].join('|');
   PV.last=now;if(!force&&sig===PV.sig)return;PV.sig=sig;
   const el=$('#pvIn'),sc=$('#pv').scrollTop;let html,v=null;
-  if(G.plan){v=planViewHTML();html=`<div class="pvh"><h2>Your plan · ${dpParksLabel(G.plan.res)}</h2><span>${G.real?'● Real time':fmtClock(G.t)}</span></div>${pvLLHTML()}${v.top}${pvWaitsHTML(pk)}<h3 id="pvPlanH">Plan</h3>${v.rest}`}
+  if(G.plan){v=planViewHTML();html=`<div class="pvh"><h2>Your plan · ${dpParksLabel(G.plan.res)}</h2><span>${G.real?'● Real time':fmtClock(G.t)}</span></div>${pvTabsHTML()}${PV.tab==='plan'?pvPlanTabHTML(v):PV.tab==='waits'?pvWaitsHTML(pk):pvNowTabHTML(v)}`}
   else html=`<div class="pvh"><h2>No plan yet</h2><span>${G.real?'● Real time':fmtClock(G.t)}</span></div>${pvLLHTML()}<p class="note">Pick your must-dos and the sim plans the rest of today from where you are.</p>${pvWaitsHTML(pk)}`;
   el.innerHTML=html;$('#pv').scrollTop=sc;
   try{if(v)planBind(el,v);else nowBind(el)}catch(e){showErr(e)}
   try{nowBarRender(v)}catch(e){showErr(e)}
-  bindAll(el,{'[data-pvr]':b=>openRide(RIDE_BY[b.dataset.pvr]),'[data-pvll]':()=>{llView.confirm=null;openLL()},'[data-auto-undo]':()=>autoUndo()});planDotUI()}
+  // the Now card belongs to the Now tab (row 72): Plan and Waits get the room; the countdown strip stays on every tab
+  {const nw=$('#pvNow'),hid=!!G.plan&&PV.tab!=='now';if(nw.hidden!==hid){nw.hidden=hid;pvSizes()}document.body.classList.toggle('pvtabs-on',!!G.plan)}
+  bindAll(el,{'[data-pvr]':b=>openRide(RIDE_BY[b.dataset.pvr]),'[data-pvll]':()=>{llView.confirm=null;openLL()},'[data-auto-undo]':()=>autoUndo(),'[data-pvtab]':b=>pvTab(b.dataset.pvtab)});planDotUI()}
 function pvSizes(){const t=$('#top'),b=$('#bottom'),n=$('#pvNow'),r=document.documentElement.style;r.setProperty('--topH',(t.hidden?0:t.offsetHeight)+'px');r.setProperty('--botH',(b.hidden?0:b.offsetHeight)+'px');r.setProperty('--nowH',(n&&n.firstChild?n.offsetHeight:0)+'px');const sp=$('#pvStrip');r.setProperty('--stripH',(sp&&sp.firstChild?sp.offsetHeight:0)+'px')}
 if(window.ResizeObserver){const ro=new ResizeObserver(pvSizes);ro.observe($('#top'));ro.observe($('#bottom'));ro.observe($('#pvNow'));ro.observe($('#pvStrip'))}
 $('#pv').addEventListener('pointerdown',()=>{PV.touch=performance.now()},{passive:true});$('#pv').addEventListener('scroll',()=>{PV.touch=performance.now()},{passive:true});
@@ -4926,7 +4998,7 @@ function tick(now){const pv=PV.on;if(pv&&(G.real||!G.started||G.over)&&now-PV.ti
     camStep(now);controls.update();skyDome.position.copy(camera.position);renderFrame();updateLabels()}
   if(G.started){updateHUD();runTick();try{pushTick()}catch(e){}try{confTick()}catch(e){}if(pv)pvRefresh(false)}
 }
-window.WDW={DBG,dbgText,bindAll,PIN,pinPage,showTick:()=>{showClock=0;showTick(1)},showHeldAll,setView:v=>setView(v),openSteps:()=>openSteps(),openDoing:()=>openDoing(),testReset:()=>{DPV={edit:false};FIX.open=false;closeSheet()},cdList:()=>cdList(),cdRender:()=>{CD.html='';cdRender()},CD,planTo,autoUndo,nowModel:()=>NOWC.m,nowTarget,nowTap,openFix:()=>openFix(),stepsRefresh:()=>stepsRefresh(),dpvEdit:()=>{DPV.edit=true;DPV.S=null},SHOWS,showIngest,showsFor,showEventsReal,openShows,showBlock,showNode,showRideTimes,showPoll,showAddGame,showGo,PUSH,pushPlan,pushSync,openPush,pushSupport,pushDataText,pushDataImport,llOdds,llObs,llObsAdd,llCalFor,CONF,confRun,confOpts,confCompare,confCardHTML,openLLEnter,endDay,resBuild,resHTML,resShow,resLoad,resLatest,RUN,runSave,runLoad,runClear,runResume,runState,runBox,runFind,AUTO,RT,autoCheck,autoReasons,autoReplan,autoDiff,rtRodeIt,rtAt,rtNow,openWhere,dpGameOpts,camera,controls,RF,rfCompact,rfStore,rfLoad,rfResid,rfCalibrate,rfEstimate,rfBacktest,rfUpdateToday,rfApplyDay,rfMul,rfCal,openRF,rfAfterUpdate,rfNoteUpdate,rfTick,rfBannerHTML,liveMatch,stRun,stHTML,stCalib,stModelDay,dpParseTP,dpApplyImport,scene,setGfx,LIGHT,sunDir,fwShows,fwSim:(n,dt)=>{for(let i=0;i<n;i++)updateFireworks(dt)},holdTime:t=>{G.holdT=t==null?null:t*60;if(t!=null)G.t=t*60},dpRun,dpRunDay,dpLegs,dpAllMust,getDPS:()=>DPS,dpStartOpts:S=>dpStartOpts(S),dpMakeGame,dpProgress,dpLoad,dpSave,openPlan,openDaySetup,prepDay,llFromPlan,llFresh,llBook,llNext,llRecs,llUse,llHeld,llTick,llPlanErrors,llSuggest,llLoadPlan,openLL,openRides,openPicks,LIVE,liveIngest,liveFor,curveAt,orlandoNow,livePoll,G,go,flyTo,setFollow,RIDE_BY,PARKS,camera,controls,openRide,closeSheet,rawWait,waitAt,dayFactor,holiday,hoursFor,applyHours,accessOpen,lastClose,renderer,dijkstra,NI,NODES,RESORTS,RIDES,LINES};
+window.WDW={DBG,dbgText,bindAll,PIN,pinPage,PV,pvTab:k=>pvTab(k),showTick:()=>{showClock=0;showTick(1)},showHeldAll,setView:v=>setView(v),openSteps:()=>openSteps(),openDoing:()=>openDoing(),testReset:()=>{DPV={edit:false};FIX.open=false;closeSheet()},cdList:()=>cdList(),cdRender:()=>{CD.html='';cdRender()},CD,planTo,autoUndo,nowModel:()=>NOWC.m,nowTarget,nowTap,openFix:()=>openFix(),stepsRefresh:()=>stepsRefresh(),dpvEdit:()=>{DPV.edit=true;DPV.S=null},SHOWS,showIngest,showsFor,showEventsReal,openShows,showBlock,showNode,showRideTimes,showPoll,showAddGame,showGo,PUSH,pushPlan,pushSync,openPush,pushSupport,pushDataText,pushDataImport,llOdds,llObs,llObsAdd,llCalFor,CONF,confRun,confOpts,confCompare,confCardHTML,openLLEnter,endDay,resBuild,resHTML,resShow,resLoad,resLatest,RUN,runSave,runLoad,runClear,runResume,runState,runBox,runFind,AUTO,RT,autoCheck,autoReasons,autoReplan,autoDiff,rtRodeIt,rtAt,rtNow,openWhere,dpGameOpts,camera,controls,RF,rfCompact,rfStore,rfLoad,rfResid,rfCalibrate,rfEstimate,rfBacktest,rfUpdateToday,rfApplyDay,rfMul,rfCal,openRF,rfAfterUpdate,rfNoteUpdate,rfTick,rfBannerHTML,liveMatch,stRun,stHTML,stCalib,stModelDay,dpParseTP,dpApplyImport,scene,setGfx,LIGHT,sunDir,fwShows,fwSim:(n,dt)=>{for(let i=0;i<n;i++)updateFireworks(dt)},holdTime:t=>{G.holdT=t==null?null:t*60;if(t!=null)G.t=t*60},dpRun,dpRunDay,dpLegs,dpAllMust,getDPS:()=>DPS,dpStartOpts:S=>dpStartOpts(S),dpMakeGame,dpProgress,dpLoad,dpSave,openPlan,openDaySetup,prepDay,llFromPlan,llFresh,llBook,llNext,llRecs,llUse,llHeld,llTick,llPlanErrors,llSuggest,llLoadPlan,openLL,openRides,openPicks,LIVE,liveIngest,liveFor,curveAt,orlandoNow,livePoll,G,go,flyTo,setFollow,RIDE_BY,PARKS,camera,controls,openRide,closeSheet,rawWait,waitAt,dayFactor,holiday,hoursFor,applyHours,accessOpen,lastClose,renderer,dijkstra,NI,NODES,RESORTS,RIDES,LINES};
 requestAnimationFrame(frame);
 })();
 </script>
