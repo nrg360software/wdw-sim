@@ -312,6 +312,18 @@ body.pvmode.pvtabs-on [data-tab][aria-selected="true"]{background:var(--gold);co
 body.pvmode #rtRow{display:none!important}
 /* plan view: toasts sit under the countdown strip so they never cover an Act now banner (row 71) */
 body.pvmode #toasts{top:calc(var(--topH,76px) + var(--stripH,0px) + 8px)}
+/* notifications (Nick, Nov 25: toasts blended into the plan they covered): in the plan view they go to one fixed-height line under the
+   strip (latest notice, Undo while it lasts, unread count) and a scrollable Notifications sheet; floating toasts only over a sheet */
+#pvNtf{display:none}
+body.pvtabs-on #pvNtf{display:flex;position:fixed;z-index:5;left:max(12px,env(safe-area-inset-left,0px));right:max(12px,env(safe-area-inset-right,0px));top:calc(var(--topH,76px) + var(--stripH,0px) + 4px);
+  height:36px;box-sizing:border-box;align-items:center;gap:8px;padding:0 6px 0 10px;border-radius:10px;background:#0d1530;border:1px solid var(--line);font-size:13px;font-weight:600;cursor:pointer;overflow:hidden}
+body.pvtabs-on #pvNtf.fresh{border-color:rgba(255,204,77,.7);background:#1a1d33}
+#pvNtf .ntm{color:var(--muted);font-size:12px;flex:none}#pvNtf .ntx{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#pvNtf .ntx.old{color:var(--muted)}
+#pvNtf .nu{flex:none;background:var(--gold);color:#1a1300;border-radius:999px;font-size:11px;font-weight:800;padding:1px 7px}#pvNtf .btn{flex:none;min-height:28px;padding:2px 10px}
+body.pvtabs-on #pv{padding-top:calc(var(--topH,76px) + var(--stripH,0px) + 50px)}
+body.pvtabs-on:not(.shopen) #toasts,body.ntfopen #toasts{display:none}
+.ntl{display:flex;flex-direction:column}.ntr{display:flex;gap:10px;align-items:baseline;padding:9px 2px;border-bottom:1px solid rgba(255,255,255,.07);font-size:14px}
+.ntr .ntm{color:var(--muted);font-size:12px;flex:none;width:58px}.ntr .ntx{flex:1}.ntr.new .ntx{font-weight:700}
 .toast.undo{pointer-events:auto}.toast.undo .btn{padding:4px 12px;margin-left:4px}
 .fxl{display:flex;flex-direction:column;gap:8px;margin:8px 0 12px}
 .fxo{display:flex;align-items:center;gap:10px;text-align:left;background:var(--chip);border:1px solid var(--line);border-radius:12px;padding:12px;font:inherit;font-size:15px;font-weight:600;color:var(--text);min-height:48px;cursor:pointer}
@@ -325,7 +337,7 @@ body.pvmode #toasts{top:calc(var(--topH,76px) + var(--stripH,0px) + 8px)}
 
 <div id="stage"></div>
 <div id="labels"></div>
-<div id="pv" hidden><div id="pvStrip"></div><div id="pvIn"></div><div id="pvNow"></div></div>
+<div id="pv" hidden><div id="pvStrip"></div><div id="pvNtf" role="button" tabindex="0" aria-label="Notifications"></div><div id="pvIn"></div><div id="pvNow"></div></div>
 
 <div class="hud" id="top" hidden>
   <div class="card" id="clock"><div class="t" id="clockT">8:30 AM</div><div class="s" id="clockS">Parks open 9 AM</div></div>
@@ -983,7 +995,7 @@ function showTick(dt){showClock-=dt;if(showClock>0||!G.plan||G.over)return;showC
     if(t>=leave-10&&!P.showRem['go'+b.id]){P.showRem['go'+b.id]=1;const late=Math.round(t-leave);
       showToast(b,late>0?`🎭 Leave now for ${b.name} · ${b.meet?'line up':'starts'} ${fmtClock(b.at)} · ${fmtDur(walk)} walk, about ${fmtDur(late)} late · tap to go`:`🎭 Time to head to ${b.name} · ${b.meet?'line up':'starts'} ${fmtClock(b.at)} · leave by ${fmtClock(leave)} (${fmtDur(walk)} walk) · tap to go`)}}}
 // walk to the show and hold there until it ends (meets: until the line and greeting are done)
-function showGoSegs(node,name,hold){const st=effectiveStart();if(!st.can){toast('Finish this ride first');return false}const D=dijkstra(st.node,G.t/60),tgt=NI[node];if(tgt==null||!isFinite(D.dist[tgt])){toast('No walking route there from here');return false}
+function showGoSegs(node,name,hold){const st=effectiveStart();if(!st.can){toast(st.note||'Finish this ride first');return false}const D=dijkstra(st.node,G.t/60),tgt=NI[node];if(tgt==null||!isFinite(D.dist[tgt])){toast('No walking route there from here');return false}
   const segs=buildSegs({st,edges:pathEdges(D,tgt)},{dur:0},false);segs.splice(-2);const walk=D.dist[tgt];
   if(G.segs&&G.segs[G.seg]&&G.segs[G.seg].k==='queue'&&G.segs[G.seg].started&&!G.segs[G.seg].ll)addMood(-3,'Gave up on that line');
   segs.push({k:'snack',dur:Math.max(5,Math.round(hold-walk)),el:0,started:false,name,act:'show'});G.segs=segs;G.seg=0;G.tripEnd=tgt;G.trip=null;showTrip(segs);setFollow(true);runDirty();return true}
@@ -1312,7 +1324,7 @@ function dpLoad(date){try{const s=localStorage.getItem(DP_KEY+date);if(s)return 
 function dpSave(date,s){try{localStorage.setItem(DP_KEY+date,JSON.stringify(s))}catch(e){}}
 function dpDefaults(pk){return{pk:pk||'MK',must:[],ll:'mine',lunch:true,extras:true,pace:'bal'}}
 const dpPaceOf=S=>S&&DP_PACE.hasOwnProperty(S.pace)?S.pace:'bal';
-function prepDay(dstr,mult,hid){const day=parseDay(dstr)||new Date();G.date=ymd(day);G.deluxe=DELUXE.has(hid);const HR=applyHours(day);
+function prepDay(dstr,mult,hid){NTF.list=[];NTF.n=NTF.seenN=0;const day=parseDay(dstr)||new Date();G.date=ymd(day);G.deluxe=DELUXE.has(hid);const HR=applyHours(day);
   for(const k in G.pf)G.pf[k]=clamp(dayFactor(k,day)*mult*(PARKS[k].party?0.85:1),0.6,1.7);G.crowd=Object.values(G.pf).reduce((a,b)=>a+b,0)/4;
   RIDES.forEach(r=>r.seed=hash(G.date+r.id)*10);DPW={};G.pfMult=mult;G.pfFc={...G.pf};rfApplyDay();return HR}
 let DPW={};
@@ -3276,7 +3288,28 @@ function faceSVG(m){const col=m>=78?'#ffd54a':m>=58?'#ffe28c':m>=38?'#f2cd92':m>
   return `<svg viewBox="0 0 36 36" width="100%" height="100%" aria-hidden="true"><circle cx="18" cy="18" r="16" fill="${col}" stroke="rgba(0,0,0,.3)"/>${brows}${eyes}${mouth}</svg>`}
 const moodWord=m=>m>=80?'Delighted':m>=60?'Happy':m>=40?'Okay':m>=20?'Frustrated':'Meltdown';
 
+// ---- places off the walkways (Nick, Nov 25): Conservation Station is reachable only on the Wildlife Express from Africa. Imported stops
+// (train up → Conservation Station → train back) carry no map location, so the sim tracks it: on the train you can't change course,
+// and at Conservation Station the only way on is the train back (to Africa). G.away = the place's name while you're there.
+const AWAY=[{pk:'AK',name:'Conservation Station',line:'Wildlife Express',home:'AK:afr',ride:12,
+  place:/conservation station|rafiki|planet watch|affection section|habitat habit/i,train:/wildlife express|\btrain\b/i,
+  back:/from (rafiki|conservation|planet)|to (africa|harambe)/i}];
+function awayOf(name,pk){if(!name)return null;for(const A of AWAY){if(pk&&A.pk!==pk)continue;
+  if(A.train.test(name)&&(A.place.test(name)||/africa|harambe/i.test(name)))return{A,dir:A.back.test(name)?'back':'out'};if(A.place.test(name))return{A,at:true}}return null}
+function awayA(){return G.away?AWAY.find(A=>A.name===G.away)||AWAY[0]:null}
+// the seg's effect when it ends (or is cut short by a later tap that shows it's over)
+function awayEnd(s){if(!s||s.k!=='snack'||!s.away)return;const A=AWAY.find(x=>x.name===s.awayName)||AWAY[0];
+  if(s.away==='out'||s.away==='at')G.away=A.name;else if(s.away==='back'){G.away=null;if(NI[A.home]!=null)G.node=NI[A.home]}}
+// may this stop start now? (on the train: only the stop that follows it; at the place: only stops there or the train back)
+function awayBlkOK(name,pk){const k=awayOf(name,pk),cur=G.segs&&G.segs[G.seg],onTrain=cur&&cur.k==='snack'&&(cur.away==='out'||cur.away==='back');
+  if(onTrain)return false;   // on the train nothing else starts until you're off it (real day: ✓ Off the train on the Now card)
+  if(G.away)return !!k&&(k.at||k.dir==='back');return !(k&&k.dir==='back')}
+function awayNote(){const cur=G.segs&&G.segs[G.seg];if(cur&&cur.k==='snack'&&(cur.away==='out'||cur.away==='back')){const A=AWAY.find(x=>x.name===cur.awayName)||AWAY[0];
+    return `You're on the ${A.line}${cur.away==='back'?' back to Africa':' to '+A.name} · off in about ${fmtDur(Math.max(1,cur.dur-cur.el))}.`}
+  const A=awayA();return A?`You're at ${A.name}. The only way back is the ${A.line} to Africa.`:''}
 function effectiveStart(){
+  {const cur=G.segs&&G.segs[G.seg];if(G.away||(cur&&cur.k==='snack'&&(cur.away==='out'||cur.away==='back'))){const A=awayA()||AWAY.find(x=>x.name===cur.awayName)||AWAY[0];
+    return{node:NI[A.home]!=null?NI[A.home]:G.node,prefix:[],can:false,away:true,note:awayNote()}}}
   if(!G.segs)return{node:G.node,prefix:[],can:true};
   const s=G.segs[G.seg];if(!s)return{node:G.node,prefix:[],can:true};
   if(s.k==='walk'){return{node:s.bNode,prefix:[{k:'walk',a:[G.pos[0],G.pos[2]],b:[NODES[s.bNode].x,NODES[s.bNode].z],bNode:s.bNode,len:Math.max(0.01,s.len-s.done),done:0,inPark:s.inPark,park:s.park}],can:true,note:'You\'ll change course from where you\'re walking.'}}
@@ -3347,7 +3380,7 @@ function endSeg(s){s.t1=G.t;
     const actual=G.trip?G.t-G.trip.start-r.dur:0;let msg=s.sync?`${r.short} counted`:`${r.short} done · ${fmtDur(actual)} to get on`;
     addMood(Math.round(joy),msg);
     G.trip=null;G.tripEnd=null;runDirty();if(G.plan)setTimeout(dpNudge,1700)}
-  if(s.k==='snack'){const A=s.act&&ACT[s.act];toast(A?`${A.ic} ${s.name||A.n} done`:'Recharged with a snack')}
+  if(s.k==='snack'){const A=s.act&&ACT[s.act];awayEnd(s);toast(A?`${A.ic} ${s.name||A.n} done`:s.away==='back'?`Back in Africa`:s.away==='out'?`At ${s.awayName}`:'Recharged with a snack')}
   G.seg++;if(G.seg>=G.segs.length){G.segs=null}}
 function moodRate(s,dt){const h=G.t/60,heat=h>=12&&h<16?0.06:0;let r=0;
   switch(s?s.k:'idle'){
@@ -3590,6 +3623,29 @@ function fmtClock(m){m=Math.max(0,m);const h=Math.floor(m/60)%24,mm=Math.floor(m
 function fmtDur(m){m=Math.max(0,Math.round(m));return m>=60?`${Math.floor(m/60)}h ${m%60}m`:`${m}m`}
 function toast(text,d){const el=document.createElement('div');el.className='toast';el.innerHTML=(d?`<span class="d ${d>0?'p':'n'}">${d>0?'+':''}${Math.round(d)}</span>`:'')+`<span>${text}</span>`;
   const box=$('#toasts');box.appendChild(el);while(box.children.length>3)box.firstChild.remove();setTimeout(()=>el.remove(),3800)}
+// ---- notifications: every toast during a day is logged; the plan view shows the latest in #pvNtf and all of them in a sheet
+var NTF={list:[],n:0,seenN:0};
+function ntfEsc(t){return String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function ntfAdd(el){if(!G.started||G.over)return;const txt=[...el.childNodes].filter(n=>!(n.matches&&n.matches('button'))).map(n=>(n.textContent||'').trim()).filter(Boolean).join(' ').replace(/\s+/g,' ').trim();if(!txt)return;
+  const last=NTF.list[0];if(last&&last.text===txt&&Math.abs(G.t-last.t)<1&&!el.querySelector('[data-undo]'))return;
+  NTF.list.unshift({t:G.t,text:txt,el,at:performance.now(),undo:!!el.querySelector('[data-undo]')});if(NTF.list.length>80)NTF.list.length=80;NTF.n++;
+  ntfRender();setTimeout(ntfRender,10500);setTimeout(ntfRender,20500)}
+if(window.MutationObserver)new MutationObserver(ms=>{for(const m of ms)for(const n of m.addedNodes)if(n.nodeType===1&&n.classList&&n.classList.contains('toast'))ntfAdd(n)}).observe($('#toasts'),{childList:true});
+function ntfUndoLive(x){return !!(x&&x.undo&&x.el&&x.el.isConnected&&x.el.querySelector('[data-undo]'))}
+function ntfRender(){const b=$('#pvNtf');if(!b)return;if(PV.down&&PV.down.size){clearTimeout(NTF.rt);NTF.rt=setTimeout(ntfRender,500);return}   // not under a finger (row 74)
+  // a live Undo stays in the line for its 10 s even if newer notices arrive (the count and the sheet show those)
+  const x=NTF.list.find(ntfUndoLive)||NTF.list[0],un=NTF.n-NTF.seenN,fresh=x&&performance.now()-x.at<20000;b.classList.toggle('fresh',!!fresh);
+  const h=x?`<span class="ntm">${fmtClock(x.t).replace(/ [AP]M/,'')}</span><span class="ntx${fresh?'':' old'}">${ntfEsc(x.text)}</span>${ntfUndoLive(x)?'<button class="btn sm" type="button" data-ntfundo="1">Undo</button>':''}${un>1?`<span class="nu" aria-label="${un} new">${un}</span>`:''}`
+    :'<span class="ntm">🔔</span><span class="ntx old">Notifications show here</span>';
+  if(b.innerHTML!==h)b.innerHTML=h}
+function ntfUndo(x){const u=ntfUndoLive(x)&&x.el.querySelector('[data-undo]');if(u)u.click();ntfRender()}
+function openNtf(){NTF.seenN0=NTF.seenN;NTF.seenN=NTF.n;ntfRender();const nNew=NTF.n-NTF.seenN0;
+  openSheet(`<div class="sh" id="ntfSheet"><h2>Notifications</h2><button class="x" aria-label="Close">×</button></div><div class="sb">
+  ${NTF.list.length?`<div class="ntl">${NTF.list.map((x,i)=>`<div class="ntr${i<nNew?' new':''}"><span class="ntm">${fmtClock(x.t)}</span><span class="ntx">${ntfEsc(x.text)}</span>${ntfUndoLive(x)?`<button class="btn sm" type="button" data-ntfu="${i}">Undo</button>`:''}</div>`).join('')}</div>`:'<p class="note">Nothing yet today. Ride updates, plan changes and Undo show here.</p>'}</div>`);
+  document.body.classList.add('ntfopen');
+  bindAll(sheetIn,{'[data-ntfu]':b=>{const x=NTF.list[+b.dataset.ntfu];closeSheet();ntfUndo(x)}})}
+$('#pvNtf').addEventListener('click',e=>{const u=e.target.closest('[data-ntfundo]');if(u){e.stopPropagation();ntfUndo(NTF.list.find(ntfUndoLive));return}openNtf()});
+$('#pvNtf').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openNtf()}});
 let hudT=0;
 function nextOpenText(){const h=G.t;const open=Object.values(PARKS).filter(P=>parkOpen(Object.keys(PARKS).find(k=>PARKS[k]===P),h));
   const first=Math.min(...Object.keys(PARKS).map(accessOpen));if(h<first){const ks=Object.keys(PARKS);const byT={};ks.forEach(k=>{const t=accessOpen(k);(byT[t]=byT[t]||[]).push(PARKS[k].short)});return 'Early Entry '+Object.keys(byT).sort((a,b)=>a-b).map(t=>byT[t].join('/')+' '+fmtClock(+t).replace(':00','')).join(' · ')}if(!open.length)return 'All parks closed';
@@ -3620,8 +3676,8 @@ function updateHUD(){
 const sheet=$('#sheet'),sheetIn=$('#sheetIn');let sheetTab=null,wasSpeed=1;
 function sheetKeep(){const h=!sheet.hidden&&sheetIn.querySelector('.sh h2');if(!h)return null;const sb=sheetIn.querySelector('.sb');return{t:h.textContent,y:sb?sb.scrollTop:0,op:[...sheetIn.querySelectorAll('details[open]>summary')].map(x=>x.textContent)}}
 function sheetRestore(k){if(!k)return;const h=sheetIn.querySelector('.sh h2');if(!h||h.textContent!==k.t)return;sheetIn.querySelectorAll('details>summary').forEach(x=>{if(k.op.includes(x.textContent))x.parentNode.open=true});const sb=sheetIn.querySelector('.sb');if(sb)sb.scrollTop=k.y}
-function openSheet(html){const keep=sheetKeep();sheetIn.innerHTML=html;if(G.real)sheetIn.querySelectorAll('.paused').forEach(x=>{x.textContent='Real time';x.style.color='#4fd18d'});sheet.hidden=false;if(!G.sheetPaused){G.sheetPaused=true}sheetIn.querySelectorAll('.x').forEach(x=>x.onclick=closeSheet);sheetIn.querySelectorAll('[data-rf]').forEach(x=>x.onclick=()=>openRF());try{sheetRestore(keep)}catch(e){}}
-function closeSheet(){sheet.hidden=true;G.sheetPaused=false}
+function openSheet(html){document.body.classList.add('shopen');document.body.classList.remove('ntfopen');const keep=sheetKeep();sheetIn.innerHTML=html;if(G.real)sheetIn.querySelectorAll('.paused').forEach(x=>{x.textContent='Real time';x.style.color='#4fd18d'});sheet.hidden=false;if(!G.sheetPaused){G.sheetPaused=true}sheetIn.querySelectorAll('.x').forEach(x=>x.onclick=closeSheet);sheetIn.querySelectorAll('[data-rf]').forEach(x=>x.onclick=()=>openRF());try{sheetRestore(keep)}catch(e){}}
+function closeSheet(){sheet.hidden=true;G.sheetPaused=false;document.body.classList.remove('shopen','ntfopen')}
 function currentPark(){const st=effectiveStart();const n=NODES[st.node];if(n.park)return n.park;if(n.outside)return n.outside;
   let best='MK',bd=Infinity;for(const pk in PARKS){const P=PARKS[pk],d=Math.hypot(n.x-P.c[0],n.z-P.c[1]);if(d<bd){bd=d;best=pk}}return best}
 function rideRowMeta(r,D,st){const eta=D.dist[NI[r.nodeId]];const s=rideState(r,G.t+eta);const parts=[`${fmtDur(eta)} away`];
@@ -4027,6 +4083,9 @@ function blkLinked(b){const P=G.plan;return !!(P&&P.res.steps.some(s=>(s.blocks|
 function dpPassGrace(LLs){let cd=[];try{cd=cdList()}catch(e){}
   for(const h of LLs.held||[]){const o=cd.find(x=>x.k==='ll'&&x.p.id===h.id);const reach=o?G.t+o.tNow:G.t;h.grace=reach>h.end+DP_GRACE?LL_LATE:DP_GRACE}}
 function dpGameOpts(S,x){let node=G.node,t=G.t;const done=[...new Set(G.ridden)];let LLs=dpLLFrom(G.LL);
+  {const es=effectiveStart();if(es.away&&es.node!=null){node=es.node;const P=G.plan,A=awayA();
+    // at the station with no train back left in the plan: count the train ride before anything else
+    if(A&&!(S.blocks||[]).some(b=>!(P&&P.blkDone&&P.blkDone[b.id])&&(awayOf(b.name)||{}).dir==='back'))t+=A.ride+5}}
   if(x&&x.dropCur&&G.segs&&G.segs.length){const st=effectiveStart();if(st.can){node=st.node;t=G.t+st.prefix.reduce((a,p)=>a+p.len/WALK_PARK,0)}}
   else if(G.segs&&G.segs.length){const tgt=G.segs[G.segs.length-1].ride;let rem=0;
     for(let i=G.seg;i<G.segs.length;i++){const s=G.segs[i];
@@ -4120,8 +4179,16 @@ function planBind(root,v){const pr=v.pr,s=v.s;try{nowBind(root)}catch(e){showErr
   '#confRe':()=>planReplanManual('Replanned for a safer day'),
   '#dpEdit':()=>{DPV.edit=true;DPV.S=null;openPlan()},
   '#dpClr':()=>{if(DPV.clr){G.plan=null;DPV.clr=false;planDone();toast('Plan cleared')}else{DPV.clr=true;planRefresh();setTimeout(()=>{DPV.clr=false;if(PV.on)pvRefresh(true)},4000)}}})}
-function dpStartBlk(pr){if(G.segs&&!effectiveStart().can){toast('Finish this ride first');return}if(pr.blk.user){const b=showHeldBlock(pr.blk.id)||pr.blk;if(showStartHeld(b)){sayBubble('Showtime!');planDone()}return}const b=pr.blk,dur=Math.max(b.walk+b.dur,b.at?b.at-(b.meal?15:0)+b.dur-G.t:0);G.plan.blkDone[b.id]=1;if(b.meal)G.plan.lunchAt=G.t;G.segs=[{k:'snack',dur:Math.round(dur),el:0,started:false,name:b.name,act:b.meal?'dine':undefined}];G.seg=0;sayBubble(b.meal?'Food!':'Off we go');planDone()}
-function dpTakeLunch(){if(G.segs&&!effectiveStart().can){toast('Finish this ride first');return}G.plan.lunchAt=G.t;G.segs=[{k:'snack',dur:DP_LUNCH,el:0,started:false,act:'dine',name:'Lunch'}];G.seg=0;sayBubble('Lunch!');planDone()}
+function dpStartBlk(pr){const pk0=G.plan&&dpLegs(G.plan.settings)[G.plan.legI||0]?dpLegs(G.plan.settings)[G.plan.legI||0].pk:currentPark();
+  {const es=effectiveStart();if(es.away){if(!awayBlkOK(pr.blk.name,pk0)){toast(es.note);return}}else if(G.segs&&!es.can){toast(es.note||'Finish this ride first');return}}
+  if(G.segs&&G.segs[G.seg]&&G.segs[G.seg].k==='snack')awayEnd(G.segs[G.seg]);   // starting the next stop shows the one before is over
+  if(pr.blk.user){const b=showHeldBlock(pr.blk.id)||pr.blk;if(showStartHeld(b)){sayBubble('Showtime!');planDone()}return}const b=pr.blk,dur=Math.max(b.walk+b.dur,b.at?b.at-(b.meal?15:0)+b.dur-G.t:0);G.plan.blkDone[b.id]=1;if(b.meal)G.plan.lunchAt=G.t;const aw=awayOf(b.name,pk0),sg={k:'snack',dur:Math.round(dur),el:0,started:false,name:b.name,act:b.meal?'dine':undefined};
+  if(aw){sg.away=aw.at?'at':aw.dir;sg.awayName=aw.A.name;if(aw.at)G.away=aw.A.name}
+  G.segs=[sg];G.seg=0;sayBubble(aw&&!aw.at?'All aboard!':b.meal?'Food!':'Off we go');planDone()}
+// at Conservation Station with no train back left in the plan: take it now (the plan picks up from Africa)
+function awayBack(){const A=awayA();if(!A)return;const cur=G.segs&&G.segs[G.seg];if(cur&&cur.k==='snack'&&cur.away)awayEnd(cur);G.away=A.name;
+  G.segs=[{k:'snack',dur:A.ride+5,el:0,started:false,name:`${A.line} back to Africa`,away:'back',awayName:A.name}];G.seg=0;sayBubble('All aboard!');runDirty();planDone()}
+function dpTakeLunch(){{const es=effectiveStart();if((G.segs||es.away)&&!es.can){toast(es.note||'Finish this ride first');return}}G.plan.lunchAt=G.t;G.segs=[{k:'snack',dur:DP_LUNCH,el:0,started:false,act:'dine',name:'Lunch'}];G.seg=0;sayBubble('Lunch!');planDone()}
 function planNothingLeft(){const P=G.plan;if(!P)return false;const pr=dpProgress();return !pr.step&&!pr.blk&&!pr.meal&&!(G.segs&&G.segs.length)}
 function planDone(){if(PV.on)pvRefresh(true);else closeSheet()}
 // ---- row 74, edit safety: one "⋯ Edit plan" sheet for every plan edit (Replan, must-dos, Auto-adjust, Alerts, Shows, Debug), Clear
@@ -4259,7 +4326,7 @@ function rtPlus5(){const s=G.segs&&G.segs[G.seg];if(!s||s.k!=='queue')return;if(
 // eating, snacks, shopping, breaks
 function openDoing(){if(!G.started||G.over)return;const s=G.segs&&G.segs[G.seg];
   if(s&&s.k==='snack'){actDone();stepsRefresh();return}
-  if(!G.real&&G.segs&&!effectiveStart().can){toast('Finish this ride first');return}
+  {const es=effectiveStart();if(es.away&&!(s&&s.k==='snack'&&s.away==='at')&&!G.away){toast(es.note);return}if(!G.real&&G.segs&&!es.can&&!es.away){toast('Finish this ride first');return}}
   const pr=G.plan&&dpProgress(),meal=pr&&pr.blk&&pr.blk.meal?pr.blk.name:pr&&pr.meal?'Lunch':null;
   const b=(k,sub)=>{const A=ACT[k];return `<button class="ri" data-act="${k}"><span class="n">${A.ic} ${k==='dine'&&meal?meal+' (in your plan)':A.n}</span><span class="m">${sub}</span><span class="w">${G.real?'Start':'~'+fmtDur(k==='dine'&&pr&&pr.meal&&!(pr.blk&&pr.blk.meal)?DP_LUNCH:A.dur)}</span></button>`};
   openSheet(`<div class="sh"><h2>Eat, shop or take a break</h2><span class="paused">Clock paused</span><button class="x" aria-label="Close">×</button></div><div class="sb">
@@ -4378,7 +4445,16 @@ function dinGraceFor(o){return dinGrace().find(g=>o.rid?g.lead.rid===o.rid&&(o.i
 function dinGraceMsg(g){return `⚠ ${g.lead.self?'You\'ll reach':'This gets you to'} ${g.b.name} ~${g.b.late}m late (within the 15-min grace)`}
 // Act-now threshold for a planned-late meal: you already chose that lateness, so alarm when it slips past it (or nears the grace end)
 function dinGraceThr(b){return b&&b.meal&&b.late>0&&b.late<=15?-Math.max(b.late+2,Math.min(12,b.late+5)):CD_ACT}
+// a pass you can still use today that the plan doesn't use (held, not past the tap-in limit; or a breakdown MEP)
+function nowUnusedPass(){const P=G.plan;if(!P)return null;const st=P.res.steps,pr=dpProgress();
+  return G.LL.passes.find(p=>{if(!(p.st==='mep'||(p.st==='active'&&llWinState(p,G.t)!=='late')))return false;if(p.st==='mep'&&!llPlanParks(P).has(RIDE_BY[p.rid].pk))return false;
+    return !st.some((x,j)=>x.k==='ride'&&!pr.done[j]&&(p.st==='mep'?x.how==='mep':x.rid===p.rid&&x.how!=='standby'&&x.how!=='rope'))})||null}
 function nowModel(v){if(!G.started||G.over)return null;const R=G.real,segs=G.segs,s=segs&&segs[G.seg],m={tag:'Now',big:'',sub:'',nudge:'',btn:null,foot:'',fix:R};
+  if(G.away&&!(s&&s.k==='snack'&&s.away)){const pr=dpProgress(),A=awayA();
+    // at the station with no stop of the plan there: the train back is the only move
+    if(!(pr&&pr.blk&&awayBlkOK(pr.blk.name,A.pk))){m.tag='Now';m.big=`At ${A.name}`;m.sub=`The ${A.line} is the only way back · ~${A.ride} min to Africa`;m.btn={k:'awayback',label:`🚂 Take the train back`,cls:'pri'};m.foot=nowLastDone();return m}}
+  if(s&&s.k==='snack'&&(s.away==='out'||s.away==='back')){const A=AWAY.find(x=>x.name===s.awayName)||AWAY[0];m.big=`🚂 ${A.line}`;m.sub=`${s.away==='back'?'Back to Africa':'To '+A.name} · about ${fmtDur(Math.max(1,s.dur-s.el))} left`;
+    if(R)m.btn={k:'actdone',label:'✓ Off the train',cls:'pri'};m.foot=nowThen();return m}
   if(s&&s.k==='snack'){const A=s.act&&ACT[s.act];m.big=`${A?A.ic:'☕'} ${s.name||(A?A.n:'Break')}`;
     m.sub=R&&A?`Started ${fmtClock(s.t0!=null?s.t0:G.t)} · ${fmtDur(s.el)} so far`:`${fmtDur(Math.max(0,s.dur-s.el))} left`;
     if(R&&A&&s.hold)m.nudge='Taking longer than planned. The plan waits for your tap.';
@@ -4408,14 +4484,20 @@ function nowModel(v){if(!G.started||G.over)return null;const R=G.real,segs=G.seg
     m.btn=x.early!=null?{k:'wait',label:`Leave by ${fmtClock(x.early)}`,cls:'ll',dis:1}:x.busyNow?{k:'wait',label:'Finish this first',cls:'',dis:1}:{k:'go',label:x.hp?`Go · hop to ${PARKS[x.hop.to].short}`:`Go · ${x.canLL?'⚡ ':''}${r.short}`,cls:x.canLL?'ll':'pri'};
     if(rideState(r,G.t)==='down')m.nudge=`${r.short} is down right now. Wait it out or replan.`;else if(x.late>10&&!x.hp)m.nudge=`About ${fmtDur(x.late)} behind plan.`;
     if(!x.hp){m.ll=!!x.canLL;const g=dinGraceFor({rid:r.id,i:pr.next});if(g)m.warn=dinGraceMsg(g)}}
+  else if(nowUnusedPass()){const p=nowUnusedPass(),r=RIDE_BY[p.rid],tried=NOWC.passTry===p.id+':'+G.plan.made;m.tag='Next';m.ll=true;
+    // nothing left in the plan but a pass still unused (Nick's DAK day: Flight of Passage's breakdown pass): don't say "all done"
+    m.big=`You still have a pass`;m.sub=p.st==='mep'?`${r.short} went down · Multiple Experience Pass good all day on ${r.short} or another ${PARKS[r.pk].short} Multi Pass ride. Replan to fit it in.`:`${r.short} ${fmtClock(p.start).replace(/ [AP]M/,'')}–${fmtClock(p.end)} isn't in the plan. Replan to fit it in.`;
+    if(tried){m.sub=`The plan can't fit your ${r.short} pass${p.st==='mep'?' (Multiple Experience)':''} before close. Use it from the Rides tab, or call it a day.`;m.btn={k:'end',label:'🏁 I\'m done · see my day',cls:'pri'};m.alt={k:'more',label:'＋ Add must-dos'}}
+    else{m.btn={k:'passre',label:'Replan to use it',cls:'ll'};m.alt={k:'end',label:'🏁 I\'m done · see my day'}}}
   else{m.big=G.plan.res.nMust?'All planned rides done':'Nothing left in your plan';m.sub='Call it a day for your summary, or add must-dos and the sim plans the rest of today from here.';m.btn={k:'end',label:'🏁 I\'m done · see my day',cls:'pri'};m.alt={k:'more',label:'＋ Add must-dos'}}
   return m}
 function nowBarHTML(m){if(!m)return '';
   return `<div class="ncard${m.ll?' ll':''}" id="ncard"><div class="nct">${m.tag}${m.ll?' · ⚡ Lightning Lane':''}</div><div class="ncb">${m.big}</div>${m.sub?`<div class="ncs">${m.sub}</div>`:''}${m.nudge?`<div class="ncn">${m.nudge}</div>`:''}${m.warn?`<div class="ncw" role="note">${m.warn}</div>`:''}${m.btn?`<button class="btn ${m.btn.cls} ncgo" data-nc="${m.btn.k}" ${m.btn.dis?'disabled':''}>${m.btn.label}</button>`:''}${m.alt?`<button class="btn ncalt" data-nc="${m.alt.k}">${m.alt.label}</button>`:''}<div class="ncf">${m.fix?'<button class="ncfix" data-nc="fix" type="button">Fix steps</button>':'<span></span>'}<span class="ncft">${m.foot||''}</span></div></div>`}
 function nowBarBind(root){bindAll(root,{'[data-nc]':b=>{const k=b.dataset.nc,m=NOWC.m;
   if(k==='fix'){openFix();return}if(k==='end'){openEndDay();return}if(k==='make'){DPV.edit=false;DPV.S=null;openPlan();return}if(k==='more'){DPV.edit=true;DPV.S=null;openPlan();return}
-  if(k==='actdone'){actDone();stepsRefresh();return}if(k==='blk'){dpStartBlk(dpProgress());return}if(k==='lunch'){dpTakeLunch();return}
+  if(k==='actdone'){actDone();stepsRefresh();return}if(k==='awayback'){awayBack();stepsRefresh();return}if(k==='blk'){dpStartBlk(dpProgress());return}if(k==='lunch'){dpTakeLunch();return}
   if(k==='replan'){planReplanManual('You replanned');return}
+  if(k==='passre'){const p=nowUnusedPass();planReplanManual('Replanned to use your pass');if(p&&G.plan)NOWC.passTry=p.id+':'+G.plan.made;stepsRefresh();return}
   if(k==='go'){const x=NOWC.v&&NOWC.v.nx;if(x)go(x.r,!!x.canLL);stepsRefresh();return}
   if(k==='tap'){const t=nowTarget();
     // only do what the button said: if the day moved on since it was drawn, just redraw
@@ -4823,7 +4905,7 @@ var RUN={dirty:false,last:0,v:1};
 const RUN_KEY=d=>'wdwsim.run.'+d;
 function runDirty(){RUN.dirty=true;if(PUSH)PUSH.dirty=true}
 // the whole trip in progress, segment by segment (since Nov 21: a bus wait, a bus ride or a walk keeps its progress too)
-const SEG_F=['dur','done','len','inPark','park','base','hold','ll','t0','t1','d0','force','act','name','sync','tap','arr'];
+const SEG_F=['dur','done','len','inPark','park','base','hold','ll','t0','t1','d0','force','act','name','sync','tap','arr','away','awayName'];
 function segOut(s){const r1=v=>Math.round(v*100)/100,nid=n=>n!=null&&NODES[n]?NODES[n].id:null,o={k:s.k,el:r1(s.el||0),st:s.started?1:0};
   for(const f of SEG_F){const v=s[f];if(v!=null&&v!==false)o[f]=typeof v==='number'?r1(v):v}
   for(const f of ['bNode','stopNode','toNode'])if(s[f]!=null)o[f]=nid(s[f]);
@@ -4848,7 +4930,7 @@ function runTrip(){const segs=G.segs;if(!segs||!segs.length)return null;const s=
   else o.k='travel';return o}
 function runState(){const P=G.plan,down={};for(const r of RIDES)if(r.downUntil)down[r.id]=r.downUntil;
   return{v:RUN.v,saved:Date.now(),date:G.date,real:!!G.real,t:G.t,mult:G.pfMult||1,hotel:selH.value,speed:G.speed,node:G.node,nk:NODES[G.node]?NODES[G.node].id:null,
-    ridden:G.ridden,mood:G.mood,score:G.score,stats:G.stats,LL:G.LL,down,autoLast:AUTO.last,trip:runTrip(),log:G.log||[],planFirst:G.planFirst||null,
+    ridden:G.ridden,mood:G.mood,score:G.score,stats:G.stats,LL:G.LL,down,away:G.away||null,autoLast:AUTO.last,trip:runTrip(),log:G.log||[],planFirst:G.planFirst||null,
     plan:P?{settings:P.settings,res:P.res,legI:P.legI||0,ridIdx:P.ridIdx,lunchAt:P.lunchAt,blkDone:P.blkDone||{},made:P.made,notes:P.notes||[],base:P.base,conf:P.conf||null}:null}}
 function runSave(){if(!G.started||G.over||!G.date)return false;RUN.last=Date.now();RUN.dirty=false;
   try{localStorage.setItem(RUN_KEY(G.date),JSON.stringify(runState()));return true}catch(e){return false}}
@@ -4876,7 +4958,7 @@ function runResume(o){const r0=o.trip&&RIDE_BY[o.trip.rid];
   inDate.value=o.date;if(RESORTS.some(h=>h.id===o.hotel))selH.value=o.hotel;
   document.querySelectorAll('#segCrowd button').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.v===o.mult?'true':'false'));showForecast();llSumUpdate();daySumUpdate();
   prepDay(o.date,o.mult,o.hotel);G.real=!!o.real;RT.at=0;G.t=o.t;livePoll(!!G.real);rtStartUI();
-  Object.assign(G,{ridden:o.ridden.slice(),mood:o.mood,score:o.score,stats:Object.assign({wait:0,transit:0,walk:0,ride:0},o.stats),segs:null,seg:0,started:true,over:false,trip:null,tripEnd:null,plan:null,log:(o.log||[]).map(e=>Object.assign({},e)),planFirst:o.planFirst||null,lastTap:null});
+  Object.assign(G,{ridden:o.ridden.slice(),mood:o.mood,score:o.score,stats:Object.assign({wait:0,transit:0,walk:0,ride:0},o.stats),segs:null,seg:0,started:true,over:false,trip:null,tripEnd:null,plan:null,log:(o.log||[]).map(e=>Object.assign({},e)),planFirst:o.planFirst||null,lastTap:null,away:o.away&&AWAY.some(A=>A.name===o.away)?o.away:null});
   DPV={edit:false};G.LL=Object.assign(llFresh(),o.LL);llClock=0;
   RIDES.forEach(r=>r.downUntil=o.down&&o.down[r.id]||0);G.node=o.nk&&NI[o.nk]!=null?NI[o.nk]:NODES[o.node]?o.node:NI['R:'+selH.value]; // nk: node id, so saves survive new walkway nodes
   if(o.plan&&o.plan.res){G.plan=Object.assign({},o.plan,{settings:Object.assign({},o.plan.settings),notes:o.plan.notes||[],blkDone:o.plan.blkDone||{}})}
@@ -5057,7 +5139,7 @@ function pvRefresh(force){try{pvRefresh0(force)}catch(e){PV.sig='';const m=Strin
 function pvRefresh0(force){if(!PV.on||!G.started||G.over)return;const now=performance.now();
   if(PV.down.size&&now-PV.downT<PV_DOWN_MAX){if(force)PV.pend=true;return}
   if(!force&&(now-PV.last<2000||now-PV.touch<1500))return;
-  try{cdRender()}catch(e){showErr(e)}
+  try{cdRender();ntfRender()}catch(e){showErr(e)}
   const cur=G.segs&&G.segs[G.seg],pk=NODES[effectiveStart().node].park||(G.plan?G.plan.res.pk:currentPark());
   const sig=[G.plan?G.plan.made+':'+G.plan.notes.length+':'+Object.keys(G.plan.blkDone||{}).length+':'+G.plan.lunchAt:'-',G.ridden.length,G.seg,G.segs?G.segs.length:0,cur?cur.k+(cur.started?1:0)+(cur.hold?1:0)+(cur.tap?1:0)+(cur.act||''):'',G.node,(G.log||[]).length,
     G.LL.passes.map(p=>p.rid+p.st+p.start).join(),LIVE.got,CONF&&CONF.ver,Math.floor(G.t/(G.real?1:5)),DPV.clr,AUTO.on,pk,G.LL.tapped,PV.tab,AUTO.unseen?1:0].join('|');
@@ -5188,7 +5270,7 @@ function tick(now){const pv=PV.on;if(pv&&(G.real||!G.started||G.over)&&now-PV.ti
     camStep(now);controls.update();skyDome.position.copy(camera.position);renderFrame();updateLabels()}
   if(G.started){updateHUD();runTick();try{pushTick()}catch(e){}try{confTick()}catch(e){}if(pv)pvRefresh(false)}
 }
-window.WDW={DBG,dbgText,bindAll,PIN,pinPage,PV,openEditPlan:c=>openEditPlan(c),pvRefresh:f=>pvRefresh(f),planViewHTML:()=>planViewHTML(),pvLockItems:()=>pvLockItems(),dinGrace:()=>dinGrace(),llTask:()=>llTask(),LLT,llUse:r=>llUse(r),openEndDay:()=>openEndDay(),pvTab:k=>pvTab(k),showTick:()=>{showClock=0;showTick(1)},showHeldAll,setView:v=>setView(v),openSteps:()=>openSteps(),openDoing:()=>openDoing(),testReset:()=>{DPV={edit:false};FIX.open=false;closeSheet()},cdList:()=>cdList(),cdRender:()=>{CD.html='';cdRender()},CD,planTo,autoUndo,nowModel:()=>NOWC.m,nowTarget,nowTap,openFix:()=>openFix(),stepsRefresh:()=>stepsRefresh(),dpvEdit:()=>{DPV.edit=true;DPV.S=null},SHOWS,showIngest,showsFor,showEventsReal,openShows,showBlock,showNode,showRideTimes,showPoll,showAddGame,showGo,PUSH,pushPlan,pushSync,openPush,pushSupport,pushDataText,pushDataImport,llOdds,llObs,llObsAdd,llCalFor,CONF,confRun,confOpts,confCompare,confCardHTML,openLLEnter,endDay,resBuild,resHTML,resShow,resLoad,resLatest,RUN,runSave,runLoad,runClear,runResume,runState,runBox,runFind,AUTO,RT,autoCheck,autoReasons,autoReplan,autoDiff,rtRodeIt,rtAt,rtNow,openWhere,dpGameOpts,camera,controls,RF,rfCompact,rfStore,rfLoad,rfResid,rfCalibrate,rfEstimate,rfBacktest,rfUpdateToday,rfApplyDay,rfMul,rfCal,openRF,rfAfterUpdate,rfNoteUpdate,rfTick,rfBannerHTML,liveMatch,stRun,stHTML,stCalib,stModelDay,dpParseTP,dpApplyImport,scene,setGfx,LIGHT,sunDir,fwShows,fwSim:(n,dt)=>{for(let i=0;i<n;i++)updateFireworks(dt)},holdTime:t=>{G.holdT=t==null?null:t*60;if(t!=null)G.t=t*60},dpRun,dpRunDay,dpLegs,dpAllMust,getDPS:()=>DPS,dpStartOpts:S=>dpStartOpts(S),dpMakeGame,dpProgress,dpLoad,dpSave,openPlan,openDaySetup,prepDay,llFromPlan,llFresh,llBook,llNext,llRecs,llUse,llHeld,llTick,llPlanErrors,llSuggest,llLoadPlan,openLL,openRides,openPicks,LIVE,liveIngest,liveFor,curveAt,orlandoNow,livePoll,G,go,flyTo,setFollow,RIDE_BY,PARKS,camera,controls,openRide,closeSheet,rawWait,waitAt,dayFactor,holiday,hoursFor,applyHours,accessOpen,lastClose,renderer,dijkstra,NI,NODES,RESORTS,RIDES,LINES};
+window.WDW={DBG,dbgText,bindAll,PIN,pinPage,PV,NTF,toast:(t,d)=>toast(t,d),openNtf:()=>openNtf(),dpStartBlk:p=>dpStartBlk(p),effectiveStart:()=>effectiveStart(),actDone:()=>actDone(),awayOf:(n,p)=>awayOf(n,p),dpGameOpts:(S,x)=>dpGameOpts(S,x),openEditPlan:c=>openEditPlan(c),pvRefresh:f=>pvRefresh(f),planViewHTML:()=>planViewHTML(),pvLockItems:()=>pvLockItems(),dinGrace:()=>dinGrace(),llTask:()=>llTask(),LLT,llUse:r=>llUse(r),openEndDay:()=>openEndDay(),pvTab:k=>pvTab(k),showTick:()=>{showClock=0;showTick(1)},showHeldAll,setView:v=>setView(v),openSteps:()=>openSteps(),openDoing:()=>openDoing(),testReset:()=>{DPV={edit:false};FIX.open=false;closeSheet()},cdList:()=>cdList(),cdRender:()=>{CD.html='';cdRender()},CD,planTo,autoUndo,nowModel:()=>NOWC.m,nowTarget,nowTap,openFix:()=>openFix(),stepsRefresh:()=>stepsRefresh(),dpvEdit:()=>{DPV.edit=true;DPV.S=null},SHOWS,showIngest,showsFor,showEventsReal,openShows,showBlock,showNode,showRideTimes,showPoll,showAddGame,showGo,PUSH,pushPlan,pushSync,openPush,pushSupport,pushDataText,pushDataImport,llOdds,llObs,llObsAdd,llCalFor,CONF,confRun,confOpts,confCompare,confCardHTML,openLLEnter,endDay,resBuild,resHTML,resShow,resLoad,resLatest,RUN,runSave,runLoad,runClear,runResume,runState,runBox,runFind,AUTO,RT,autoCheck,autoReasons,autoReplan,autoDiff,rtRodeIt,rtAt,rtNow,openWhere,dpGameOpts,camera,controls,RF,rfCompact,rfStore,rfLoad,rfResid,rfCalibrate,rfEstimate,rfBacktest,rfUpdateToday,rfApplyDay,rfMul,rfCal,openRF,rfAfterUpdate,rfNoteUpdate,rfTick,rfBannerHTML,liveMatch,stRun,stHTML,stCalib,stModelDay,dpParseTP,dpApplyImport,scene,setGfx,LIGHT,sunDir,fwShows,fwSim:(n,dt)=>{for(let i=0;i<n;i++)updateFireworks(dt)},holdTime:t=>{G.holdT=t==null?null:t*60;if(t!=null)G.t=t*60},dpRun,dpRunDay,dpLegs,dpAllMust,getDPS:()=>DPS,dpStartOpts:S=>dpStartOpts(S),dpMakeGame,dpProgress,dpLoad,dpSave,openPlan,openDaySetup,prepDay,llFromPlan,llFresh,llBook,llNext,llRecs,llUse,llHeld,llTick,llPlanErrors,llSuggest,llLoadPlan,openLL,openRides,openPicks,LIVE,liveIngest,liveFor,curveAt,orlandoNow,livePoll,G,go,flyTo,setFollow,RIDE_BY,PARKS,camera,controls,openRide,closeSheet,rawWait,waitAt,dayFactor,holiday,hoursFor,applyHours,accessOpen,lastClose,renderer,dijkstra,NI,NODES,RESORTS,RIDES,LINES};
 requestAnimationFrame(frame);
 })();
 </script>

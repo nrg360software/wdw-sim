@@ -31,4 +31,12 @@ ck(out.open.row&&out.open.btn,'LL panel did not open '+JSON.stringify(out.open))
 out.after=await pg.evaluate(async()=>{const p=WDW.G.LL.passes.find(p=>p.rid==='pp');p.st='used';p.usedAt=Math.round(WDW.G.t);document.getElementById('bLL').click();await new Promise(r=>setTimeout(r,250));
   return[...document.querySelectorAll('#pvIn .llsec')].map(s=>s.textContent.replace(/\s+/g,' ').trim())});
 ck(JSON.stringify(out.after)===JSON.stringify(['Booked 2','Used 3','Missed 2']),'after a tap-in '+JSON.stringify(out.after));
+// Nick's DAK day (Nov 25): with nothing left in the plan but a pass unused, the Now card said everything was done. Now: "You still have a
+// pass" with Replan to use it; the replan plans it (here the MEP's own ride).
+out.pass=await pg.evaluate(async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms)),G=WDW.G,t=Math.round(G.t);G.segs=null;G.LL.passes=[{id:777,rid:'space',type:'mp',start:t-30,end:t+30,st:'mep',mepAt:t-20,mepOpts:['space','hm']}];
+  G.plan.res.steps=[];WDW.pvTab('now');WDW.pvRefresh(true);await w(150);const c0=document.getElementById('ncard').innerText.replace(/\s+/g,' '),b=document.querySelector('#pvNow [data-nc="passre"]');
+  if(!b)return{c0};b.click();await w(400);WDW.pvRefresh(true);await w(150);const steps=G.plan.res.steps.filter(s=>s.k==='ride').map(s=>s.rid+':'+s.how);
+  return{c0,steps,c1:document.getElementById('ncard').innerText.replace(/\s+/g,' ')}});
+ck(/You still have a pass/.test(out.pass.c0)&&!/All planned rides done/.test(out.pass.c0)&&/Space Mtn went down/.test(out.pass.c0),'Now card with an unused pass '+JSON.stringify(out.pass.c0));
+ck(out.pass.steps&&out.pass.steps.includes('space:mep')&&!/You still have a pass/.test(out.pass.c1),'Replan to use it '+JSON.stringify(out.pass));
 out.fail=fail;return out

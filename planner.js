@@ -39,11 +39,16 @@ function dpGr(ctx,p){return p.grace!=null?p.grace:ctx.grace}
 function dpLLFrom(L){return{mp:L.mp,prem:L.premier,tapped:!!L.tapped,
   held:L.passes.filter(p=>p.st==='active').map(p=>({id:p.id,rid:p.rid,start:p.start,end:p.end,type:p.type,pre:!!p.pre,grace:p.grace})),
   booked:Object.fromEntries(L.passes.filter(p=>p.st!=='cancelled').map(p=>[p.rid,1])),premUsed:Object.assign({},L.premUsed),
-  mep:L.passes.filter(p=>p.st==='mep').map(p=>p.mepOpts.includes(p.rid)?p.mepOpts.slice():[p.rid].concat(p.mepOpts))}}
+  mep:L.passes.filter(p=>p.st==='mep').map(p=>p.mepOpts.includes(p.rid)?p.mepOpts.slice():[p.rid].concat(p.mepOpts)),
+  mepRid:L.passes.filter(p=>p.st==='mep').map(p=>p.rid)}}
 function dpCtx(o){const pk=o.pk,M=dpMatrix(pk),park=E.RIDES.filter(r=>r.pk===pk),bit={};park.forEach((r,i)=>bit[r.id]=1<<i);
   const must0=o.must.filter(id=>E.RIDE_BY[id]&&E.RIDE_BY[id].pk===pk);
   // Lightning Lanes you already hold for rides that aren't must-dos get planned too (only with the pass), so a pass is never left unused
-  const passOnly={},heldR={};{const L0=o.LLs||(o.L?dpLLFrom(o.L):null);for(const p of (L0&&L0.held)||[]){heldR[p.rid]=1;const r=E.RIDE_BY[p.rid];if(r&&r.pk===pk&&!must0.includes(p.rid)&&!(o.done||[]).includes(p.rid))passOnly[p.rid]=1}}
+  const passOnly={},heldR={};{const L0=o.LLs||(o.L?dpLLFrom(o.L):null);for(const p of (L0&&L0.held)||[]){heldR[p.rid]=1;const r=E.RIDE_BY[p.rid];if(r&&r.pk===pk&&!must0.includes(p.rid)&&!(o.done||[]).includes(p.rid))passOnly[p.rid]=1}
+    // a held pass whose ride broke down became a Multiple Experience Pass: its own ride stays planned on it once it reopens (Nick's DAK
+    // day, Nov 25: the MEP went to a free-time ride and Flight of Passage was dropped). Down for the rest of the day → the MEP is free.
+    for(const rid of (L0&&L0.mepRid)||[]){const r=E.RIDE_BY[rid];if(!r||r.pk!==pk||must0.includes(rid)||(o.done||[]).includes(rid))continue;heldR[rid]=1;
+      const up=E.DPX?E.DPX.up(r,o.t):o.t;if(up<dpParkEnd(pk)-30)passOnly[rid]=1}}
   const ctx={pk,M,bit,park,must:must0.concat(Object.keys(passOnly)),passOnly,keep:!!o.keep,lunch:!!o.lunch,lunchDone:!!o.lunchDone,tp:o.tp||{},blkAfter:{},extras:!!o.extras,t0:o.t,end:o.until!=null?Math.min(dpParkEnd(pk),o.until):dpParkEnd(pk),until:o.until!=null&&o.until<dpParkEnd(pk)?o.until:null,later:o.later||null,startD:{},book:(o.book||[]).map(k=>typeof k==='string'?{rid:k}:k).filter(k=>E.RIDE_BY[k.rid]&&E.RIDE_BY[k.rid].pk===pk),bookLater:(o.book||[]).map(k=>typeof k==='string'?{rid:k}:k).filter(k=>E.RIDE_BY[k.rid]&&E.RIDE_BY[k.rid].pk!==pk),walkK:o.cal?o.cal.walk:1,llAdj:o.cal?o.cal.ll:null,grace:o.grace||DP_GRACE,dur:o.cal&&o.cal.dur||null,pw:o.cal&&o.cal.pw||null};
   ctx.timed=[];for(const b of o.blocks||[]){if((b.user&&b.at!=null)||(!o.keep&&b.meal&&b.at)){ctx.timed.push(b);continue}const k=b.after&&!(o.done||[]).includes(b.after)?b.after:'_start';(ctx.blkAfter[k]=ctx.blkAfter[k]||[]).push(b)}
   // free order: untimed stops (e.g. imported from TouringPlans: Wildlife Express → Conservation Station → train back) float as

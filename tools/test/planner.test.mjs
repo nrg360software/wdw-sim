@@ -240,3 +240,25 @@ test('held pass: planned within 15 min of the window, per-pass grace lets an unr
   // reachable: used inside window + 15
   const ok = run(null, 940); assert.ok(ok && ok.how === 'sp' && ok.arr <= 960 + 15, `reachable pass not used within 15: ${JSON.stringify(ok)}`);
 });
+
+// ---- Nov 25 (Nick's DAK day): Flight of Passage was only in the plan on its pass (not a must-do). It broke down in its window → the
+// pass became a Multiple Experience Pass; the replan spent the MEP on a free-time ride and let Flight go (standby later, then dropped),
+// so the plan said everything was done while Flight was never ridden. A pass's own ride stays planned on the MEP once it reopens.
+test('breakdown MEP: the pass\'s own ride stays in the plan on the MEP once it reopens (not spent on another ride)', () => {
+  env.DPX = { wait: (r, t, w) => w, ll: () => 0, up: (r, t) => (r.id === 'c' && t < 960 ? 960 : t) };
+  try {
+    for (const extras of [false, true]) for (const must of [['b'], []]) {
+      const L = env.llFresh(); L.mp = 'TP'; L.tapped = true;
+      L.passes.push({ id: 'p1', rid: 'c', type: 'mp', start: 930, end: 990, st: 'mep', mepAt: 935, mepOpts: ['c', 'a', 'b'] });
+      const res = P.dpRunDay(base({ must, ll: 'mine', t: 940, L, pace: 'bal', extras }));
+      const c = rides(res).find(s => s.rid === 'c'), on = rides(res).filter(s => s.how === 'mep').map(s => s.rid);
+      assert.ok(c && c.how === 'mep' && c.end - RIDE_BY.c.dur >= 960, `MEP not kept for c ${JSON.stringify({ extras, must, on, c: c && [c.how, c.q0, c.end] })}`);
+      assert.ok(!(res.passMissed || []).length, `pass reported missed ${JSON.stringify(res.passMissed)}`);
+    }
+    // down for the rest of the day: the MEP is free to go elsewhere, nothing reported missed
+    env.DPX.up = (r, t) => (r.id === 'c' ? 2000 : t);
+    const L = env.llFresh(); L.mp = 'TP'; L.tapped = true; L.passes.push({ id: 'p1', rid: 'c', type: 'mp', start: 930, end: 990, st: 'mep', mepAt: 935, mepOpts: ['c', 'a', 'b'] });
+    const res = P.dpRunDay(base({ must: ['b'], ll: 'mine', t: 940, L, pace: 'bal', extras: true }));
+    assert.ok(!rides(res).some(s => s.rid === 'c') && !(res.passMissed || []).length, `ride down all day: ${JSON.stringify([rides(res).map(s => s.rid + ':' + s.how), res.passMissed])}`);
+  } finally { env.DPX = null; }
+});
