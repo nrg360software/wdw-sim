@@ -401,7 +401,7 @@ setTimeout(function(){if(!window.WDW&&!document.getElementById('oldPhone')){var 
 <script type="module">
 import * as THREE0 from 'three';
 // day planner engine (row 67). Bump ?v= whenever planner.js changes so phones don't pair a new index.html with a cached planner.js.
-import {plannerInit,DP_KEY,DP_LLQ,DP_LUNCH,DP_GRACE,DP_LATE_PEN,DP_WASTE,DP_IDLE_PEN,DP_LONG,DP_PACE,DP_PACE_NAME,DP_TM,dpMatrix,dpWait,dpParkEnd,dpLLFrom,dpCtx,dpRoot,dpShowWalk,dpTimed,dpBlocks,dpRem,dpTravel,dpRet,dpBook,dpExpand,dpExpand0,dpH,dpCost,dpBetter,dpBeam,dpExtras,dpReplay,dpFillGaps,dpSteps,dpSaveFav,dpPack,dpPaceStats,dpScore,dpSuggest,dpRun,DP_HOP_MAX,dpLegs,dpAllMust,dpGateNode,dpHopTravel,dpLastNode,dpParksLabel,dpHopBefore,dpRunDay,dpWhy} from './planner.js?v=67e';
+import {plannerInit,DP_KEY,DP_LLQ,DP_LUNCH,DP_GRACE,DP_LATE_PEN,DP_WASTE,DP_IDLE_PEN,DP_LONG,DP_PACE,DP_PACE_NAME,DP_TM,dpMatrix,dpWait,dpParkEnd,dpLLFrom,dpCtx,dpRoot,dpShowWalk,dpTimed,dpBlocks,dpRem,dpTravel,dpRet,dpBook,dpExpand,dpExpand0,dpH,dpCost,dpBetter,dpBeam,dpExtras,dpReplay,dpFillGaps,dpSteps,dpSaveFav,dpPack,dpPaceStats,dpScore,dpSuggest,dpRun,DP_HOP_MAX,dpLegs,dpAllMust,dpGateNode,dpHopTravel,dpLastNode,dpParksLabel,dpHopBefore,dpRunDay,dpWhy} from './planner.js?v=67f';
 import {MapControls} from 'three/addons/controls/MapControls.js';
 import {EffectComposer} from 'three/addons/postprocessing/EffectComposer.js';
 import {RenderPass} from 'three/addons/postprocessing/RenderPass.js';
@@ -1159,6 +1159,8 @@ function llSell(r){return r.sell-(G.crowd-1)*2.5}
 // Sources: Disney Help Center + PlanDisney answers, TouringPlans "Lightning Lane Thread" (Feb 2026).
 const LL_GROUP1={MK:['btm','jc','pp','space','tiana'],EP:['fea','remy','tt'],HS:['mmrr','msr','rnrc','sdd'],AK:[]};
 const LL_SINGLE=['tron','sdmt','gotg','rotr','fop'];
+// LL_LATE: how late the SIM still lets you tap in. The PLANNER counts on only DP_GRACE (15) after the window (Nick, Nov 24),
+// except for a pass you can't reach within 15 even leaving now: then it may use the full LL_LATE as a last resort (dpPassGrace).
 const LL_EARLY=5,LL_LATE=60,LL_WIN=60,LL_OVERLAP=20;
 const LL_MP_PRICE={MK:[20,45],EP:[15,37],HS:[20,39],AK:[15,35]};
 const LL_SP_PRICE={tron:[17,25],sdmt:[12,20],gotg:[15,23],rotr:[18,25],fop:[12,20]};
@@ -1332,7 +1334,7 @@ function stMetrics(res,S,L0,off){off=off||0;const rides=res.steps.filter(s=>s.k=
   const llStep={};rides.forEach(s=>{if(s.how==='ll'||s.how==='sp')llStep[s.rid]=s});
   const ll={n:passes.length,onTime:0,late:0,missed:[]},ev=[];
   for(const p of passes){const s=llStep[p.rid];if(!s){ll.missed.push(p.rid);ev.push({t:p.start+LL_WIN+LL_LATE,what:`${RIDE_BY[p.rid].short} Lightning Lane window missed`,key:'ll:'+p.rid})}
-    else if(s.late>0){ll.late++;if(s.late>DP_GRACE){ll.risky=(ll.risky||0)+1;ev.push({t:p.start+LL_WIN+DP_GRACE,what:`${RIDE_BY[p.rid].short} Lightning Lane ${s.late}m late (needs the full 60-min grace)`,key:'llr:'+p.rid})}}else ll.onTime++}
+    else if(s.late>0){ll.late++;if(s.late>DP_GRACE){ll.risky=(ll.risky||0)+1;ev.push({t:p.start+LL_WIN+DP_GRACE,what:`${RIDE_BY[p.rid].short} Lightning Lane ${s.late}m after its window (past the ${DP_GRACE}-min margin)`,key:'llr:'+p.rid})}}else ll.onTime++}
   for(const b of blocks){if(b.missed)ev.push({t:b.start,what:`${b.name}: no showtime left`,key:'show:'+b.name});else if(b.meal&&b.late>15)ev.push({t:b.at,what:`${b.name} reservation ${b.late}m late`,key:'meal:'+b.name})}
   for(const id of res.missed)ev.push({t:dpParkEnd(S.pk),what:`${RIDE_BY[id].short} doesn't fit before close`,key:'miss:'+id});
   ev.sort((a,b)=>a.t-b.t);const beh=rides.find(s=>s.tp!=null&&s.q0-s.tp-off>=30);
@@ -1346,7 +1348,7 @@ async function stRun(S,opt={}){const date=opt.date||S.tpDate||dpSetupDate(),pk=S
   const cal=opt.calib!==false&&S.tpw&&Object.keys(S.tpw).length?stCalib(S):{on:false,wait:1,walk:1,ll:{}};
   const pf0=G.pf[pk],cr0=G.crowd,seeds=[...Array(days)].map((_,i)=>hash(date+pk+'st'+i));const t0=performance.now();
   const run=(off,day,c,x)=>{DPX=day;G.pf[pk]=pf0*day.crowd;G.crowd=cr0*day.crowd;
-    try{const L0=llFromPlan(pl);const o=Object.assign({},S,{node:NI[S.gate||pk+':front'],t:start+off,L:L0,done:[],extras:false,ll:S.ll==='none'?'none':'mine',noCmp:true,cal:c,grace:LL_LATE},x||{});
+    try{const L0=llFromPlan(pl);const o=Object.assign({},S,{node:NI[S.gate||pk+':front'],t:start+off,L:L0,done:[],extras:false,ll:S.ll==='none'?'none':'mine',noCmp:true,cal:c,grace:DP_GRACE},x||{});
       return stMetrics(dpRun(o),S,L0,off)}finally{DPX=null;G.pf[pk]=pf0;G.crowd=cr0;DPW={}}};
   const P0=PARKS[pk],out={date,pk,start,cal,offs,days,hours:{open:accessOpen(pk),close:dpParkEnd(pk),pub:P0.open*60,party:P0.party||null},rows:[],raw:cal.on?run(0,stFlatDay(()=>1),null):null};
   const total=offs.length*(days+2);let n=0;
@@ -4000,6 +4002,8 @@ function renderDaySetup(busyMsg){const S=DPS,date=dpSetupDate(),d=parseDay(date)
 // untimed stops between the same two rides of an imported plan are one linked group (planner dpFreeBlk / ctx.acts)
 const blkFree=b=>!b.meal&&!b.user&&b.at==null&&!(b.times&&b.times.length);
 function blkLinked(b){const P=G.plan;return !!(P&&P.res.steps.some(s=>(s.blocks||[]).some(x=>x!==b&&x.act&&x.act===b.act)))}
+function dpPassGrace(LLs){let cd=[];try{cd=cdList()}catch(e){}
+  for(const h of LLs.held||[]){const o=cd.find(x=>x.k==='ll'&&x.p.id===h.id);const reach=o?G.t+o.tNow:G.t;h.grace=reach>h.end+DP_GRACE?LL_LATE:DP_GRACE}}
 function dpGameOpts(S,x){let node=G.node,t=G.t;const done=[...new Set(G.ridden)];let LLs=dpLLFrom(G.LL);
   if(x&&x.dropCur&&G.segs&&G.segs.length){const st=effectiveStart();if(st.can){node=st.node;t=G.t+st.prefix.reduce((a,p)=>a+p.len/WALK_PARK,0)}}
   else if(G.segs&&G.segs.length){const tgt=G.segs[G.segs.length-1].ride;let rem=0;
@@ -4015,7 +4019,8 @@ function dpGameOpts(S,x){let node=G.node,t=G.t;const done=[...new Set(G.ridden)]
   // in game a pass already past its window can still be used up to the tap-in limit (costed as a last resort) rather than wasted
   // the rest of a linked group you've started is done next (train up → station → train back)
   const all=B.blocks||[],grpK=b=>b.after||'_start',blocks=all.filter(b=>!bd[b.id]).map(b=>blkFree(b)&&all.some(y=>y!==b&&bd[y.id]&&blkFree(y)&&grpK(y)===grpK(b))?Object.assign({},b,{pin:true,after:null}):b);
-  return Object.assign({},B,{must:(B.must||[]).filter(id=>!done.includes(id)),blocks,node,t,LLs,done,legI:li,grace:LL_LATE,lunchDone:!!(G.plan&&G.plan.lunchAt)||t>14*60})}
+  dpPassGrace(LLs);
+  return Object.assign({},B,{must:(B.must||[]).filter(id=>!done.includes(id)),blocks,node,t,LLs,done,legI:li,grace:DP_GRACE,lunchDone:!!(G.plan&&G.plan.lunchAt)||t>14*60})}
 // which park of a multi-park plan we're in: the first leg (from the current one on) whose park we're in or just outside; else the current one
 function dpLegAt(S,node){const legs=dpLegs(S),min=Math.min(G.plan&&G.plan.legI||0,legs.length-1),n=NODES[node]||{},pk=n.park||n.outside;
   for(let i=min;i<legs.length;i++)if(legs[i].pk===pk)return i;return min}

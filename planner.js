@@ -11,7 +11,7 @@ export function plannerInit(env){E=env}
 // must-do that saves the most minutes, following the same rules as llCanBook. Travel inside the park
 // comes from a walking matrix scaled by crowds; the first leg uses the real route from where you are.
 // Optional lunch break (45 min, first gap after 11:45) and extra rides to fill free time after.
-const DP_KEY='wdwsim.day.',DP_LLQ=7,DP_LUNCH=45,DP_GRACE=30,DP_LATE_PEN=45,DP_WASTE=60,DP_IDLE_PEN=30;
+const DP_KEY='wdwsim.day.',DP_LLQ=7,DP_LUNCH=45,DP_GRACE=15,DP_LATE_PEN=45,DP_WASTE=60,DP_IDLE_PEN=30;
 // Pacing (roadmap row 57). Fastest = old scoring (most must-dos, then earliest finish). Balanced/Relaxed add a comfort cost in
 // minutes: standing in standby/rope-drop lines ≥ DP_LONG min builds a "stretch"; a short line or Lightning Lane eases it by 30,
 // a meal/show/break resets it. Minutes past cap cost w each. A favourite must-do (biggest headliner) in line during the evening
@@ -33,8 +33,11 @@ function dpMatrix(pk){if(DP_TM[pk])return DP_TM[pk];
   return DP_TM[pk]=M}
 function dpWait(r,t){const b=Math.round(t/5),k=r.id+':'+b;let w=E.DPW[k];if(w==null){w=E.rawWait(r,b*5);if(E.DPX)w=E.DPX.wait(r,b*5,w);E.DPW[k]=w}return w}
 function dpParkEnd(pk){const P=E.PARKS[pk];return Math.max(P.close*60,P.eeh&&E.G.deluxe?P.eeh.to*60:0)}
+// how long after a held pass's window the plan may still use it: per pass (p.grace, set by the game) or ctx.grace (DP_GRACE).
+// Nick, Nov 24: plan within 15 min of the window's end (tap points may allow more, but don't count on it).
+function dpGr(ctx,p){return p.grace!=null?p.grace:ctx.grace}
 function dpLLFrom(L){return{mp:L.mp,prem:L.premier,tapped:!!L.tapped,
-  held:L.passes.filter(p=>p.st==='active').map(p=>({rid:p.rid,start:p.start,end:p.end,type:p.type,pre:!!p.pre})),
+  held:L.passes.filter(p=>p.st==='active').map(p=>({id:p.id,rid:p.rid,start:p.start,end:p.end,type:p.type,pre:!!p.pre,grace:p.grace})),
   booked:Object.fromEntries(L.passes.filter(p=>p.st!=='cancelled').map(p=>[p.rid,1])),premUsed:Object.assign({},L.premUsed),
   mep:L.passes.filter(p=>p.st==='mep').map(p=>p.mepOpts.includes(p.rid)?p.mepOpts.slice():[p.rid].concat(p.mepOpts))}}
 function dpCtx(o){const pk=o.pk,M=dpMatrix(pk),park=E.RIDES.filter(r=>r.pk===pk),bit={};park.forEach((r,i)=>bit[r.id]=1<<i);
@@ -126,20 +129,20 @@ function dpExpand0(ctx,S,r,useLL,pool){
   const arr=S.t+rest+dpTravel(ctx,S,r);if(!isFinite(arr))return null;
   const ll=Object.assign({},S.ll);let how,q0=arr,wait,tap=null,wasted=[],idle=0;
   if(useLL){if(!r.ll)return null;const p=ll.held.find(p=>p.rid===r.id);
-    if(p){if(arr>p.end+ctx.grace)return null;how=p.type==='sp'?'sp':'ll';q0=Math.max(arr,p.start-E.LL_EARLY);ll.held=ll.held.filter(x=>x!==p);if(p.type==='mp'&&!ll.tapped){ll.tapped=true}tap=p}
+    if(p){if(arr>p.end+dpGr(ctx,p))return null;how=p.type==='sp'?'sp':'ll';q0=Math.max(arr,p.start-E.LL_EARLY);ll.held=ll.held.filter(x=>x!==p);if(p.type==='mp'&&!ll.tapped){ll.tapped=true}tap=p}
     else if(ll.prem===r.pk&&!ll.premUsed[r.id]){how='prem';const op=E.PARKS[r.pk].open*60;if(arr<op)q0=op;else if(!E.parkOpenPublic(r.pk,arr))return null;ll.premUsed=Object.assign({},ll.premUsed,{[r.id]:1})}
     else{const mi=ll.mep.findIndex(o=>o.includes(r.id));if(mi<0)return null;how='mep';if(!E.parkOpenPublic(r.pk,arr))return null;ll.mep=ll.mep.filter((_,i)=>i!==mi)}
     // arriving 20+ min before the window: allowed (it can be the only move left — e.g. AK with every other must-do done
     // and the next pass an hour away), but the idle time is costed so the plan does something else first when it can
     if(tap&&q0-arr>20&&!ctx.keep&&!ctx.passOnly[r.id])idle=q0-arr-20;wait=DP_LLQ}
-  else{if(ctx.passOnly[r.id])return null;if(ll.held.some(p=>p.rid===r.id&&arr<=p.end+ctx.grace))return null;wasted=ll.held.filter(p=>p.rid===r.id);ll.held=ll.held.filter(p=>p.rid!==r.id);
+  else{if(ctx.passOnly[r.id])return null;if(ll.held.some(p=>p.rid===r.id&&arr<=p.end+dpGr(ctx,p)))return null;wasted=ll.held.filter(p=>p.rid===r.id);ll.held=ll.held.filter(p=>p.rid!==r.id);
     if(arr<E.accessOpen(r.pk)){q0=E.accessOpen(r.pk);how='rope'}else if(!E.parkOpen(r.pk,arr))return null;else how='standby';
     wait=dpWait(r,q0)}
   let down=0;if(E.DPX){const up=E.DPX.up(r,q0);if(up>q0){down=up-q0;wait+=down}}
   let end=q0+wait+(ctx.dur&&ctx.dur[r.id]!=null?ctx.dur[r.id]:r.dur);
   if(ctx.until!=null&&end>ctx.until)return null; // plan end / hop time: off the ride by then
   // passes whose window has passed expire (their ride stays used for the day)
-  wasted=wasted.concat(ll.held.filter(p=>p.end+ctx.grace<end));ll.held=ll.held.filter(p=>p.end+ctx.grace>=end);
+  wasted=wasted.concat(ll.held.filter(p=>p.end+dpGr(ctx,p)<end));ll.held=ll.held.filter(p=>p.end+dpGr(ctx,p)>=end);
   // comfort cost (pacing): stretch of standing in long lines since the last break
   const stand=(how==='standby'||how==='rope')&&wait>=DP_LONG;let str=rest?0:str0;str=stand?str+wait:Math.max(0,str-30);let pen=S.pen||0;
   if(P){pen+=P.w*(Math.max(0,str-P.cap)-Math.max(0,(rest?0:str0)-P.cap))+rest*0.5;if(ctx.fav===r.id&&q0>=ctx.eve-10&&!(tap&&arr>tap.end))pen-=P.bonus}
@@ -156,7 +159,7 @@ function dpExpand0(ctx,S,r,useLL,pool){
   step.books=dpBook(ctx,N,tap&&tap.type==='mp'?q0:end,pl);
   const bl=dpBlocks(ctx,r.id,end);step.blocks=bl.blocks;N.t=bl.t;N.nw=bl.next;if(bl.blocks.some(b=>b.meal))N.lunch=true;if(ctx.timed.length)dpTimed(ctx,N,step.blocks,false);
   // lunch waits (until 2:30 at the latest) while a held pass window would be missed or used late because of it
-  const lunchBlocks=N.t<870&&N.ll.held.some(p=>p.end<N.t+DP_LUNCH+15&&p.end+ctx.grace>N.t);
+  const lunchBlocks=N.t<870&&N.ll.held.some(p=>p.end<N.t+DP_LUNCH+15&&p.end+dpGr(ctx,p)>N.t);
   if(!N.lunch&&N.t>=705&&N.t<=900&&!lunchBlocks){step.meal={start:N.t,end:N.t+DP_LUNCH};N.t+=DP_LUNCH;N.lunch=true;N.nw=null}
   if(step.meal||step.blocks.some(b=>!b.missed&&b.dur>=15))N.str=0;
   N.step=step;return N}

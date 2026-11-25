@@ -179,7 +179,7 @@ function lockCheck(res, L, meals, label) {
   for (const p of L.passes.filter(p => p.st === 'active')) {
     const s = rides(res).find(s => s.rid === p.rid && s.how !== 'standby' && s.how !== 'rope');
     assert.ok(s, `${label}: held pass for ${p.rid} (${p.start}–${p.end}) dropped; passMissed=${JSON.stringify(res.passMissed)}`);
-    assert.ok(s.q0 >= p.start - env.LL_EARLY - 1e-6 && s.arr <= p.end + 30 + 1e-6, `${label}: pass ${p.rid} used at ${s.arr}/${s.q0}, window ${p.start}–${p.end}`);
+    assert.ok(s.q0 >= p.start - env.LL_EARLY - 1e-6 && s.arr <= p.end + P.DP_GRACE + 1e-6, `${label}: pass ${p.rid} used at ${s.arr}/${s.q0}, window ${p.start}–${p.end}`);
   }
   const bl = res.steps.flatMap(s => s.blocks || []);
   for (const m of meals) {
@@ -225,4 +225,18 @@ test('held pass on the favourite must-do stays inside its window (no evening bon
     assert.ok(s && s.how === 'sp', `pass dropped ${JSON.stringify({ extras, must })}`);
     assert.ok(s.arr <= 1080 + 1e-6, `pass for the favourite used ${Math.round(s.arr - 1080)} min after its window (arr ${s.arr}) ${JSON.stringify({ extras, must })}`);
   }
+});
+
+// ---- Nov 24 (Nick): plan within 15 min of a pass's window end; a pass the game marks unreachable within 15 may use more ------------
+test('held pass: planned within 15 min of the window, per-pass grace lets an unreachable pass still be used', () => {
+  assert.equal(P.DP_GRACE, 15);
+  const run = (grace, t) => { const L = env.llFresh(); L.mp = 'TP'; L.passes.push({ id: 'p1', rid: 'a', type: 'sp', start: 900, end: 960, st: 'active', pre: true });
+    const LLs = P.dpLLFrom(L); if (grace != null) LLs.held[0].grace = grace;
+    return rides(P.dpRunDay(base({ must: ['a', 'b'], ll: 'mine', t, LLs, pace: 'fast', extras: false }))).find(s => s.rid === 'a'); };
+  // 30 min after the window: the plan can't count on it (standby), unless the game says leaving now can't do better (grace 60)
+  const a15 = run(null, 990), a60 = run(60, 990);
+  assert.ok(a15 && a15.how !== 'sp', `planned a pass 30+ min after its window with the 15-min margin: ${JSON.stringify(a15)}`);
+  assert.ok(a60 && a60.how === 'sp' && a60.arr <= 960 + 60, `per-pass grace 60 not honoured: ${JSON.stringify(a60)}`);
+  // reachable: used inside window + 15
+  const ok = run(null, 940); assert.ok(ok && ok.how === 'sp' && ok.arr <= 960 + 15, `reachable pass not used within 15: ${JSON.stringify(ok)}`);
 });
