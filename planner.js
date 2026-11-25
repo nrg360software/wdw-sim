@@ -36,11 +36,11 @@ function dpParkEnd(pk){const P=E.PARKS[pk];return Math.max(P.close*60,P.eeh&&E.G
 function dpLLFrom(L){return{mp:L.mp,prem:L.premier,tapped:!!L.tapped,
   held:L.passes.filter(p=>p.st==='active').map(p=>({rid:p.rid,start:p.start,end:p.end,type:p.type,pre:!!p.pre})),
   booked:Object.fromEntries(L.passes.filter(p=>p.st!=='cancelled').map(p=>[p.rid,1])),premUsed:Object.assign({},L.premUsed),
-  mep:L.passes.filter(p=>p.st==='mep').map(p=>p.mepOpts.slice())}}
+  mep:L.passes.filter(p=>p.st==='mep').map(p=>p.mepOpts.includes(p.rid)?p.mepOpts.slice():[p.rid].concat(p.mepOpts))}}
 function dpCtx(o){const pk=o.pk,M=dpMatrix(pk),park=E.RIDES.filter(r=>r.pk===pk),bit={};park.forEach((r,i)=>bit[r.id]=1<<i);
   const must0=o.must.filter(id=>E.RIDE_BY[id]&&E.RIDE_BY[id].pk===pk);
   // Lightning Lanes you already hold for rides that aren't must-dos get planned too (only with the pass), so a pass is never left unused
-  const passOnly={};{const L0=o.LLs||(o.L?dpLLFrom(o.L):null);for(const p of (L0&&L0.held)||[]){const r=E.RIDE_BY[p.rid];if(r&&r.pk===pk&&!must0.includes(p.rid)&&!(o.done||[]).includes(p.rid))passOnly[p.rid]=1}}
+  const passOnly={},heldR={};{const L0=o.LLs||(o.L?dpLLFrom(o.L):null);for(const p of (L0&&L0.held)||[]){heldR[p.rid]=1;const r=E.RIDE_BY[p.rid];if(r&&r.pk===pk&&!must0.includes(p.rid)&&!(o.done||[]).includes(p.rid))passOnly[p.rid]=1}}
   const ctx={pk,M,bit,park,must:must0.concat(Object.keys(passOnly)),passOnly,keep:!!o.keep,lunch:!!o.lunch,lunchDone:!!o.lunchDone,tp:o.tp||{},blkAfter:{},extras:!!o.extras,t0:o.t,end:o.until!=null?Math.min(dpParkEnd(pk),o.until):dpParkEnd(pk),until:o.until!=null&&o.until<dpParkEnd(pk)?o.until:null,later:o.later||null,startD:{},book:(o.book||[]).map(k=>typeof k==='string'?{rid:k}:k).filter(k=>E.RIDE_BY[k.rid]&&E.RIDE_BY[k.rid].pk===pk),bookLater:(o.book||[]).map(k=>typeof k==='string'?{rid:k}:k).filter(k=>E.RIDE_BY[k.rid]&&E.RIDE_BY[k.rid].pk!==pk),walkK:o.cal?o.cal.walk:1,llAdj:o.cal?o.cal.ll:null,grace:o.grace||DP_GRACE,dur:o.cal&&o.cal.dur||null,pw:o.cal&&o.cal.pw||null};
   ctx.timed=[];for(const b of o.blocks||[]){if((b.user&&b.at!=null)||(!o.keep&&b.meal&&b.at)){ctx.timed.push(b);continue}const k=b.after&&!(o.done||[]).includes(b.after)?b.after:'_start';(ctx.blkAfter[k]=ctx.blkAfter[k]||[]).push(b)}
   // free order: untimed stops (e.g. imported from TouringPlans: Wildlife Express → Conservation Station → train back) float as
@@ -58,7 +58,7 @@ function dpCtx(o){const pk=o.pk,M=dpMatrix(pk),park=E.RIDES.filter(r=>r.pk===pk)
   if(ctx.until!=null&&ctx.lj!=null)ctx.lj=Math.min(ctx.lj,ctx.until);
   // pacing: preset, evening start, favourite must-do to save for the evening
   ctx.paceK=o.keep?'fast':E.dpPaceOf(o);ctx.pace=DP_PACE[ctx.paceK];ctx.eve=Math.max(16*60,(ctx.lj||ctx.end)-150);ctx.fav=null;
-  if(ctx.pace&&o.t<ctx.eve-30&&ctx.eve<ctx.end-30){let bv=0;for(const id of ctx.must){const r=E.RIDE_BY[id];if(r.kind==='show'||(o.done||[]).includes(id))continue;const v=r.avg*(r.thrill+4);if(v>bv){bv=v;ctx.fav=id}}}
+  if(ctx.pace&&o.t<ctx.eve-30&&ctx.eve<ctx.end-30){let bv=0;for(const id of ctx.must){const r=E.RIDE_BY[id];if(r.kind==='show'||(o.done||[]).includes(id)||heldR[id])continue;const v=r.avg*(r.thrill+4);if(v>bv){bv=v;ctx.fav=id}}}
   return ctx}
 function dpRoot(ctx,o,ll){ll=Object.assign({},ll);let done=0;for(const id of o.done||[])if(ctx.bit[id])done|=ctx.bit[id];
   const S={t:o.t,at:null,done,ll,lunch:ctx.lunchDone||!ctx.lunch,n:0,par:null,step:null,str:0,pen:0};
@@ -142,7 +142,7 @@ function dpExpand0(ctx,S,r,useLL,pool){
   wasted=wasted.concat(ll.held.filter(p=>p.end+ctx.grace<end));ll.held=ll.held.filter(p=>p.end+ctx.grace>=end);
   // comfort cost (pacing): stretch of standing in long lines since the last break
   const stand=(how==='standby'||how==='rope')&&wait>=DP_LONG;let str=rest?0:str0;str=stand?str+wait:Math.max(0,str-30);let pen=S.pen||0;
-  if(P){pen+=P.w*(Math.max(0,str-P.cap)-Math.max(0,(rest?0:str0)-P.cap))+rest*0.5;if(ctx.fav===r.id&&q0>=ctx.eve-10)pen-=P.bonus}
+  if(P){pen+=P.w*(Math.max(0,str-P.cap)-Math.max(0,(rest?0:str0)-P.cap))+rest*0.5;if(ctx.fav===r.id&&q0>=ctx.eve-10&&!(tap&&arr>tap.end))pen-=P.bonus}
   // arriving after the window relies on the grace period: allowed, but costed so the plan only does it when nothing else works
   if(tap&&arr>tap.end)pen+=DP_LATE_PEN+3*(arr-tap.end);
   if(idle)pen+=DP_IDLE_PEN+idle;
@@ -214,7 +214,14 @@ function dpSaveFav(ctx,root,best,W){const fav=ctx.fav,fs=dpSteps(best).find(s=>s
   const lv=Math.max(S1.t,ctx.eve-tv(S1)),free=lv-S1.t;if(!ctx.extras&&free>120)return null;
   const S2=Object.assign({},S1,{t:lv,nw:null,str:free>=15?0:S1.str}),N=dpExpand(ctx,S2,r,false)||dpExpand(ctx,S2,r,true);if(!N)return null;
   if(N.step.how==='standby'&&N.step.wait>fs.wait+ctx.pace.slack)return null;
-  N.par=S1;N.step.free=Math.round(free);N.step.leave=lv;let fin=ctx.extras?dpExtras(ctx,N):N;return{best:N,fin}}
+  N.par=S1;N.step.free=Math.round(free);N.step.leave=lv;let fin=ctx.extras?dpExtras(ctx,N):N;
+  // never at the cost of a dining reservation / held show: compare how late (or missed) timed blocks end up, finished as dpPack would
+  // (found Nov 24 when the favourite changed to a ride the evening dinner then collided with)
+  if(ctx.timed.length){const b0=ctx.extras?dpExtras(ctx,best):best;if(dpTimedLate(ctx,fin)>dpTimedLate(ctx,b0))return null}
+  return{best:N,fin}}
+// worst lateness of the timed blocks once the leftover ones are appended at the end (missed = 999)
+function dpTimedLate(ctx,X){if(ctx.timed.some((b,i)=>!((X.tb||0)&(1<<i)))&&(X.step||X.act)){if(X.step){X=Object.assign({},X,{step:Object.assign({},X.step,{blocks:(X.step.blocks||[]).slice()})});dpTimed(ctx,X,X.step.blocks,true)}else{X=Object.assign({},X,{act:X.act.slice()});dpTimed(ctx,X,X.act,true)}}
+  let m=0;for(const s of dpSteps(X))for(const b of s.blocks||[])if(b.at!=null&&(b.meal||b.user))m=Math.max(m,b.missed?999:(b.late||0));for(const b of X.act||[])if(b&&b.at!=null&&(b.meal||b.user))m=Math.max(m,b.missed?999:(b.late||0));return m}
 function dpPack(ctx,S,W){let best=dpBeam(ctx,S,W);let fin=null;
   if(ctx.pace&&ctx.fav&&!ctx.req){const sv=dpSaveFav(ctx,S,best,W);if(sv){best=sv.best;fin=sv.fin}}
   if(!fin)fin=ctx.extras?dpExtras(ctx,best):best;

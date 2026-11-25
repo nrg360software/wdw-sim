@@ -212,3 +212,17 @@ test('🔒 replans never drop or overlap held passes and dining reservations (mi
     }
   assert.ok(n > 200, 'too few cases: ' + n);
 });
+
+// ---- Nov 24 (Nick's DAK day): a held pass for the favourite must-do is not "saved for the evening" ---------------------
+// Flight of Passage was both his top must-do (the pacing favourite) and a held pass 2:30–3:30 in a park closing at 6, so the evening
+// started right after the window. The evening bonus pushed the pass to the end of the game's 60-min tap-in grace. A held pass's
+// time is set by its window: plan it inside the window when that's possible.
+test('held pass on the favourite must-do stays inside its window (no evening bonus past the window)', () => {
+  for (const extras of [false, true]) for (const must of [['a'], ['a', 'b', 'c']]) {
+    const L = env.llFresh(); L.mp = 'TP'; L.passes.push({ id: 'p1', rid: 'a', type: 'sp', start: 1020, end: 1080, st: 'active', pre: true });
+    const res = P.dpRunDay(base({ must, ll: 'mine', t: 1000, L, pace: 'bal', extras, grace: 60 }));
+    const s = rides(res).find(s => s.rid === 'a');
+    assert.ok(s && s.how === 'sp', `pass dropped ${JSON.stringify({ extras, must })}`);
+    assert.ok(s.arr <= 1080 + 1e-6, `pass for the favourite used ${Math.round(s.arr - 1080)} min after its window (arr ${s.arr}) ${JSON.stringify({ extras, must })}`);
+  }
+});

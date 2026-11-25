@@ -18,9 +18,12 @@ await tap();
 // (2) nothing left in the plan
 await lib.startDay(pg,'MK','plan','now',{must:['dumbo'],bare:true});
 await pg.evaluate(async()=>{WDW.rtAt('MK:front','MK entrance');await new Promise(r=>setTimeout(r,300));WDW.G.ridden.push('dumbo');WDW.autoReplan([{k:'manual',text:'test'}],true);WDW.setView('plan')});await W(400);
-c=await card();out.c3=c;ck(c&&c.nc==='more'&&/Add must-dos/.test(c.btn),'nothing left: card '+JSON.stringify(c));
+c=await card();out.c3=c;out.c3alt=await pg.evaluate(()=>{const a=document.querySelector('#pvNow .ncalt');return a?a.dataset.nc+':'+a.innerText:''});
+// Nov 24: main button is I'm done (asks first), Add must-dos is the second button
+ck(c&&c.nc==='end'&&/I'm done/.test(c.btn)&&/^more:.*Add must-dos/.test(out.c3alt),'nothing left: card '+JSON.stringify([c,out.c3alt]));
 out.plan=await pg.evaluate(async()=>{WDW.closeSheet();document.querySelector('#bPlan').click();await new Promise(r=>setTimeout(r,300));const a=!!document.querySelector('#sheet:not([hidden]) #dpGo');
   const bk=document.querySelector('#sheet [data-back]');if(bk)bk.click();await new Promise(r=>setTimeout(r,300));const b=document.getElementById('sheet').hidden;
-  document.querySelector('#pvNow .ncgo').click();await new Promise(r=>setTimeout(r,300));const d=!!document.querySelector('#sheet:not([hidden]) #dpGo');WDW.closeSheet();return{editor:a,backCloses:b,cardEditor:d}});
-ck(out.plan.editor&&out.plan.backCloses&&out.plan.cardEditor,'nothing left: Plan button / back / card '+JSON.stringify(out.plan));
+  document.querySelector('#pvNow .ncalt').click();await new Promise(r=>setTimeout(r,300));const d=!!document.querySelector('#sheet:not([hidden]) #dpGo');WDW.closeSheet();
+  document.querySelector('#pvNow .ncgo').click();await new Promise(r=>setTimeout(r,300));const e=!!document.querySelector('#sheet:not([hidden]) [data-endgo]')&&!WDW.G.over;WDW.closeSheet();return{editor:a,backCloses:b,cardEditor:d,endAsks:e}});
+ck(out.plan.editor&&out.plan.backCloses&&out.plan.cardEditor&&out.plan.endAsks,'nothing left: Plan button / back / card '+JSON.stringify(out.plan));
 out.fail=fail;return out

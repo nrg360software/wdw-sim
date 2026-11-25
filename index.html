@@ -156,7 +156,12 @@ textarea{box-sizing:border-box;width:100%;background:var(--chip);color:var(--tex
 .conf .cp{font:700 22px var(--body);min-width:52px;text-align:center;padding-top:1px}.conf.ok .cp{color:var(--good)}.conf.warn .cp{color:var(--warn)}.conf.bad .cp{color:var(--bad)}
 .conf.ok{border-color:rgba(95,211,141,.35)}.conf.warn{border-color:rgba(246,163,71,.45)}.conf.bad{border-color:rgba(242,102,95,.5)}
 .conf .n{font-weight:700}.conf .m{opacity:.85;margin-top:2px}.conf .risk{color:var(--warn);opacity:1}.conf small.up{color:var(--good)}.conf small.dn{color:var(--bad)}
-.conf details summary{font-size:12px;opacity:.7}.conf .btn.sm{margin-left:6px;padding:3px 9px}
+.conf details summary{font-size:12px;opacity:.7}
+.confc{border:1px solid var(--line);border-radius:14px;margin:4px 0 10px;font-size:13px;line-height:1.35}.confc.ok{border-color:rgba(95,211,141,.35)}.confc.warn{border-color:rgba(246,163,71,.45)}.confc.bad{border-color:rgba(242,102,95,.5)}
+.confc>summary{list-style:none;display:flex;align-items:center;gap:10px;min-height:44px;padding:4px 12px;cursor:pointer}.confc>summary::-webkit-details-marker{display:none}
+.confc>summary .cp{font:700 19px var(--body)}.confc.ok .cp{color:var(--good)}.confc.warn .cp{color:var(--warn)}.confc.bad .cp{color:var(--bad)}.confc>summary .n{font-weight:700;flex:1}.confc>summary .chev{opacity:.6;transition:transform .15s}.confc[open]>summary .chev{transform:rotate(90deg)}
+.confc>.conf{border:0;margin:0;padding-top:0}.confc small.up{color:var(--good)}.confc small.dn{color:var(--bad)}
+.ncalt{width:100%;min-height:44px;margin-top:6px;font-size:15px}.conf .btn.sm{margin-left:6px;padding:3px 9px}
 .tl.done{opacity:.45}.tl.nx{background:rgba(255,201,77,.09);border-radius:10px}
 .tl.ex .tt{color:var(--muted)}.tl.meal .tt{color:var(--good)}.tl.hop .tt{color:#5bc0ff}
 .tpx{color:#ff8fa3;font-weight:600}
@@ -396,7 +401,7 @@ setTimeout(function(){if(!window.WDW&&!document.getElementById('oldPhone')){var 
 <script type="module">
 import * as THREE0 from 'three';
 // day planner engine (row 67). Bump ?v= whenever planner.js changes so phones don't pair a new index.html with a cached planner.js.
-import {plannerInit,DP_KEY,DP_LLQ,DP_LUNCH,DP_GRACE,DP_LATE_PEN,DP_WASTE,DP_IDLE_PEN,DP_LONG,DP_PACE,DP_PACE_NAME,DP_TM,dpMatrix,dpWait,dpParkEnd,dpLLFrom,dpCtx,dpRoot,dpShowWalk,dpTimed,dpBlocks,dpRem,dpTravel,dpRet,dpBook,dpExpand,dpExpand0,dpH,dpCost,dpBetter,dpBeam,dpExtras,dpReplay,dpFillGaps,dpSteps,dpSaveFav,dpPack,dpPaceStats,dpScore,dpSuggest,dpRun,DP_HOP_MAX,dpLegs,dpAllMust,dpGateNode,dpHopTravel,dpLastNode,dpParksLabel,dpHopBefore,dpRunDay,dpWhy} from './planner.js?v=67d';
+import {plannerInit,DP_KEY,DP_LLQ,DP_LUNCH,DP_GRACE,DP_LATE_PEN,DP_WASTE,DP_IDLE_PEN,DP_LONG,DP_PACE,DP_PACE_NAME,DP_TM,dpMatrix,dpWait,dpParkEnd,dpLLFrom,dpCtx,dpRoot,dpShowWalk,dpTimed,dpBlocks,dpRem,dpTravel,dpRet,dpBook,dpExpand,dpExpand0,dpH,dpCost,dpBetter,dpBeam,dpExtras,dpReplay,dpFillGaps,dpSteps,dpSaveFav,dpPack,dpPaceStats,dpScore,dpSuggest,dpRun,DP_HOP_MAX,dpLegs,dpAllMust,dpGateNode,dpHopTravel,dpLastNode,dpParksLabel,dpHopBefore,dpRunDay,dpWhy} from './planner.js?v=67e';
 import {MapControls} from 'three/addons/controls/MapControls.js';
 import {EffectComposer} from 'three/addons/postprocessing/EffectComposer.js';
 import {RenderPass} from 'three/addons/postprocessing/RenderPass.js';
@@ -1167,7 +1172,11 @@ const llR=p=>RIDE_BY[p.rid];
 function llHeld(){return G.LL.passes.filter(p=>p.type==='mp'&&p.st==='active')}
 function llSps(){return G.LL.passes.filter(p=>p.type==='sp')}
 function llPassFor(r){return G.LL.passes.find(p=>p.rid===r.id&&p.st==='active')}
-function llMepFor(r){return G.LL.passes.find(p=>p.st==='mep'&&p.mepOpts.includes(r.id))}
+function llMepFor(r){return G.LL.passes.find(p=>p.st==='mep'&&(p.rid===r.id||p.mepOpts.includes(r.id)))}
+// Multiple Experience Pass after a breakdown: good for the same ride once it reopens, or another Multi Pass ride in that park.
+// (Before Nov 24 the broken ride itself was left out, so when Na'vi came back up the plan couldn't use the pass there and dropped it.)
+function mepWhy(p,short){const r=RIDE_BY[p.rid],w=`${r.short} went down${p.mepAt!=null?' '+fmtClock(p.mepAt):''}`;return short?`${w} · pass good all day`:`${w} · pass now good all day, on ${r.short} or any ${PARKS[r.pk].short} Multi Pass ride`}
+function mepOptsFor(r){return [r.id].concat(RIDES.filter(x=>x.pk===r.pk&&x.llType==='mp'&&x!==r).map(x=>x.id))}
 function llWinState(p,t){return t<p.start-LL_EARLY?'early':t<=p.end?'open':t<=p.end+LL_LATE?'grace':'late'}
 // Return-time inventory: advance bookings eat the morning (more for headliners), then same-day
 // returns race ahead of the clock until the ride sells out around its sell hour.
@@ -1222,7 +1231,7 @@ let llClock=0;
 function llTick(dt){llClock-=dt;if(llClock>0)return;llClock=2;const L=G.LL,t=G.t;
   for(const p of L.passes){if(p.st!=='active')continue;const r=llR(p);
     if(t>p.end+LL_LATE){p.st='expired';llToast(`Missed your ${r.short} window. That booking expired and its slot is free again`,'miss'+p.id)}
-    else if(t>=p.start&&t<=p.end&&rideState(r,t)==='down'){p.st='mep';p.mepOpts=RIDES.filter(x=>x.pk===r.pk&&x.llType==='mp'&&x!==r).map(x=>x.id);llToast(`${r.short} broke down during your window. You got a Multiple Experience Pass for another ${PARKS[r.pk].short} Lightning Lane today`,'mep'+p.id)}}
+    else if(t>=p.start&&t<=p.end&&rideState(r,t)==='down'){p.st='mep';p.mepOpts=mepOptsFor(r);p.mepAt=Math.round(t);llToast(`${r.short} broke down during your window. You got a Multiple Experience Pass: ${r.short} when it reopens, or another ${PARKS[r.pk].short} Lightning Lane today`,'mep'+p.id)}}
   const tgt=G.segs&&G.segs.length?G.segs[G.segs.length-1].ride:null,act=L.passes.filter(p=>p.st==='active');
   if(act.length){const D=dijkstra(effectiveStart().node,t/60);
     for(const p of act){const r=llR(p);if(tgt===r)continue;const eta=D.dist[NI[r.nodeId]];
@@ -3293,7 +3302,7 @@ function startSeg(s){
     if(s.force){if(s.ll&&s.use){try{if(s.use.kind!=='pass'||s.use.p.st==='active')llTap(s.use,r,t)}catch(e){}s.dur=Math.round(rnd(4,11))}
       else s.dur=st==='open'?rawWait(r,t):Math.max(5,rawWait(r,Math.max(t,accessOpen(r.pk))));sayBubble('In line');try{resQueue(s,r,t,st)}catch(e){}return}
     if(st==='closed'){s.abort=true;G.node=NI[r.nodeId];addMood(-12,`${PARKS[r.pk].name} is closed for the night`);return}
-    if(st==='down'){s.abort=true;G.node=NI[r.nodeId];const u=s.use;if(u&&u.kind==='pass'&&u.p.st==='active'&&llWinState(u.p,t)!=='early'){u.p.st='mep';u.p.mepOpts=RIDES.filter(x=>x.pk===r.pk&&x.llType==='mp'&&x!==r).map(x=>x.id);setTimeout(()=>llToast(`You got a Multiple Experience Pass for another ${PARKS[r.pk].short} Lightning Lane today`),900)}addMood(-10,`${r.name} is temporarily down!`);sayBubble('Noooo');return}
+    if(st==='down'){s.abort=true;G.node=NI[r.nodeId];const u=s.use;if(u&&u.kind==='pass'&&u.p.st==='active'&&llWinState(u.p,t)!=='early'){u.p.st='mep';u.p.mepOpts=mepOptsFor(r);u.p.mepAt=Math.round(t);setTimeout(()=>llToast(`You got a Multiple Experience Pass: ${r.short} when it reopens, or another ${PARKS[r.pk].short} Lightning Lane today`),900)}addMood(-10,`${r.name} is temporarily down!`);sayBubble('Noooo');return}
     if(s.ll){const u=s.use;let pre=0;
       if(u&&u.kind==='pass'){const w=llWinState(u.p,t);
         if(u.p.st!=='active'){s.abort=true;G.node=NI[r.nodeId];addMood(-4,'That Lightning Lane booking is no longer valid');return}
@@ -3673,7 +3682,7 @@ function llPassRow(p,D,t){const r=llR(p),win=`${fmtClock(p.start)}–${fmtClock(
   if(p.st==='active'){const eta=D.dist[NI[r.nodeId]],w=llWinState(p,t);
     meta=w==='early'?`opens in ${fmtDur(p.start-t)} · ${fmtDur(eta)} away · leave by ${fmtClock(p.start-eta)}`:w==='open'?`<b style="color:var(--good)">open now</b> · ${fmtDur(eta)} away`:`window ended · grace until about ${fmtClock(p.end+LL_LATE)}`;
     btns=b('go','Go','ll')+b('time','Change time')+(p.type==='mp'?b('swap','Swap ride')+b('cancel',llView.confirm===p.id?'Tap again to cancel':'Cancel'):'')}
-  else if(p.st==='mep'){meta=`ride broke down · use this on any other ${PARKS[r.pk].short} Multi Pass ride today`;btns=b('mep','Pick a ride','ll')}
+  else if(p.st==='mep'){meta=`ride broke down · use this on ${r.short} when it reopens or any other ${PARKS[r.pk].short} Multi Pass ride today`;btns=b('mep','Pick a ride','ll')}
   else if(p.st==='used')meta=`used at ${fmtClock(p.usedAt)}`;
   else if(p.st==='mepused')meta=`Multiple Experience Pass used on ${RIDE_BY[p.usedOn].short}`;
   else if(p.st==='expired'){meta='missed · expired';if(p.type==='mp')btns=b('cancel',llView.confirm===p.id?'Tap again to remove':'Remove (lets you rebook it)')}
@@ -4064,7 +4073,7 @@ function planViewHTML(){
     const rec=llRecs(G.t,true).find(x=>x.save>=3&&pks.has(x.r.pk)&&(x.away==null||x.ret>=G.t+x.away-5));
     if(rec)bkH+=`<button class="btn ll" data-bk="${rec.r.id}">⚡ Free slot · book ${rec.r.short} · returns ~${fmtClock(rec.ret)} (saves ~${fmtDur(rec.save)})</button>`}
   // plan-only view: what to do now and its button live in the Now card at the bottom (row 70)
-  const head=`${PV.on?'':nowCardHTML()}${confCardHTML()}${autoNoteHTML()}${status?`<p class="note" style="color:var(--text)">${status}</p>`:''}
+  const head=`${PV.on?confCompactHTML():nowCardHTML()+confCardHTML()+autoNoteHTML()}${status?`<p class="note" style="color:var(--text)">${status}</p>`:''}
   ${PV.on?'':`<div class="go">${btns}${bkH}</div>${bkH?'<p class="note">Your plan books these as soon as you tap in. Return times shown are live.</p>':''}`}`;
   const edit=`<div class="row" style="margin:10px 0 4px;flex-wrap:wrap"><button class="btn sm" id="dpRe">Replan from here</button><button class="btn sm" id="dpEdit">Change must-dos</button><button class="btn sm" id="dpClr">${DPV.clr?'Tap again to clear':'Clear plan'}</button><button class="btn sm tog" id="dpAuto" aria-pressed="${AUTO.on}">Auto-adjust ${AUTO.on?'on':'off'}</button><button class="btn sm tog" id="dpPush" aria-pressed="${PUSH.on}">📳 Alerts ${PUSH.on?'on':'off'}</button><button class="btn sm" id="dpShows">🎭 Shows</button><button class="btn sm" data-dbgcopy type="button">🐞 Debug info</button></div>`,top=head+edit;
   const made=`<p class="note">Made at ${fmtClock(P.made)} from typical waits${liveActive()?' and live waits':''}. ${AUTO.on?'Auto-adjust replans by itself when you fall behind, a ride goes down, the crowd read shifts or live waits drift.':'Breakdowns and slow buses will push it around; replan when you fall behind.'}</p>`;
@@ -4286,7 +4295,7 @@ function nowUndoToast(text,snap){const el=document.createElement('div'),id=Math.
   const box=$('#toasts');box.appendChild(el);while(box.children.length>3)box.firstChild.remove();setTimeout(()=>{el.remove();if(NOWU&&NOWU.id===id)NOWU=null},10000)}
 function nowDo(label,fn){const sn=nowSnap();fn();nowUndoToast(label,sn);stepsRefresh()}
 // ---- the card
-function nowHow(q){return q&&q.ll?(q.use&&q.use.kind==='pass'?`Lightning Lane ${nowHM(q.use.p.start)}–${fmtClock(q.use.p.end)}`:'Lightning Lane'):'Standby'}
+function nowHow(q){return q&&q.ll?(q.use&&q.use.kind==='pass'?`Lightning Lane ${nowHM(q.use.p.start)}–${fmtClock(q.use.p.end)}`:q.use&&q.use.kind==='mep'?`Lightning Lane (${RIDE_BY[q.use.p.rid].short} went down earlier)`:'Lightning Lane'):'Standby'}
 function nowLastDone(){const L=G.log||[];for(let i=L.length-1;i>=0;i--){const e=L[i];if(e.done&&!e.left&&e.end!=null&&RIDE_BY[e.rid])return `Done: ${RIDE_BY[e.rid].short} ${nowHM(e.end)}`}return ''}
 function nowThen(){const P=G.plan,pr=P&&dpProgress();if(!pr||pr.next<0)return '';const cur=autoCur(),steps=P.res.steps;let i=pr.next;if(cur&&steps[i]&&steps[i].rid===cur.id)i++;
   for(;i<steps.length;i++){const x=steps[i];if(x.rid&&RIDE_BY[x.rid])return `Then: ${RIDE_BY[x.rid].short}${x.q0!=null?' ~'+nowHM(x.q0):''}`}return ''}
@@ -4326,18 +4335,18 @@ function nowModel(v){if(!G.started||G.over)return null;const R=G.real,segs=G.seg
   if(pr.blk){const b=pr.blk;m.big=b.name;m.sub=b.at?`${b.user?(b.meet?'Line up':'Show'):'Booked'} ${fmtClock(b.at)}${b.walk?' · '+fmtDur(b.walk)+' walk':''}`:'In your plan';m.btn={k:'blk',label:'Start',cls:'pri'};{const g=dinGraceFor({blk:b.id});if(g)m.warn=dinGraceMsg(g)}}
   else if(pr.meal){m.big='Lunch break';m.sub=`${DP_LUNCH} min in your plan`;m.btn={k:'lunch',label:'Take lunch',cls:'pri'}}
   else if(v&&v.nx){const x=v.nx,r=x.r;let eta=null;try{eta=planTo(r,x.canLL).eta}catch(e){}
-    const how=x.canLL?(x.u.kind==='pass'?`Lightning Lane ${nowHM(x.u.p.start)}–${fmtClock(x.u.p.end)}`:'Lightning Lane'):`Standby ~${fmtDur(rawWait(r,G.t))}`;
+    const how=x.canLL?(x.u.kind==='pass'?`Lightning Lane ${nowHM(x.u.p.start)}–${fmtClock(x.u.p.end)}`:x.u.kind==='mep'?`Lightning Lane · ${mepWhy(x.u.p,1)}`:'Lightning Lane'):`Standby ~${fmtDur(rawWait(r,G.t))}`;
     m.big=x.hp?`Hop to ${PARKS[x.hop.to].short}`:`Head to ${r.short}`;
     m.sub=x.hp?`First there: ${r.short} · leave ${fmtClock(x.hop.leave)}`:`${how}${eta!=null?' · '+fmtDur(eta)+' to get there':''}${x.late<-2&&x.early==null?' · leave by '+fmtClock(x.s.leave):''}`;
     m.btn=x.early!=null?{k:'wait',label:`Leave by ${fmtClock(x.early)}`,cls:'ll',dis:1}:x.busyNow?{k:'wait',label:'Finish this first',cls:'',dis:1}:{k:'go',label:x.hp?`Go · hop to ${PARKS[x.hop.to].short}`:`Go · ${x.canLL?'⚡ ':''}${r.short}`,cls:x.canLL?'ll':'pri'};
     if(rideState(r,G.t)==='down')m.nudge=`${r.short} is down right now. Wait it out or replan.`;else if(x.late>10&&!x.hp)m.nudge=`About ${fmtDur(x.late)} behind plan.`;
     if(!x.hp){m.ll=!!x.canLL;const g=dinGraceFor({rid:r.id,i:pr.next});if(g)m.warn=dinGraceMsg(g)}}
-  else{m.big=G.plan.res.nMust?'All planned rides done':'Nothing left in your plan';m.sub='Add must-dos and the sim plans the rest of today from here.';m.btn={k:'more',label:'＋ Add must-dos',cls:'pri'}}
+  else{m.big=G.plan.res.nMust?'All planned rides done':'Nothing left in your plan';m.sub='Call it a day for your summary, or add must-dos and the sim plans the rest of today from here.';m.btn={k:'end',label:'🏁 I\'m done · see my day',cls:'pri'};m.alt={k:'more',label:'＋ Add must-dos'}}
   return m}
 function nowBarHTML(m){if(!m)return '';
-  return `<div class="ncard${m.ll?' ll':''}" id="ncard"><div class="nct">${m.tag}${m.ll?' · ⚡ Lightning Lane':''}</div><div class="ncb">${m.big}</div>${m.sub?`<div class="ncs">${m.sub}</div>`:''}${m.nudge?`<div class="ncn">${m.nudge}</div>`:''}${m.warn?`<div class="ncw" role="note">${m.warn}</div>`:''}${m.btn?`<button class="btn ${m.btn.cls} ncgo" data-nc="${m.btn.k}" ${m.btn.dis?'disabled':''}>${m.btn.label}</button>`:''}<div class="ncf">${m.fix?'<button class="ncfix" data-nc="fix" type="button">Fix steps</button>':'<span></span>'}<span class="ncft">${m.foot||''}</span></div></div>`}
+  return `<div class="ncard${m.ll?' ll':''}" id="ncard"><div class="nct">${m.tag}${m.ll?' · ⚡ Lightning Lane':''}</div><div class="ncb">${m.big}</div>${m.sub?`<div class="ncs">${m.sub}</div>`:''}${m.nudge?`<div class="ncn">${m.nudge}</div>`:''}${m.warn?`<div class="ncw" role="note">${m.warn}</div>`:''}${m.btn?`<button class="btn ${m.btn.cls} ncgo" data-nc="${m.btn.k}" ${m.btn.dis?'disabled':''}>${m.btn.label}</button>`:''}${m.alt?`<button class="btn ncalt" data-nc="${m.alt.k}">${m.alt.label}</button>`:''}<div class="ncf">${m.fix?'<button class="ncfix" data-nc="fix" type="button">Fix steps</button>':'<span></span>'}<span class="ncft">${m.foot||''}</span></div></div>`}
 function nowBarBind(root){bindAll(root,{'[data-nc]':b=>{const k=b.dataset.nc,m=NOWC.m;
-  if(k==='fix'){openFix();return}if(k==='make'){DPV.edit=false;DPV.S=null;openPlan();return}if(k==='more'){DPV.edit=true;DPV.S=null;openPlan();return}
+  if(k==='fix'){openFix();return}if(k==='end'){openEndDay();return}if(k==='make'){DPV.edit=false;DPV.S=null;openPlan();return}if(k==='more'){DPV.edit=true;DPV.S=null;openPlan();return}
   if(k==='actdone'){actDone();stepsRefresh();return}if(k==='blk'){dpStartBlk(dpProgress());return}if(k==='lunch'){dpTakeLunch();return}
   if(k==='replan'){autoReplan([{k:'manual',text:'You replanned'}],true);toast('Plan updated from here');planRefresh();return}
   if(k==='go'){const x=NOWC.v&&NOWC.v.nx;if(x)go(x.r,!!x.canLL);stepsRefresh();return}
@@ -4598,6 +4607,11 @@ async function confCompare(P){if(!P||G.plan!==P)return;const made=P.made;let res
   const o=confOpts(res,true);if(!confNMust(o))return;while(CONF.busy)await new Promise(r=>setTimeout(r,200));CONF.busy=true;
   try{const R=await confSims(o,P,made);if(!R)return;P.conf.cmp={t:Math.round(o.t),all:R.all,avgDone:R.avgDone,nMust:R.nMust,fin50:R.fin50,nDoneRes:res.nDone,missed:res.missed.slice()};CONF.ver++}
   finally{CONF.busy=false}}
+// Now tab (Nick, Nov 24: "the plan success indicator is helpful but I don't need the full explanation unless I expand it")
+function confCompactHTML(){const full=confCardHTML();if(!full)return '';const R=G.plan.conf&&G.plan.conf.last;
+  if(!R)return `<details class="confc"><summary><span class="cp">…</span><span class="n">Plan confidence</span><span class="chev">›</span></summary>${full}</details>`;
+  const p=R.all,col=oddsCol(p),m=full.match(/<small class="(up|dn)">[^<]*<\/small>/);
+  return `<details class="confc ${col}" ${PV.confOpen?'open':''}><summary><span class="cp">${Math.round(p*100)}%</span><span class="n">Plan confidence ${m?m[0]:''}</span><span class="chev" aria-hidden="true">›</span></summary>${full.replace(/<div class="cp">[^<]*<\/div>/,'')}</details>`}
 function confCardHTML(){const P=G.plan;if(!CONF||!CONF.on||!P||!P.res.nMust)return '';const c=P.conf,R=c&&c.last;
   if(!R)return `<div class="conf"><div class="cp">…</div><div><div class="n">Plan confidence</div><div class="m">Checking how the rest of the plan holds up…</div></div></div>`;
   if(!R.nMust)return '';const p=R.all,col=oddsCol(p);let tr='';
@@ -4844,7 +4858,7 @@ function pvWaitsHTML(pk){const st=effectiveStart(),D=dijkstra(st.node,G.t/60),pl
   const P=PARKS[pk],live=liveActive();
   return `<h3>Waits now · ${P.short} <small>${live?'live':'typical for today'} · shortest first · ★ in your plan</small></h3><div class="pvw">${rows.map(x=>`<button class="pvc${plan.has(x.r.id)?' pl':''}${x.rid?' rd':''}" data-pvr="${x.r.id}"><span class="nm">${plan.has(x.r.id)?'★ ':''}${x.rid?'✓ ':''}${x.r.short}${x.p&&x.p.st==='active'?` <span class="pll">⚡${fmtClock(x.p.start).replace(/ [AP]M/,'')}</span>`:''}</span><span class="w ${x.c}">${x.txt}</span></button>`).join('')}</div>${live?'<p class="note" style="margin-top:6px">Live waits <a href="https://queue-times.com/" target="_blank" rel="noopener" style="color:var(--muted)">Powered by Queue-Times.com</a>.</p>':''}`}
 function pvLLHTML(){const act=G.LL.passes.filter(p=>p.st==='active'||p.st==='mep').sort((a,b)=>a.start-b.start);if(!act.length)return '';
-  return `<div class="pvll">${act.map(p=>`<button class="pvlb" data-pvll="1">⚡ ${RIDE_BY[p.rid].short} · ${p.st==='mep'?'any MP ride':fmtClock(p.start).replace(/ [AP]M/,'')+'–'+fmtClock(p.end)}</button>`).join('')}</div>`}
+  return `<div class="pvll">${act.map(p=>`<button class="pvlb" data-pvll="1">⚡ ${RIDE_BY[p.rid].short} · ${p.st==='mep'?'went down · good all day':fmtClock(p.start).replace(/ [AP]M/,'')+'–'+fmtClock(p.end)}</button>`).join('')}</div>`}
 // ---- Plan tab (row 72) ----
 // per-step extras on the plan's own rows: 🔒 for a held pass / dining reservation, why the step is where it is, and the live
 // confidence that the ride still gets done (CONF per-ride share of modelled days, plus a matching risk)
@@ -4881,6 +4895,8 @@ function pvDoneHTML(){const P=G.plan,rows=[];
 function pvLockItems(){const P=G.plan,pr=dpProgress(),out=[];if(!P)return out;const steps=P.res.steps;
   for(const p of G.LL.passes.filter(p=>p.st==='active').sort((a,b)=>a.start-b.start)){const j=steps.findIndex((x,j)=>x.k==='ride'&&x.rid===p.rid&&!pr.done[j]&&x.how!=='standby'&&x.how!=='rope');
     out.push({k:'ll:'+p.rid,ok:j>=0,h:`⚡ <b>${RIDE_BY[p.rid].short}</b> ${fmtClock(p.start).replace(/ [AP]M/,'')}–${fmtClock(p.end)} · ${j>=0?`planned ${fmtClock(steps[j].q0)}${steps[j].late?` <span style="color:var(--warn)">(${steps[j].late}m after the window)</span>`:''}`:'<span style="color:var(--warn)">⚠ not in the plan — Replan</span>'}`})}
+  for(const p of G.LL.passes.filter(p=>p.st==='mep')){const j=steps.findIndex((x,j)=>x.k==='ride'&&x.how==='mep'&&!pr.done[j]&&(p.mepOpts||[]).concat(p.rid).includes(x.rid));
+    out.push({k:'mep:'+p.id,ok:true,h:`⚡ <b>${RIDE_BY[p.rid].short}</b> · ${mepWhy(p)} · ${j>=0?`planned on ${RIDE_BY[steps[j].rid].short} ${fmtClock(steps[j].q0)}`:'not used in the plan yet'}`})}
   for(const s of steps)for(const b of s.blocks||[])if(b.meal&&b.at&&!(P.blkDone&&P.blkDone[b.id]))out.push({k:'din:'+b.id,ok:!b.missed&&!(b.late>15),h:`🍽 <b>${b.name}</b> ${fmtClock(b.at)} · ${b.missed?'<span style="color:var(--warn)">⚠ can\'t make it</span>':b.late>15?`<span style="color:var(--warn)">⚠ ${b.late}m late</span>`:b.late>0?`seat ~${fmtClock(Math.max(b.start,b.at-15))} · ~${b.late}m late (within the 15-min grace)`:`seat ~${fmtClock(Math.max(b.start,b.at-15))}`}`});
   return out}
 function pvLockHTML(){const it=pvLockItems();if(!it.length)return '';
@@ -4929,8 +4945,18 @@ function pvNowTabHTML(v){const{todo}=pvRows(v),up=todo.slice(1,4);
 function pvTabsUI(){const on=!!(PV.on&&G.plan&&G.started&&!G.over),sig=on+PV.tab;if(sig===PV.tabSig)return;PV.tabSig=sig;document.body.classList.toggle('pvtabs-on',on);
   document.querySelectorAll('#dock [data-tab]').forEach(b=>{if(on){b.setAttribute('role','tab');b.setAttribute('aria-selected',String(PV.tab===b.dataset.tab))}else{b.removeAttribute('role');b.removeAttribute('aria-selected')}})}
 function openMore(){openSheet(`<div class="sh"><h2>More</h2><button class="x" aria-label="Close">×</button></div><div class="sb"><div class="morel">
-  <button class="btn" data-more="bRides">🎢 Rides</button><button class="btn" data-more="bPicks">⭐ Top picks</button><button class="btn" data-more="bBreak" ${$('#bBreak').disabled?'disabled':''}>🍔 Eat · shop</button></div></div>`);
-  bindAll(sheetIn,{'[data-more]':b=>{const id=b.dataset.more;closeSheet();$('#'+id).onclick()}})}
+  <button class="btn" data-more="bRides">🎢 Rides</button><button class="btn" data-more="bPicks">⭐ Top picks</button><button class="btn" data-more="bBreak" ${$('#bBreak').disabled?'disabled':''}>🍔 Eat · shop</button></div>
+  <div class="morel" style="margin-top:18px;border-top:1px solid var(--line);padding-top:14px"><button class="btn" data-endday="1">🏁 I'm done for the day</button></div></div>`);
+  bindAll(sheetIn,{'[data-more]':b=>{const id=b.dataset.more;closeSheet();$('#'+id).onclick()},'[data-endday]':()=>openEndDay()})}
+// "I'm done" (Nick, Nov 24: the day isn't always over at the last park's close; don't make me fast-forward to see the summary).
+// Ends the run now and shows the summary from what actually happened. Can't be resumed, so it asks first.
+function openEndDay(){if(!G.started||G.over)return;let left=0;try{left=G.plan&&planViewHTML().nx?1:0}catch(e){}
+  const held=G.LL.passes.filter(p=>p.st==='active'||p.st==='mep').length;
+  openSheet(`<div class="sh"><h2>Done for the day?</h2><button class="x" aria-label="Close">×</button></div><div class="sb">
+  <p class="note" style="color:var(--text)">Ends today at ${fmtClock(G.t)} and shows your summary: what you rode, waits against the plan and Lightning Lanes used. You can't pick this day back up afterwards.</p>
+  ${left?'<p class="note" style="color:var(--warn)">Your plan still has rides left.</p>':''}${held?`<p class="note" style="color:var(--warn)">You still hold ${held} unused Lightning Lane${held>1?'s':''}.</p>`:''}
+  <div class="morel"><button class="btn pri" data-endgo="1">🏁 End my day · see summary</button><button class="btn" data-endno="1">Keep going</button></div></div>`);
+  bindAll(sheetIn,{'[data-endgo]':()=>{closeSheet();endDay()},'[data-endno]':()=>closeSheet()})}
 function pvTab(k){if(!sheet.hidden)closeSheet();PV.tab=k;if(k==='plan'){AUTO.unseen=false;planDotUI()}PV.sig='';pvRefresh(true);const pv=$('#pv');pv.scrollTop=0}
 function pvRefresh(force){try{pvRefresh0(force)}catch(e){PV.sig='';const m=String(e&&e.message||e);if(PV.err!==m){PV.err=m;toast('Plan view hiccup: '+m.slice(0,80));console.error(e)}}}
 function pvRefresh0(force){if(!PV.on||!G.started||G.over)return;const now=performance.now();
@@ -4948,7 +4974,7 @@ function pvRefresh0(force){if(!PV.on||!G.started||G.over)return;const now=perfor
   try{nowBarRender(v)}catch(e){showErr(e)}
   // bottom tab bar (row 72, Nick: mockup's bottom tabs; the Now card shows on every tab)
   pvTabsUI()
-  bindAll(el,{'[data-pvr]':b=>openRide(RIDE_BY[b.dataset.pvr]),'[data-pvll]':()=>{llView.confirm=null;openLL()},'[data-auto-undo]':()=>autoUndo(),'[data-pvtab]':b=>pvTab(b.dataset.pvtab)});planDotUI()}
+  bindAll(el,{'[data-pvr]':b=>openRide(RIDE_BY[b.dataset.pvr]),'[data-pvll]':()=>{llView.confirm=null;openLL()},'[data-auto-undo]':()=>autoUndo(),'[data-pvtab]':b=>pvTab(b.dataset.pvtab)});{const d=el.querySelector('details.confc');if(d)d.addEventListener('toggle',()=>{PV.confOpen=d.open})}planDotUI()}
 $('#bNow').onclick=()=>pvTab('now');$('#bWaits').onclick=()=>pvTab('waits');$('#bMore').onclick=()=>openMore();
 function pvSizes(){const t=$('#top'),b=$('#bottom'),n=$('#pvNow'),r=document.documentElement.style;r.setProperty('--topH',(t.hidden?0:t.offsetHeight)+'px');r.setProperty('--botH',(b.hidden?0:b.offsetHeight)+'px');r.setProperty('--nowH',(n&&n.firstChild?n.offsetHeight:0)+'px');const sp=$('#pvStrip');r.setProperty('--stripH',(sp&&sp.firstChild?sp.offsetHeight:0)+'px')}
 if(window.ResizeObserver){const ro=new ResizeObserver(pvSizes);ro.observe($('#top'));ro.observe($('#bottom'));ro.observe($('#pvNow'));ro.observe($('#pvStrip'))}
@@ -5063,7 +5089,7 @@ function tick(now){const pv=PV.on;if(pv&&(G.real||!G.started||G.over)&&now-PV.ti
     camStep(now);controls.update();skyDome.position.copy(camera.position);renderFrame();updateLabels()}
   if(G.started){updateHUD();runTick();try{pushTick()}catch(e){}try{confTick()}catch(e){}if(pv)pvRefresh(false)}
 }
-window.WDW={DBG,dbgText,bindAll,PIN,pinPage,PV,pvRefresh:f=>pvRefresh(f),planViewHTML:()=>planViewHTML(),pvLockItems:()=>pvLockItems(),dinGrace:()=>dinGrace(),llTask:()=>llTask(),LLT,pvTab:k=>pvTab(k),showTick:()=>{showClock=0;showTick(1)},showHeldAll,setView:v=>setView(v),openSteps:()=>openSteps(),openDoing:()=>openDoing(),testReset:()=>{DPV={edit:false};FIX.open=false;closeSheet()},cdList:()=>cdList(),cdRender:()=>{CD.html='';cdRender()},CD,planTo,autoUndo,nowModel:()=>NOWC.m,nowTarget,nowTap,openFix:()=>openFix(),stepsRefresh:()=>stepsRefresh(),dpvEdit:()=>{DPV.edit=true;DPV.S=null},SHOWS,showIngest,showsFor,showEventsReal,openShows,showBlock,showNode,showRideTimes,showPoll,showAddGame,showGo,PUSH,pushPlan,pushSync,openPush,pushSupport,pushDataText,pushDataImport,llOdds,llObs,llObsAdd,llCalFor,CONF,confRun,confOpts,confCompare,confCardHTML,openLLEnter,endDay,resBuild,resHTML,resShow,resLoad,resLatest,RUN,runSave,runLoad,runClear,runResume,runState,runBox,runFind,AUTO,RT,autoCheck,autoReasons,autoReplan,autoDiff,rtRodeIt,rtAt,rtNow,openWhere,dpGameOpts,camera,controls,RF,rfCompact,rfStore,rfLoad,rfResid,rfCalibrate,rfEstimate,rfBacktest,rfUpdateToday,rfApplyDay,rfMul,rfCal,openRF,rfAfterUpdate,rfNoteUpdate,rfTick,rfBannerHTML,liveMatch,stRun,stHTML,stCalib,stModelDay,dpParseTP,dpApplyImport,scene,setGfx,LIGHT,sunDir,fwShows,fwSim:(n,dt)=>{for(let i=0;i<n;i++)updateFireworks(dt)},holdTime:t=>{G.holdT=t==null?null:t*60;if(t!=null)G.t=t*60},dpRun,dpRunDay,dpLegs,dpAllMust,getDPS:()=>DPS,dpStartOpts:S=>dpStartOpts(S),dpMakeGame,dpProgress,dpLoad,dpSave,openPlan,openDaySetup,prepDay,llFromPlan,llFresh,llBook,llNext,llRecs,llUse,llHeld,llTick,llPlanErrors,llSuggest,llLoadPlan,openLL,openRides,openPicks,LIVE,liveIngest,liveFor,curveAt,orlandoNow,livePoll,G,go,flyTo,setFollow,RIDE_BY,PARKS,camera,controls,openRide,closeSheet,rawWait,waitAt,dayFactor,holiday,hoursFor,applyHours,accessOpen,lastClose,renderer,dijkstra,NI,NODES,RESORTS,RIDES,LINES};
+window.WDW={DBG,dbgText,bindAll,PIN,pinPage,PV,pvRefresh:f=>pvRefresh(f),planViewHTML:()=>planViewHTML(),pvLockItems:()=>pvLockItems(),dinGrace:()=>dinGrace(),llTask:()=>llTask(),LLT,llUse:r=>llUse(r),openEndDay:()=>openEndDay(),pvTab:k=>pvTab(k),showTick:()=>{showClock=0;showTick(1)},showHeldAll,setView:v=>setView(v),openSteps:()=>openSteps(),openDoing:()=>openDoing(),testReset:()=>{DPV={edit:false};FIX.open=false;closeSheet()},cdList:()=>cdList(),cdRender:()=>{CD.html='';cdRender()},CD,planTo,autoUndo,nowModel:()=>NOWC.m,nowTarget,nowTap,openFix:()=>openFix(),stepsRefresh:()=>stepsRefresh(),dpvEdit:()=>{DPV.edit=true;DPV.S=null},SHOWS,showIngest,showsFor,showEventsReal,openShows,showBlock,showNode,showRideTimes,showPoll,showAddGame,showGo,PUSH,pushPlan,pushSync,openPush,pushSupport,pushDataText,pushDataImport,llOdds,llObs,llObsAdd,llCalFor,CONF,confRun,confOpts,confCompare,confCardHTML,openLLEnter,endDay,resBuild,resHTML,resShow,resLoad,resLatest,RUN,runSave,runLoad,runClear,runResume,runState,runBox,runFind,AUTO,RT,autoCheck,autoReasons,autoReplan,autoDiff,rtRodeIt,rtAt,rtNow,openWhere,dpGameOpts,camera,controls,RF,rfCompact,rfStore,rfLoad,rfResid,rfCalibrate,rfEstimate,rfBacktest,rfUpdateToday,rfApplyDay,rfMul,rfCal,openRF,rfAfterUpdate,rfNoteUpdate,rfTick,rfBannerHTML,liveMatch,stRun,stHTML,stCalib,stModelDay,dpParseTP,dpApplyImport,scene,setGfx,LIGHT,sunDir,fwShows,fwSim:(n,dt)=>{for(let i=0;i<n;i++)updateFireworks(dt)},holdTime:t=>{G.holdT=t==null?null:t*60;if(t!=null)G.t=t*60},dpRun,dpRunDay,dpLegs,dpAllMust,getDPS:()=>DPS,dpStartOpts:S=>dpStartOpts(S),dpMakeGame,dpProgress,dpLoad,dpSave,openPlan,openDaySetup,prepDay,llFromPlan,llFresh,llBook,llNext,llRecs,llUse,llHeld,llTick,llPlanErrors,llSuggest,llLoadPlan,openLL,openRides,openPicks,LIVE,liveIngest,liveFor,curveAt,orlandoNow,livePoll,G,go,flyTo,setFollow,RIDE_BY,PARKS,camera,controls,openRide,closeSheet,rawWait,waitAt,dayFactor,holiday,hoursFor,applyHours,accessOpen,lastClose,renderer,dijkstra,NI,NODES,RESORTS,RIDES,LINES};
 requestAnimationFrame(frame);
 })();
 </script>

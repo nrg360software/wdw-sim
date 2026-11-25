@@ -1,8 +1,10 @@
 // planner golden checks (row 67): all must-dos done and finish no more than 15 min later than the Nov 22 baseline (ae59c46).
 // If a planner change makes a plan better, lower the baseline here; if worse, it fails.
+// Nov 24: HS Dec21 noon|bal 1015 → 1032 on purpose: a ride you hold a pass for can't be the evening favourite any more (it pushed
+// Nick's Flight of Passage pass past its window), so balanced pace now saves Rock 'n' Roller Coaster (no pass) for the evening, as designed.
 await pg.waitForTimeout(3000);
 return await pg.evaluate(()=>{const W=WDW,out=[];
- const base={'MK Dec20 11am pre|fast':963,'MK rope|fast':708,'EP Dec19|fast':817,'HS Dec21 noon|fast':1015,'AK Dec18|fast':742,'MK→EP hop|fast':1062,'MK Dec20 11am pre|bal':1012,'MK rope|bal':708,'EP Dec19|bal':817,'HS Dec21 noon|bal':1015,'AK Dec18|bal':742,'MK→EP hop|bal':1160},fail=[];
+ const base={'MK Dec20 11am pre|fast':963,'MK rope|fast':708,'EP Dec19|fast':817,'HS Dec21 noon|fast':1015,'AK Dec18|fast':742,'MK→EP hop|fast':1062,'MK Dec20 11am pre|bal':1012,'MK rope|bal':708,'EP Dec19|bal':817,'HS Dec21 noon|bal':1032,'AK Dec18|bal':742,'MK→EP hop|bal':1160},fail=[];
  const run=(name,date,pk,must,t,pre,mp,pace,legs,end)=>{W.prepDay(date,1,'pop');const L=W.llFresh();if(mp){L.mp=mp;(pre||[]).forEach((p,i)=>L.passes.push({id:'g'+i,rid:p[0],type:'mp',start:p[1],end:p[1]+60,st:'active',pre:true}))}
   const t0=performance.now();const r=W.dpRunDay({pk,must,ll:mp?'mine':'none',lunch:true,extras:false,pace,node:W.NI[pk+':front'],t,L,done:[],legs,end});
   const k=name+'|'+pace,e=Math.round(r.endMust);out.push([k,r.nDone+'/'+r.nMust,e,Math.round(performance.now()-t0)+' ms']);if(r.nDone<r.nMust)fail.push(k+': '+r.nDone+'/'+r.nMust);if(e>base[k]+15)fail.push(k+': done '+e+' vs baseline '+base[k])};

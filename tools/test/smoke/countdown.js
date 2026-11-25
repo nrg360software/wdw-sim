@@ -56,10 +56,10 @@ out.chg=await pg.evaluate(async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms))
   const firstOk=n1!==n0?/Plan changed · next: /.test(t1):!/Plan changed|Plan adjusted/.test(t1);
   // second change from the same state: same next step → no toast
   document.querySelector('#toasts').innerHTML='';const old=G.plan;WDW.autoReplan([{k:'behind',text:'test change 2'}]);await w(100);const n2=nx();const toast=n2===n1?document.querySelector('#toasts').innerText:'(next changed again: '+n1+'→'+n2+')';
-  WDW.setView('plan');await w(300);const dot=document.querySelector('#bPlan').classList.contains('dot');const u=document.querySelector('#pvIn [data-auto-undo]');
+  WDW.setView('plan');await w(300);const dot=document.querySelector('#bPlan').classList.contains('dot');const now0=!!document.querySelector('#pvIn [data-auto-undo]');WDW.pvTab('plan');await w(200);const u=document.querySelector('#pvIn [data-auto-undo]');
   if(u)u.click();await w(300);const back=G.plan===old,pause=WDW.AUTO.pause>G.t;document.querySelector('#bPlan').click();await w(300);const dot2=document.querySelector('#bPlan').classList.contains('dot');WDW.testReset();
-  return{firstOk,toast,dot,undo:!!u,back,pause,dot2}});
-ck(out.chg.firstOk&&!/Plan changed|Plan adjusted|next changed/.test(out.chg.toast)&&out.chg.dot&&out.chg.undo&&out.chg.back&&out.chg.pause&&!out.chg.dot2,'plan change log / Undo '+JSON.stringify(out.chg));
+  WDW.pvTab('now');return{firstOk,toast,dot,undo:!!u,back,pause,dot2,now0}});
+ck(out.chg.firstOk&&!/Plan changed|Plan adjusted|next changed/.test(out.chg.toast)&&out.chg.dot&&out.chg.undo&&out.chg.back&&out.chg.pause&&!out.chg.dot2&&!out.chg.now0,'plan change log / Undo (on the Plan tab, not the Now tab) '+JSON.stringify(out.chg));
 
 // 7) phone alert for Act now (real day): due when finishing what you're doing stops leaving 5 min
 await lib.startDay(pg,'MK','plan','now');
