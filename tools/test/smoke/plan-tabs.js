@@ -6,7 +6,7 @@ await pg.waitForTimeout(4000);const fail=[],out={};const ck=(c,m)=>{if(!c)fail.p
 await lib.startDay(pg,'MK','plan',660);
 await pg.evaluate(()=>{const b=document.querySelector('#speedSeg [data-s="0"]');if(b)b.click()});
 const tabs=()=>pg.evaluate(()=>{const t=[...document.querySelectorAll('#dock [data-tab]')].filter(b=>b.offsetParent);const q=s=>!!document.querySelector('#pvIn '+s);
-  return{tabs:t.map(b=>b.dataset.tab+(b.getAttribute('aria-selected')==='true'?'*':'')).join(','),waits:q('.pvw'),edit:q('#dpRe')&&q('#dpEdit')&&q('#dpClr')&&q('#dpAuto'),
+  return{tabs:t.map(b=>b.dataset.tab+(b.getAttribute('aria-selected')==='true'?'*':'')).join(','),waits:q('.pvw'),edit:q('#dpEditPlan')&&!q('#dpRe')&&!q('#dpClr'),
     planH:q('#pvPlanH'),nx:document.querySelectorAll('#pvIn .tl.nx').length,up:/Coming up/.test(document.querySelector('#pvIn').textContent),
     secs:[...document.querySelectorAll('#pvIn h3.pvsec')].map(h=>h.childNodes[0].textContent.trim()).join(',')}});
 const tab=async k=>{await pg.evaluate(k=>document.querySelector(`#dock [data-tab="${k}"]`).click(),k);await W(250)};
@@ -36,7 +36,7 @@ await pg.evaluate(()=>document.querySelector('#bPlan').click());await W(300);
 out.lock=await pg.evaluate(async()=>{const G=WDW.G,w=ms=>new Promise(r=>setTimeout(r,ms));
   G.LL.passes.push({id:9811,rid:'pp',type:'mp',start:780,end:840,st:'active'});
   G.plan.settings.blocks=(G.plan.settings.blocks||[]).filter(b=>b.id!=='tdin').concat([{id:'tdin',name:'Test Diner',meal:true,at:750,walk:5,dur:45}]);
-  document.querySelector('#pvIn #dpRe').click();await w(900);WDW.setView('plan');await w(300);
+  WDW.openEditPlan();document.querySelector('#sheet #dpRe').click();await w(900);WDW.setView('plan');await w(300);
   const lk=document.querySelector('#pvIn .lock'),txt=lk?lk.innerText.replace(/\s+/g,' '):'';const all=document.querySelector('#pvIn').innerText.replace(/\s+/g,' ');
   const st=G.plan.res.steps,pp=st.find(s=>s.rid==='pp'),din=st.flatMap(s=>s.blocks||[]).find(b=>b.id==='tdin');
   return{txt,pass:/Peter Pan.*planned/.test(txt),din:/Test Diner 12:30 PM/.test(txt),notIn:/not in the plan/.test(txt),badgeP:/🔒 held pass/.test(all),badgeD:/🔒 reservation 12:30 PM/.test(all),

@@ -7,12 +7,13 @@ await lib.startDay(pg,'MK','map',660);
 await pg.evaluate(()=>{const qs=Element.prototype.querySelector,qa=Element.prototype.querySelectorAll;window.__hide='#dpPush';
  Element.prototype.querySelector=function(s){if(s===window.__hide)return null;return qs.call(this,s)};
  Element.prototype.querySelectorAll=function(s){const r=qa.call(this,s);if(s!==window.__hide)return r;const f=document.createDocumentFragment();return f.querySelectorAll('x')}});
-// plan view: every tap starts from the same tab (row 72 tabs: tapping Waits would otherwise hide the rest); Now and Plan tabs both carry the edit row
-for(const view of ['map','plan','plan-tab']){
-  const tb=view==='plan-tab'?'plan':'now',open=view==='map'?"WDW.setView('map');WDW.openPlan()":`WDW.PV.tab='${tb}';WDW.setView('plan');document.getElementById('pv').scrollTop=0`;
-  const r=await lib.audit(pg,'plan without #dpPush ('+view+')',open,view==='map'?'#sheet':'#pv',{skip:'dpPush'});
+// plan view: every tap starts from the same tab (row 72 tabs: tapping Waits would otherwise hide the rest); Now and Plan tabs both carry
+// the ⋯ Edit plan button (row 74), whose sheet holds the edit buttons
+for(const view of ['map','plan','plan-tab','edit-sheet']){
+  const tb=view==='plan-tab'?'plan':'now',open=view==='map'?"WDW.setView('map');WDW.openPlan()":view==='edit-sheet'?"WDW.setView('plan');WDW.openEditPlan()":`WDW.PV.tab='${tb}';WDW.setView('plan');document.getElementById('pv').scrollTop=0`;
+  const r=await lib.audit(pg,'plan without #dpPush ('+view+')',open,view==='map'||view==='edit-sheet'?'#sheet':'#pv',{skip:'dpPush'});
   out[view]=r.tapped;fail.push(...r.fail);
-  for(const id of ['#dpRe','#dpEdit','#dpClr','#dpAuto'])ck(r.res.some(x=>x.k.startsWith(id)&&x.ch&&x.ch!=='NOTHING'),view+': '+id+' dead when another button is missing')}
+  for(const id of view==='plan'||view==='plan-tab'?['#dpEditPlan']:['#dpRe','#dpEdit','#dpClr','#dpAuto'])ck(r.res.some(x=>x.k.startsWith(id)&&x.ch&&x.ch!=='NOTHING'),view+': '+id+' dead when another button is missing')}
 await pg.evaluate(()=>{window.__hide='#none'});
 // (2) throwing handler
 out.thr=await pg.evaluate(async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));window.__aud.reset();WDW.setView('map');WDW.openPlan();const root=document.getElementById('sheetIn');

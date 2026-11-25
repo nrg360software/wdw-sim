@@ -9,7 +9,7 @@ await pg.waitForTimeout(300);await pg.evaluate(()=>document.querySelector('#bPla
 await pg.waitForFunction(()=>WDW.G.started&&WDW.G.plan,null,{timeout:60000});await pg.waitForTimeout(2500);
 const out={},fail=[];const ck=(c,m)=>{if(!c)fail.push(m)};
 const hit=sel=>pg.evaluate(sel=>{const b=document.querySelector(sel);if(!b)return 'missing';b.scrollIntoView({block:'center'});const r=b.getBoundingClientRect();const e=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);return e===b||b.contains(e)?'ok':'covered by '+(e&&(e.id||e.className||e.tagName))},sel);
-const openEd=async()=>{await pg.evaluate(()=>document.querySelector('#pvIn #dpEdit').click());await pg.waitForTimeout(500)};
+const openEd=async()=>{await pg.evaluate(()=>{document.querySelector('#pvIn #dpEditPlan').click();document.querySelector('#sheet #dpEdit').click()});await pg.waitForTimeout(500)};
 // 2. buttons are on top and respond
 await openEd();
 for(const sel of ['#sheet [data-back]','#sheet .x[aria-label="Close"]','#dpGo']){out[sel]=await hit(sel);ck(out[sel]==='ok',sel+' '+out[sel])}
@@ -28,7 +28,7 @@ await openEd();
 // 4. debug info
 await pg.evaluate(()=>{setTimeout(()=>{throw new Error('test boom')},0)});await pg.waitForTimeout(300);
 out.errBox=await pg.evaluate(()=>{const b=document.querySelector('#errBox');return b&&!b.hidden?b.textContent:null});ck(out.errBox&&/test boom/.test(out.errBox),'error box missing');
-out.dbgBtn=await pg.evaluate(()=>{document.querySelector('#errBox [data-dbgx]').click();document.querySelector('#sheet .x[aria-label="Close"]').click();const b=document.querySelector('#pvIn [data-dbgcopy]');b.click();return new Promise(r=>setTimeout(()=>{const t=document.querySelector('#dbgTxt textarea');r(t?'textarea':b.textContent)},400))});
+out.dbgBtn=await pg.evaluate(()=>{document.querySelector('#errBox [data-dbgx]').click();document.querySelector('#sheet .x[aria-label="Close"]').click();document.querySelector('#pvIn #dpEditPlan').click();const b=document.querySelector('#sheet [data-dbgcopy]');b.click();return new Promise(r=>setTimeout(()=>{const t=document.querySelector('#dbgTxt textarea');r(t?'textarea':b.textContent)},400))});
 out.dbg=await pg.evaluate(()=>WDW.dbgText());
 ck(/test boom/.test(out.dbg)&&/Last taps/.test(out.dbg),'debug text incomplete');
 out.fail=fail;return out

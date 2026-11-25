@@ -110,6 +110,7 @@ async function parkAudit(pg, pk, o = {}) {
       ['eat shop', V + "WDW.openDoing();if(document.getElementById('sheet').hidden)WDW.openDoing()", '#sheet', {}],
       ...(view === 'map' ? [['plan', V + 'WDW.openPlan()', '#sheet', {}]] : []),
       ['plan editor', V + 'WDW.dpvEdit();WDW.openPlan()', '#sheet', {}],
+      ...(view === 'plan' ? [['edit plan', V + 'WDW.openEditPlan()', '#sheet', {}]] : []),
       ['rides', V + `WDW.openRides('${pk}')`, '#sheet', {}],
       ['ride page', V + `WDW.openRide(WDW.RIDE_BY['${ride}'])`, '#sheet', {}],
       ['top picks', V + 'WDW.openPicks()', '#sheet', {}],

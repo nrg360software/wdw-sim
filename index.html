@@ -261,6 +261,20 @@ body.pvmode.pvtabs-on .pvt{display:inline-flex;align-items:center;justify-conten
 body.pvmode.pvtabs-on #bNow{order:1}body.pvmode.pvtabs-on #bPlan{order:2}body.pvmode.pvtabs-on #bWaits{order:3}body.pvmode.pvtabs-on #bMore{order:4;flex:0 0 52px;font-size:20px}
 body.pvmode.pvtabs-on [data-tab][aria-selected="true"]{background:var(--gold);color:#1a1300;border-color:var(--gold)}
 .morel{display:flex;flex-direction:column;gap:8px;margin:6px 0 4px}.morel .btn{min-height:48px;font-size:16px}
+/* row 74: ⋯ Edit plan sheet (every plan edit lives here; Clear is separated and asks first) */
+.pvedit{margin:12px 0 4px}.pvedit .btn{width:100%;min-height:44px;font-size:15px}
+.edl{display:flex;flex-direction:column;gap:8px;margin:4px 0 8px}.edl.edx{margin-top:18px;border-top:1px solid var(--line);padding-top:14px}
+.edo{display:flex;align-items:center;gap:12px;text-align:left;background:var(--chip);border:1px solid var(--line);border-radius:12px;padding:10px 12px;font:inherit;font-size:15.5px;font-weight:700;color:var(--text);min-height:52px;cursor:pointer;width:100%;box-sizing:border-box}
+.edo .edi{font-size:20px;width:26px;text-align:center;flex:none}.edo .edn{flex:1;min-width:0}
+.edo small{display:block;font-size:12px;color:var(--muted);font-weight:600;margin-top:2px;line-height:1.3}
+.edo.bad{color:var(--bad)}
+.edo .edsw{flex:none;width:44px;height:26px;border-radius:13px;background:rgba(255,255,255,.18);position:relative;transition:background .15s}
+.edo .edsw::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:left .15s}
+.edo[aria-checked="true"] .edsw{background:var(--gold)}.edo[aria-checked="true"] .edsw::after{left:21px}
+.btn.edbad{background:rgba(255,90,90,.16);border-color:var(--bad);color:var(--bad)}
+@keyframes llin{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.lltask.llin{animation:llin .28s ease-out}
+@media (prefers-reduced-motion:reduce){.lltask.llin{animation:none}}
 .lock{border:1px solid rgba(255,201,77,.45);background:rgba(255,201,77,.07);border-radius:12px;padding:8px 10px;margin:8px 0;font-size:13px;line-height:1.55}
 .lock .lkh{font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--gold)}
 .tlx{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.4}.tlx .lk{color:var(--gold);font-weight:700}.tl .pd{opacity:.7}
@@ -4039,7 +4053,8 @@ function openPlan(){AUTO.unseen=false;planDotUI();
     <p class="note">Plans the rest of today from where you are (${fmtClock(G.t)}).</p>${dpEditorHTML(S,G.LL,true)}
     <button class="btn pri" id="dpGo" style="width:100%" ${dpAllMust(S).length?'':'disabled'}>Make plan from here</button></div>`);
     const bk=sheetIn.querySelector('[data-back]');if(bk)bk.onclick=()=>{DPV.edit=false;DPV.S=null;if(PV.on&&planNothingLeft())closeSheet();else openPlan()};
-    sheetIn.querySelector('#dpGo').onclick=()=>{try{if(G.plan)G.plan.legI=0;dpMakeGame(S)}catch(e){showErr(e)}DPV.edit=false;DPV.S=null;openPlan()};
+    sheetIn.querySelector('#dpGo').onclick=()=>{const sn=G.plan?planSnap():null,P0=G.plan;try{if(G.plan)G.plan.legI=0;dpMakeGame(S)}catch(e){showErr(e)}DPV.edit=false;DPV.S=null;openPlan();
+      if(sn&&G.plan!==P0)editUndoToast('New plan made',()=>planRestore(sn,'the new plan'))};
     try{dpBindEditor(sheetIn,S,openPlan,true)}catch(e){showErr(e)}return}
   if(PV.on&&planNothingLeft()){DPV.edit=true;DPV.S=null;openPlan();return}
   // plan view: the Plan tab (row 72); tapping Plan again while at the top scrolls to Now
@@ -4080,24 +4095,63 @@ function planViewHTML(){
   // plan-only view: what to do now and its button live in the Now card at the bottom (row 70)
   const head=`${PV.on?confCompactHTML():nowCardHTML()+confCardHTML()+autoNoteHTML()}${status?`<p class="note" style="color:var(--text)">${status}</p>`:''}
   ${PV.on?'':`<div class="go">${btns}${bkH}</div>${bkH?'<p class="note">Your plan books these as soon as you tap in. Return times shown are live.</p>':''}`}`;
-  const edit=`<div class="row" style="margin:10px 0 4px;flex-wrap:wrap"><button class="btn sm" id="dpRe">Replan from here</button><button class="btn sm" id="dpEdit">Change must-dos</button><button class="btn sm" id="dpClr">${DPV.clr?'Tap again to clear':'Clear plan'}</button><button class="btn sm tog" id="dpAuto" aria-pressed="${AUTO.on}">Auto-adjust ${AUTO.on?'on':'off'}</button><button class="btn sm tog" id="dpPush" aria-pressed="${PUSH.on}">📳 Alerts ${PUSH.on?'on':'off'}</button><button class="btn sm" id="dpShows">🎭 Shows</button><button class="btn sm" data-dbgcopy type="button">🐞 Debug info</button></div>`,top=head+edit;
+  const editRow=`<div class="row" style="margin:10px 0 4px;flex-wrap:wrap"><button class="btn sm" id="dpRe">Replan from here</button><button class="btn sm" id="dpEdit">Change must-dos</button><button class="btn sm" id="dpClr">${DPV.clr?'Tap again to clear':'Clear plan'}</button><button class="btn sm tog" id="dpAuto" aria-pressed="${AUTO.on}">Auto-adjust ${AUTO.on?'on':'off'}</button><button class="btn sm tog" id="dpPush" aria-pressed="${PUSH.on}">📳 Alerts ${PUSH.on?'on':'off'}</button><button class="btn sm" id="dpShows">🎭 Shows</button><button class="btn sm" data-dbgcopy type="button">🐞 Debug info</button></div>`,top=head+editRow;
+  // row 74 (edit safety): in the plan view every edit lives in the ⋯ Edit plan sheet, away from the buttons you use all day
+  const edit=PV.on?`<div class="row pvedit"><button class="btn" id="dpEditPlan" aria-haspopup="dialog">⋯ Edit plan</button></div>`:editRow;
   const made=`<p class="note">Made at ${fmtClock(P.made)} from typical waits${liveActive()?' and live waits':''}. ${AUTO.on?'Auto-adjust replans by itself when you fall behind, a ride goes down, the crowd read shifts or live waits drift.':'Breakdowns and slow buses will push it around; replan when you fall behind.'}</p>`;
   const rest=(PV.on?'':dpTimelineHTML(P.res,pr))+made;
   return {top,rest,pr,s,nx,head,edit,made}}
+function planShowsPk(){return G.plan&&dpLegs(G.plan.settings)[G.plan.legI||0]?dpLegs(G.plan.settings)[G.plan.legI||0].pk:currentPark()}
 function planBind(root,v){const pr=v.pr,s=v.s;try{nowBind(root)}catch(e){showErr(e)}
-  bindAll(root,{'#dpPush':()=>openPush(),'#dpShows':()=>openShows(G.plan&&dpLegs(G.plan.settings)[G.plan.legI||0]?dpLegs(G.plan.settings)[G.plan.legI||0].pk:currentPark()),
-  '#dpAuto':()=>{AUTO.on=!AUTO.on;try{localStorage.setItem('wdwsim.auto',AUTO.on?'1':'0')}catch(e){}planRefresh();if(AUTO.on)autoCheck('toggle')},
+  bindAll(root,{'#dpPush':()=>openPush(),'#dpShows':()=>openShows(planShowsPk()),'#dpEditPlan':()=>openEditPlan(),
+  '#dpAuto':()=>{planSetAuto(!AUTO.on);planRefresh()},
   '#dpNext':()=>{const r=RIDE_BY[s.rid];go(r,!!(v.nx&&v.nx.canLL))},
   '#dpBlk':()=>dpStartBlk(pr),'#dpLunch':()=>dpTakeLunch(),
   '[data-bk]':b=>{const r=RIDE_BY[b.dataset.bk];if(G.real){openLLEnter(r);return}const res=llBook(r,G.t);toast(res.ok?`Booked ${r.short} · ${fmtClock(res.p.start)}–${fmtClock(res.p.end)}`:res.why);planRefresh()},
-  '#dpRe':()=>{autoReplan([{k:'manual',text:'You replanned'}],true);toast('Plan updated from here');planRefresh()},
-  '#confRe':()=>{autoReplan([{k:'manual',text:'Replanned for a safer day'}],true);toast('Plan updated from here');planRefresh()},
+  '#dpRe':()=>planReplanManual('You replanned'),
+  '#confRe':()=>planReplanManual('Replanned for a safer day'),
   '#dpEdit':()=>{DPV.edit=true;DPV.S=null;openPlan()},
   '#dpClr':()=>{if(DPV.clr){G.plan=null;DPV.clr=false;planDone();toast('Plan cleared')}else{DPV.clr=true;planRefresh();setTimeout(()=>{DPV.clr=false;if(PV.on)pvRefresh(true)},4000)}}})}
 function dpStartBlk(pr){if(G.segs&&!effectiveStart().can){toast('Finish this ride first');return}if(pr.blk.user){const b=showHeldBlock(pr.blk.id)||pr.blk;if(showStartHeld(b)){sayBubble('Showtime!');planDone()}return}const b=pr.blk,dur=Math.max(b.walk+b.dur,b.at?b.at-(b.meal?15:0)+b.dur-G.t:0);G.plan.blkDone[b.id]=1;if(b.meal)G.plan.lunchAt=G.t;G.segs=[{k:'snack',dur:Math.round(dur),el:0,started:false,name:b.name,act:b.meal?'dine':undefined}];G.seg=0;sayBubble(b.meal?'Food!':'Off we go');planDone()}
 function dpTakeLunch(){if(G.segs&&!effectiveStart().can){toast('Finish this ride first');return}G.plan.lunchAt=G.t;G.segs=[{k:'snack',dur:DP_LUNCH,el:0,started:false,act:'dine',name:'Lunch'}];G.seg=0;sayBubble('Lunch!');planDone()}
 function planNothingLeft(){const P=G.plan;if(!P)return false;const pr=dpProgress();return !pr.step&&!pr.blk&&!pr.meal&&!(G.segs&&G.segs.length)}
 function planDone(){if(PV.on)pvRefresh(true);else closeSheet()}
+// ---- row 74, edit safety: one "⋯ Edit plan" sheet for every plan edit (Replan, must-dos, Auto-adjust, Alerts, Shows, Debug), Clear
+// separated and confirmed, and a 10-s Undo toast for each reversible change (replan, new plan, Auto-adjust, clear)
+var EDU=null;
+function editUndoToast(text,fn){const el=document.createElement('div'),id=Math.random();el.className='toast undo edu';el.innerHTML=`<span>${text}</span><button class="btn sm" type="button" data-undo="1">Undo</button>`;EDU={id,fn};
+  el.querySelector('button').onclick=e=>{e.stopPropagation();el.remove();if(!EDU||EDU.id!==id)return;const f=EDU.fn;EDU=null;try{f();toast('Undone')}catch(er){showErr(er)}
+    if(PV.on)pvRefresh(true);else if(!sheet.hidden&&sheetIn.querySelector('#dpRe'))openPlan()};
+  const box=$('#toasts');box.appendChild(el);while(box.children.length>3)box.firstChild.remove();setTimeout(()=>{el.remove();if(EDU&&EDU.id===id)EDU=null},10000)}
+// the plan as it was (the plan object itself: replans build a new one), so Undo puts it back while keeping what's done since
+function planSnap(){const P=G.plan;return{plan:P,legI:P?P.legI||0:0,au:AUTO.undo,settings:P?JSON.parse(JSON.stringify(P.settings)):null}}
+function planRestore(o,what){const cur=G.plan,P=o.plan;if(!P)return;P.legI=o.legI;P.settings=o.settings||P.settings;
+  if(cur&&cur!==P){P.blkDone=cur.blkDone;P.lunchAt=cur.lunchAt}
+  P.notes=[{t:G.t,text:'Undid '+what,manual:true}].concat((cur||P).notes||[]).slice(0,8);G.plan=P;AUTO.undo=o.au;try{dpSave(G.date,P.settings)}catch(e){}runDirty()}
+function planReplanManual(text){const sn=planSnap();const n=autoReplan([{k:'manual',text}],true);
+  if(n)editUndoToast('Plan updated from here',()=>planRestore(sn,'your replan'));else toast('Couldn\'t replan right now');planRefresh()}
+function planSetAuto(on,undo){const was=AUTO.on;AUTO.on=!!on;try{localStorage.setItem('wdwsim.auto',AUTO.on?'1':'0')}catch(e){}
+  if(undo&&was!==AUTO.on)editUndoToast(`Auto-adjust ${AUTO.on?'on':'off'}`,()=>planSetAuto(was));if(AUTO.on&&!was)autoCheck('toggle')}
+function planClear(){if(!G.plan)return;const sn=planSnap();G.plan=null;DPV.clr=false;AUTO.undo=null;runDirty();planDone();editUndoToast('Plan cleared',()=>planRestore(sn,'clearing the plan'))}
+function openEditPlan(clr){if(!G.started||G.over||!G.plan)return;
+  if(clr){const held=G.LL.passes.filter(p=>p.st==='active'||p.st==='mep').length,din=pvLockItems().filter(x=>x.k.startsWith('din:')).length;
+    openSheet(`<div class="sh" id="edSheet"><h2>Clear your plan?</h2><button class="x" aria-label="Close">×</button></div><div class="sb">
+    <p class="note" style="color:var(--text)">Removes today's plan: the Now card, Coming up and the plan's reminders go away until you make a new one.${held||din?` Your ${held?`${held} Lightning Lane${held>1?'s':''}`:''}${held&&din?' and ':''}${din?`dining reservation${din>1?'s':''}`:''} stay booked.`:''}</p>
+    <div class="morel"><button class="btn edbad" id="edClrGo">Clear plan</button><button class="btn" id="edClrNo">Keep my plan</button></div>
+    <p class="note" style="text-align:center">You can undo this for 10 seconds</p></div>`);
+    bindAll(sheetIn,{'#edClrGo':()=>{closeSheet();planClear()},'#edClrNo':()=>openEditPlan()});return}
+  const row=(id,ic,label,sub)=>`<button class="edo" id="${id}" type="button"><span class="edi" aria-hidden="true">${ic}</span><span class="edn">${label}${sub?`<small>${sub}</small>`:''}</span></button>`;
+  openSheet(`<div class="sh" id="edSheet"><h2>Edit plan</h2><button class="x" aria-label="Close">×</button></div><div class="sb"><div class="edl">
+  ${row('dpRe','🔄','Replan from here','Rebuilds the rest of today from where you are. Held Lightning Lanes and reservations stay.')}
+  ${row('dpEdit','✏️','Change must-dos','Rides, dining and shows, then a new plan')}
+  <button class="edo" id="dpAuto" type="button" role="switch" aria-checked="${AUTO.on}"><span class="edi" aria-hidden="true">⚙️</span><span class="edn">Auto-adjust<small>${AUTO.on?'On · replans by itself when you fall behind, a ride goes down or waits drift':'Off · the plan only changes when you replan'}</small></span><span class="edsw" aria-hidden="true"></span></button>
+  ${row('dpPush','📳',`Phone alerts · ${PUSH.on?'on':'off'}`,'Reminders when it\'s time to leave, book or eat')}
+  ${row('dpShows','🎭','Shows','Showtimes, or hold one in your plan')}
+  <button class="edo" data-dbgcopy type="button"><span class="edi" aria-hidden="true">🐞</span><span class="edn">Debug info<small>Copy it for a bug report</small></span></button></div>
+  <div class="edl edx">${row('dpClr','🗑','Clear plan…','Asks first')}</div></div>`);
+  sheetIn.querySelector('#dpClr').classList.add('bad');
+  bindAll(sheetIn,{'#dpRe':()=>{closeSheet();planReplanManual('You replanned')},'#dpEdit':()=>{DPV.edit=true;DPV.S=null;openPlan()},
+    '#dpAuto':()=>{planSetAuto(!AUTO.on,true);openEditPlan();if(PV.on)pvRefresh(true)},'#dpPush':()=>openPush(),'#dpShows':()=>openShows(planShowsPk()),'#dpClr':()=>openEditPlan(true)})}
 function planRefresh(){if(PV.on)pvRefresh(true);else openPlan()}
 
 // ================= REAL-TIME DAY & AUTO-ADJUST (roadmap row 39) =================
@@ -4353,13 +4407,14 @@ function nowBarHTML(m){if(!m)return '';
 function nowBarBind(root){bindAll(root,{'[data-nc]':b=>{const k=b.dataset.nc,m=NOWC.m;
   if(k==='fix'){openFix();return}if(k==='end'){openEndDay();return}if(k==='make'){DPV.edit=false;DPV.S=null;openPlan();return}if(k==='more'){DPV.edit=true;DPV.S=null;openPlan();return}
   if(k==='actdone'){actDone();stepsRefresh();return}if(k==='blk'){dpStartBlk(dpProgress());return}if(k==='lunch'){dpTakeLunch();return}
-  if(k==='replan'){autoReplan([{k:'manual',text:'You replanned'}],true);toast('Plan updated from here');planRefresh();return}
+  if(k==='replan'){planReplanManual('You replanned');return}
   if(k==='go'){const x=NOWC.v&&NOWC.v.nx;if(x)go(x.r,!!x.canLL);stepsRefresh();return}
   if(k==='tap'){const t=nowTarget();
     // only do what the button said: if the day moved on since it was drawn, just redraw
     if(!t||!m||!m.btn||t.k!==m.btn.tk||t.j!==m.btn.j){stepsRefresh();return}const r=G.segs[G.segs.length-1].ride||{short:''};
     nowDo(t.k==='there'?'✓ You\'re there':t.k==='rode'?`✓ Rode ${r.short}`:t.k==='line'?`✓ In line · ${r.short}`:'✓ '+t.label.replace(/^I'm /,''),()=>nowTap(t.j))}}})}
 function nowBarRender(v){const el=$('#pvNow');if(!el)return;NOWC.v=v;NOWC.m=nowModel(v);let tk='';if(NOWC.m)try{tk=llTaskHTML(llTask())}catch(e){showErr(e)}
+  if(tk&&!NOWC.tk)tk=tk.replace('class="lltask"','class="lltask llin"');NOWC.tk=!!tk;
   el.innerHTML=tk+nowBarHTML(NOWC.m);nowBarBind(el);bindAll(el,{'[data-llt]':b=>llTaskDo(b)})}
 // ---- Fix steps: "Where are you now?" for the current trip
 function fixGuess(){const segs=G.segs,r=segs[segs.length-1].ride,q=nowQ(),start=G.trip?G.trip.start:G.t;
@@ -4489,7 +4544,7 @@ function autoReplan(rs,manual){const P=G.plan;if(!P)return null;const pr=dpProgr
   // a replan that changes nothing that matters updates times quietly (the note is still kept in the Plan sheet)
   AUTO.undo=manual?null:{t:note.t,plan:P};
   // plan-only view (row 71): a change goes to the log (dot on Plan, Undo); it only interrupts when what's next changed
-  const loud=rs.some(r=>r.k==='sync')||AUTO.diffLoud;if(!manual){if(PV.on){AUTO.unseen=true;planDotUI();if(cdNextSig()!==nx0)dpToast(`Plan changed · next: ${cdNextLabel()} · ${note.text}`)}else if(loud)dpToast('Plan adjusted · '+note.text);if(!sheet.hidden&&sheetIn.querySelector('#dpRe'))openPlan()}return note}
+  const loud=rs.some(r=>r.k==='sync')||AUTO.diffLoud;if(!manual){if(PV.on){AUTO.unseen=true;planDotUI();if(cdNextSig()!==nx0)dpToast(`Plan changed · next: ${cdNextLabel()} · ${note.text}`)}else if(loud)dpToast('Plan adjusted · '+note.text);if(!PV.on&&!sheet.hidden&&sheetIn.querySelector('#dpRe'))openPlan()}return note}
 function autoDiff(old,res){const S=id=>RIDE_BY[id].short,a=old.rem.map(s=>s.rid),bs=res.steps.filter(s=>s.k==='ride'),b=bs.map(s=>s.rid),out=[];
   const lost=a.filter(id=>res.missed.includes(id)),won=old.res.missed.filter(id=>b.includes(id));
   if(lost.length)out.push(`dropped ${lost.map(id=>`${S(id)} (won't fit${res.why&&res.why[id]&&res.why[id].short?': '+res.why[id].short:''})`).join(', ')}`);if(won.length)out.push(`${won.map(S).join(', ')} fits again`);
@@ -4847,7 +4902,10 @@ runPrune();runBox();inDate.addEventListener('change',runBox);inDate.addEventList
 // For a day in the park: hides the 3D map and stops drawing it (saves battery); the game, clock, live waits, auto-adjust,
 // Lightning Lane reminders and save/resume keep running. The screen between the HUD and the dock becomes the plan:
 // next step + Go, waits now at the park you're in, then the timeline. Setting saved in localStorage wdwsim.view.
-var PV={on:false,last:0,touch:0,sig:'',tickT:0,tab:'now'};
+var PV={on:false,last:0,touch:0,sig:'',tickT:0,tab:'now',down:new Set(),downT:0,pend:false};
+// a finger on the plan view holds every redraw (strip, page, Now card); a forced redraw asked for meanwhile runs PV_UP_WAIT ms after
+// the finger lifts, so the tap's own click lands on the button it started on. A lost pointerup can't freeze the view: PV_DOWN_MAX.
+const PV_UP_WAIT=400,PV_DOWN_MAX=10000;
 try{PV.on=localStorage.getItem('wdwsim.view')==='plan'}catch(e){}
 function setView(v){PV.on=v==='plan';try{localStorage.setItem('wdwsim.view',PV.on?'plan':'map')}catch(e){}
   document.body.classList.toggle('pvmode',PV.on);document.querySelectorAll('#segView button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===(PV.on?'plan':'map')?'true':'false'));
@@ -4965,6 +5023,7 @@ function openEndDay(){if(!G.started||G.over)return;let left=0;try{left=G.plan&&p
 function pvTab(k){if(!sheet.hidden)closeSheet();PV.tab=k;if(k==='plan'){AUTO.unseen=false;planDotUI()}PV.sig='';pvRefresh(true);const pv=$('#pv');pv.scrollTop=0}
 function pvRefresh(force){try{pvRefresh0(force)}catch(e){PV.sig='';const m=String(e&&e.message||e);if(PV.err!==m){PV.err=m;toast('Plan view hiccup: '+m.slice(0,80));console.error(e)}}}
 function pvRefresh0(force){if(!PV.on||!G.started||G.over)return;const now=performance.now();
+  if(PV.down.size&&now-PV.downT<PV_DOWN_MAX){if(force)PV.pend=true;return}
   if(!force&&(now-PV.last<2000||now-PV.touch<1500))return;
   try{cdRender()}catch(e){showErr(e)}
   const cur=G.segs&&G.segs[G.seg],pk=NODES[effectiveStart().node].park||(G.plan?G.plan.res.pk:currentPark());
@@ -4981,9 +5040,12 @@ function pvRefresh0(force){if(!PV.on||!G.started||G.over)return;const now=perfor
   pvTabsUI()
   bindAll(el,{'[data-pvr]':b=>openRide(RIDE_BY[b.dataset.pvr]),'[data-pvll]':()=>{llView.confirm=null;openLL()},'[data-auto-undo]':()=>autoUndo(),'[data-pvtab]':b=>pvTab(b.dataset.pvtab)});{const d=el.querySelector('details.confc');if(d)d.addEventListener('toggle',()=>{PV.confOpen=d.open})}planDotUI()}
 $('#bNow').onclick=()=>pvTab('now');$('#bWaits').onclick=()=>pvTab('waits');$('#bMore').onclick=()=>openMore();
-function pvSizes(){const t=$('#top'),b=$('#bottom'),n=$('#pvNow'),r=document.documentElement.style;r.setProperty('--topH',(t.hidden?0:t.offsetHeight)+'px');r.setProperty('--botH',(b.hidden?0:b.offsetHeight)+'px');r.setProperty('--nowH',(n&&n.firstChild?n.offsetHeight:0)+'px');const sp=$('#pvStrip');r.setProperty('--stripH',(sp&&sp.firstChild?sp.offsetHeight:0)+'px')}
+function pvSizes(){const t=$('#top'),b=$('#bottom'),n=$('#pvNow'),r=document.documentElement.style;r.setProperty('--topH',(t.hidden?0:t.offsetHeight)+'px');r.setProperty('--botH',(b.hidden?0:b.offsetHeight)+'px');r.setProperty('--nowH',(n&&n.firstChild?n.offsetHeight:0)+'px');const sp=$('#pvStrip'),sh=sp&&sp.firstChild?sp.offsetHeight:0;r.setProperty('--stripH',sh+'px');
+  if(PV.on&&PV.stripH!=null&&sh!==PV.stripH){const pv=$('#pv');if(pv&&pv.scrollTop>0)pv.scrollTop+=sh-PV.stripH}PV.stripH=sh}
 if(window.ResizeObserver){const ro=new ResizeObserver(pvSizes);ro.observe($('#top'));ro.observe($('#bottom'));ro.observe($('#pvNow'));ro.observe($('#pvStrip'))}
-$('#pv').addEventListener('pointerdown',()=>{PV.touch=performance.now()},{passive:true});$('#pv').addEventListener('scroll',()=>{PV.touch=performance.now()},{passive:true});
+$('#pv').addEventListener('pointerdown',e=>{PV.touch=PV.downT=performance.now();PV.down.add(e.pointerId)},{passive:true});
+{const up=e=>{if(!PV.down.delete(e.pointerId))return;PV.touch=performance.now();if(PV.down.size||!PV.pend)return;PV.pend=false;
+  setTimeout(()=>{if(PV.down.size)PV.pend=true;else pvRefresh(true)},PV_UP_WAIT)};window.addEventListener('pointerup',up,true);window.addEventListener('pointercancel',up,true)}$('#pv').addEventListener('scroll',()=>{PV.touch=performance.now()},{passive:true});
 $('#bView').onclick=()=>setView(PV.on?'map':'plan');segPick('#segView',b=>setView(b.dataset.v));setView(PV.on?'plan':'map');
 
 // ================= PHONE ALERTS (roadmap row 36) =================
@@ -5094,7 +5156,7 @@ function tick(now){const pv=PV.on;if(pv&&(G.real||!G.started||G.over)&&now-PV.ti
     camStep(now);controls.update();skyDome.position.copy(camera.position);renderFrame();updateLabels()}
   if(G.started){updateHUD();runTick();try{pushTick()}catch(e){}try{confTick()}catch(e){}if(pv)pvRefresh(false)}
 }
-window.WDW={DBG,dbgText,bindAll,PIN,pinPage,PV,pvRefresh:f=>pvRefresh(f),planViewHTML:()=>planViewHTML(),pvLockItems:()=>pvLockItems(),dinGrace:()=>dinGrace(),llTask:()=>llTask(),LLT,llUse:r=>llUse(r),openEndDay:()=>openEndDay(),pvTab:k=>pvTab(k),showTick:()=>{showClock=0;showTick(1)},showHeldAll,setView:v=>setView(v),openSteps:()=>openSteps(),openDoing:()=>openDoing(),testReset:()=>{DPV={edit:false};FIX.open=false;closeSheet()},cdList:()=>cdList(),cdRender:()=>{CD.html='';cdRender()},CD,planTo,autoUndo,nowModel:()=>NOWC.m,nowTarget,nowTap,openFix:()=>openFix(),stepsRefresh:()=>stepsRefresh(),dpvEdit:()=>{DPV.edit=true;DPV.S=null},SHOWS,showIngest,showsFor,showEventsReal,openShows,showBlock,showNode,showRideTimes,showPoll,showAddGame,showGo,PUSH,pushPlan,pushSync,openPush,pushSupport,pushDataText,pushDataImport,llOdds,llObs,llObsAdd,llCalFor,CONF,confRun,confOpts,confCompare,confCardHTML,openLLEnter,endDay,resBuild,resHTML,resShow,resLoad,resLatest,RUN,runSave,runLoad,runClear,runResume,runState,runBox,runFind,AUTO,RT,autoCheck,autoReasons,autoReplan,autoDiff,rtRodeIt,rtAt,rtNow,openWhere,dpGameOpts,camera,controls,RF,rfCompact,rfStore,rfLoad,rfResid,rfCalibrate,rfEstimate,rfBacktest,rfUpdateToday,rfApplyDay,rfMul,rfCal,openRF,rfAfterUpdate,rfNoteUpdate,rfTick,rfBannerHTML,liveMatch,stRun,stHTML,stCalib,stModelDay,dpParseTP,dpApplyImport,scene,setGfx,LIGHT,sunDir,fwShows,fwSim:(n,dt)=>{for(let i=0;i<n;i++)updateFireworks(dt)},holdTime:t=>{G.holdT=t==null?null:t*60;if(t!=null)G.t=t*60},dpRun,dpRunDay,dpLegs,dpAllMust,getDPS:()=>DPS,dpStartOpts:S=>dpStartOpts(S),dpMakeGame,dpProgress,dpLoad,dpSave,openPlan,openDaySetup,prepDay,llFromPlan,llFresh,llBook,llNext,llRecs,llUse,llHeld,llTick,llPlanErrors,llSuggest,llLoadPlan,openLL,openRides,openPicks,LIVE,liveIngest,liveFor,curveAt,orlandoNow,livePoll,G,go,flyTo,setFollow,RIDE_BY,PARKS,camera,controls,openRide,closeSheet,rawWait,waitAt,dayFactor,holiday,hoursFor,applyHours,accessOpen,lastClose,renderer,dijkstra,NI,NODES,RESORTS,RIDES,LINES};
+window.WDW={DBG,dbgText,bindAll,PIN,pinPage,PV,openEditPlan:c=>openEditPlan(c),pvRefresh:f=>pvRefresh(f),planViewHTML:()=>planViewHTML(),pvLockItems:()=>pvLockItems(),dinGrace:()=>dinGrace(),llTask:()=>llTask(),LLT,llUse:r=>llUse(r),openEndDay:()=>openEndDay(),pvTab:k=>pvTab(k),showTick:()=>{showClock=0;showTick(1)},showHeldAll,setView:v=>setView(v),openSteps:()=>openSteps(),openDoing:()=>openDoing(),testReset:()=>{DPV={edit:false};FIX.open=false;closeSheet()},cdList:()=>cdList(),cdRender:()=>{CD.html='';cdRender()},CD,planTo,autoUndo,nowModel:()=>NOWC.m,nowTarget,nowTap,openFix:()=>openFix(),stepsRefresh:()=>stepsRefresh(),dpvEdit:()=>{DPV.edit=true;DPV.S=null},SHOWS,showIngest,showsFor,showEventsReal,openShows,showBlock,showNode,showRideTimes,showPoll,showAddGame,showGo,PUSH,pushPlan,pushSync,openPush,pushSupport,pushDataText,pushDataImport,llOdds,llObs,llObsAdd,llCalFor,CONF,confRun,confOpts,confCompare,confCardHTML,openLLEnter,endDay,resBuild,resHTML,resShow,resLoad,resLatest,RUN,runSave,runLoad,runClear,runResume,runState,runBox,runFind,AUTO,RT,autoCheck,autoReasons,autoReplan,autoDiff,rtRodeIt,rtAt,rtNow,openWhere,dpGameOpts,camera,controls,RF,rfCompact,rfStore,rfLoad,rfResid,rfCalibrate,rfEstimate,rfBacktest,rfUpdateToday,rfApplyDay,rfMul,rfCal,openRF,rfAfterUpdate,rfNoteUpdate,rfTick,rfBannerHTML,liveMatch,stRun,stHTML,stCalib,stModelDay,dpParseTP,dpApplyImport,scene,setGfx,LIGHT,sunDir,fwShows,fwSim:(n,dt)=>{for(let i=0;i<n;i++)updateFireworks(dt)},holdTime:t=>{G.holdT=t==null?null:t*60;if(t!=null)G.t=t*60},dpRun,dpRunDay,dpLegs,dpAllMust,getDPS:()=>DPS,dpStartOpts:S=>dpStartOpts(S),dpMakeGame,dpProgress,dpLoad,dpSave,openPlan,openDaySetup,prepDay,llFromPlan,llFresh,llBook,llNext,llRecs,llUse,llHeld,llTick,llPlanErrors,llSuggest,llLoadPlan,openLL,openRides,openPicks,LIVE,liveIngest,liveFor,curveAt,orlandoNow,livePoll,G,go,flyTo,setFollow,RIDE_BY,PARKS,camera,controls,openRide,closeSheet,rawWait,waitAt,dayFactor,holiday,hoursFor,applyHours,accessOpen,lastClose,renderer,dijkstra,NI,NODES,RESORTS,RIDES,LINES};
 requestAnimationFrame(frame);
 })();
 </script>

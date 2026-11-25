@@ -8,8 +8,8 @@ out.held0=await pg.evaluate(async()=>{WDW.openShows('MK');const rows=[...documen
  for(const r of rows){r.click();await new Promise(z=>setTimeout(z,60));const c=document.querySelector('#sheet [data-sht]');if(c){c.click();await new Promise(z=>setTimeout(z,300));break}}
  return (WDW.G.plan.settings.blocks||[]).filter(b=>b.user).map(b=>b.name+'@'+b.at)});
 ck(out.held0.length===1,'no show held: '+JSON.stringify(out.held0));
-// replan from the plan panel
-out.replan=await pg.evaluate(async()=>{WDW.closeSheet();WDW.openPlan();const b=document.querySelector('#dpRe');if(!b)return 'no #dpRe';const r0=WDW.G.plan.res;b.click();await new Promise(z=>setTimeout(z,800));return WDW.G.plan.res!==r0?'ok':'plan not remade'});
+// replan from the plan view's ⋯ Edit plan sheet (row 74)
+out.replan=await pg.evaluate(async()=>{WDW.closeSheet();WDW.openPlan();WDW.openEditPlan();const b=document.querySelector('#sheet #dpRe');if(!b)return 'no #dpRe';const r0=WDW.G.plan.res;b.click();await new Promise(z=>setTimeout(z,800));return WDW.G.plan.res!==r0?'ok':'plan not remade'});
 ck(out.replan==='ok','replan: '+out.replan);
 // start walking to the next step (the Now card's Go, row 70), then save
 await pg.evaluate(()=>{WDW.closeSheet();const b=document.querySelector('#pvNow [data-nc="go"]');if(b)b.click()});await pg.waitForTimeout(800);
