@@ -258,7 +258,14 @@ body.pvmode #start,body.pvmode #end{background:var(--night)}
 .pvt{display:none}
 body.pvmode.pvtabs-on #bRides,body.pvmode.pvtabs-on #bPicks,body.pvmode.pvtabs-on #bBreak{display:none}
 body.pvmode.pvtabs-on .pvt{display:inline-flex;align-items:center;justify-content:center}
-body.pvmode.pvtabs-on #bNow{order:1}body.pvmode.pvtabs-on #bPlan{order:2}body.pvmode.pvtabs-on #bWaits{order:3}body.pvmode.pvtabs-on #bMore{order:4;flex:0 0 52px;font-size:20px}
+body.pvmode.pvtabs-on #bNow{order:1}body.pvmode.pvtabs-on #bPlan{order:2}body.pvmode.pvtabs-on #bLL{order:3}body.pvmode.pvtabs-on #bWaits{order:4}body.pvmode.pvtabs-on #bMore{order:5;flex:0 0 48px;font-size:20px}
+/* Lightning Lanes tab (Nov 25): every pass of the day — booked, used, missed */
+.llsec{margin:14px 0 4px;font-size:13px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}.llsec b{color:var(--ll)}
+.lltr{display:block;width:100%;text-align:left;background:rgba(182,156,255,.08);border:1px solid rgba(182,156,255,.35);border-radius:12px;padding:10px 12px;margin:6px 0;font:inherit;color:var(--text);cursor:pointer}
+.lltr .n{font-weight:800;font-size:15.5px}.lltr .m{font-size:13px;color:var(--muted);margin-top:2px;line-height:1.35}.lltr .m b{color:var(--text)}
+.lltr.used{background:rgba(255,255,255,.04);border-color:var(--line)}.lltr.miss{background:rgba(255,90,90,.07);border-color:rgba(255,90,90,.4)}.lltr.miss .n{color:var(--bad)}
+.llsum{font-size:13px;color:var(--muted);margin:2px 0 8px;line-height:1.4}.llsum b{color:var(--text)}
+#pvIn .lltask{pointer-events:auto;margin:6px 0 4px}
 body.pvmode.pvtabs-on [data-tab][aria-selected="true"]{background:var(--gold);color:#1a1300;border-color:var(--gold)}
 .morel{display:flex;flex-direction:column;gap:8px;margin:6px 0 4px}.morel .btn{min-height:48px;font-size:16px}
 /* row 74: ⋯ Edit plan sheet (every plan edit lives here; Clear is separated and asks first) */
@@ -336,6 +343,7 @@ body.pvmode #toasts{top:calc(var(--topH,76px) + var(--stripH,0px) + 8px)}
       <button class="btn pvt" id="bNow" data-tab="now">Now</button>
       <button class="btn pri" id="bRides">Rides</button>
       <button class="btn" id="bPlan" data-tab="plan">Plan</button>
+      <button class="btn pvt" id="bLL" data-tab="ll" aria-label="Lightning Lanes">⚡ LL</button>
       <button class="btn pvt" id="bWaits" data-tab="waits">Waits</button>
       <button class="btn pvt" id="bMore" aria-label="More: Rides, Top picks, Eat · shop">⋯</button>
       <button class="btn" id="bPicks">Top picks</button>
@@ -4414,6 +4422,7 @@ function nowBarBind(root){bindAll(root,{'[data-nc]':b=>{const k=b.dataset.nc,m=N
     if(!t||!m||!m.btn||t.k!==m.btn.tk||t.j!==m.btn.j){stepsRefresh();return}const r=G.segs[G.segs.length-1].ride||{short:''};
     nowDo(t.k==='there'?'✓ You\'re there':t.k==='rode'?`✓ Rode ${r.short}`:t.k==='line'?`✓ In line · ${r.short}`:'✓ '+t.label.replace(/^I'm /,''),()=>nowTap(t.j))}}})}
 function nowBarRender(v){const el=$('#pvNow');if(!el)return;NOWC.v=v;NOWC.m=nowModel(v);let tk='';if(NOWC.m)try{tk=llTaskHTML(llTask())}catch(e){showErr(e)}
+  if(PV.on&&PV.tab!=='now'){if(el.firstChild)el.innerHTML='';return}
   if(tk&&!NOWC.tk)tk=tk.replace('class="lltask"','class="lltask llin"');NOWC.tk=!!tk;
   el.innerHTML=tk+nowBarHTML(NOWC.m);nowBarBind(el);bindAll(el,{'[data-llt]':b=>llTaskDo(b)})}
 // ---- Fix steps: "Where are you now?" for the current trip
@@ -5005,6 +5014,29 @@ function llTaskDo(b){const r=RIDE_BY[b.dataset.rid];if(!r)return;
 function pvNowTabHTML(v){const{todo}=pvRows(v),up=todo.slice(1,4);
   return `${pvLLHTML()}${v.head}${up.length?`<h3>Coming up</h3>${up.join('')}`:''}<button class="btn pvmore" data-pvtab="plan">Full plan · done, later, changes ›</button>${v.edit}`}
 // in the plan view with a plan, the dock's row is the tab bar: Now · Plan · Waits · ⋯ (Rides, Top picks, Eat · shop)
+// ---- Lightning Lanes tab (Nick, Nov 25: "a Lightning Lanes tab where I can see all the booked, used and missed passes")
+function pvLLTabHTML(){const L=G.LL,t=G.t,P=G.plan,pr=P?dpProgress():null,steps=P?P.res.steps:[],held=llHeld();
+  const planned=p=>{if(!P)return '';if(p.st==='mep'){const j=steps.findIndex((x,j)=>x.k==='ride'&&x.how==='mep'&&!pr.done[j]&&(p.mepOpts||[]).concat(p.rid).includes(x.rid));return j>=0?`planned on ${RIDE_BY[steps[j].rid].short} ${fmtClock(steps[j].q0)}`:'not in the plan yet'}
+    const j=steps.findIndex((x,j)=>x.k==='ride'&&x.rid===p.rid&&!pr.done[j]&&x.how!=='standby'&&x.how!=='rope');return j>=0?`planned ${fmtClock(steps[j].q0)}`:'<span style="color:var(--warn)">⚠ not in the plan</span>'};
+  const tag=p=>p.type==='sp'?'Single Pass':p.st==='mep'||p.st==='mepused'?'Multiple Experience':'Multi Pass';
+  const win=p=>`${fmtClock(p.start).replace(/ [AP]M/,'')}–${fmtClock(p.end)}`;
+  const missed=p=>p.st==='expired'||(p.st==='active'&&llWinState(p,t)==='late');
+  const book=L.passes.filter(p=>(p.st==='active'&&!missed(p))||p.st==='mep').sort((a,b)=>a.start-b.start),
+    used=L.passes.filter(p=>p.st==='used'||p.st==='mepused').sort((a,b)=>(a.usedAt||a.start)-(b.usedAt||b.start)),
+    miss=L.passes.filter(missed).sort((a,b)=>a.start-b.start),canc=L.passes.filter(p=>p.st==='cancelled');
+  const row=(p,cls,meta)=>`<button class="lltr ${cls}" data-pvll="1"><div class="n">⚡ ${RIDE_BY[p.rid].name}</div><div class="m">${tag(p)} · ${win(p)}<br>${meta}</div></button>`;
+  const bmeta=p=>{if(p.st==='mep')return `${mepWhy(p)} · ${planned(p)}`;const w=llWinState(p,t);
+    return `${w==='early'?`opens in ${fmtDur(p.start-t)}`:w==='open'?`<b style="color:var(--good)">open now</b> · ends in ${fmtDur(p.end-t)}`:`<span style="color:var(--warn)">window ended ${fmtDur(t-p.end)} ago</span>`} · ${planned(p)}`};
+  const umeta=p=>p.st==='mepused'?`used on ${RIDE_BY[p.usedOn]?RIDE_BY[p.usedOn].short:'?'}${p.usedAt!=null?' at '+fmtClock(p.usedAt):''}`:`tapped in ${p.usedAt!=null?fmtClock(p.usedAt):''}${p.usedAt!=null&&p.usedAt>p.end?` · ${Math.round(p.usedAt-p.end)}m after the window`:''}`;
+  let tk='';try{tk=llTaskHTML(llTask())}catch(e){showErr(e)}
+  const sum=[L.mp?`<b>Multi Pass · ${PARKS[L.mp].short}</b> · holding ${held.length} of 3`:'<b>No Multi Pass</b>',llSps().length?`Single Pass ${llSps().length} of 2`:'',
+    L.premier?`<b>Premier Pass · ${PARKS[L.premier].short}</b> · ${Object.keys(L.premUsed).length} used`:''].filter(Boolean).join(' · ');
+  return `<div class="llsum">${sum}</div>${tk}
+  <div class="llsec">Booked <b>${book.length}</b></div>${book.length?book.map(p=>row(p,'',bmeta(p))).join(''):'<p class="note">Nothing booked right now.</p>'}
+  <div class="llsec">Used <b>${used.length}</b></div>${used.length?used.map(p=>row(p,'used',umeta(p))).join(''):'<p class="note">None used yet.</p>'}
+  <div class="llsec">Missed <b>${miss.length}</b></div>${miss.length?miss.map(p=>row(p,'miss',p.st==='expired'?'window passed · not used':`window ended ${fmtDur(t-p.end)} ago · too late to tap in`)).join(''):'<p class="note">None missed.</p>'}
+  ${canc.length?`<p class="note">Cancelled: ${canc.map(p=>RIDE_BY[p.rid].short+' '+win(p)).join(', ')}</p>`:''}
+  <button class="btn pvmore" data-pvll="1">Book, change, swap or cancel ›</button>`}
 function pvTabsUI(){const on=!!(PV.on&&G.plan&&G.started&&!G.over),sig=on+PV.tab;if(sig===PV.tabSig)return;PV.tabSig=sig;document.body.classList.toggle('pvtabs-on',on);
   document.querySelectorAll('#dock [data-tab]').forEach(b=>{if(on){b.setAttribute('role','tab');b.setAttribute('aria-selected',String(PV.tab===b.dataset.tab))}else{b.removeAttribute('role');b.removeAttribute('aria-selected')}})}
 function openMore(){openSheet(`<div class="sh"><h2>More</h2><button class="x" aria-label="Close">×</button></div><div class="sb"><div class="morel">
@@ -5031,15 +5063,15 @@ function pvRefresh0(force){if(!PV.on||!G.started||G.over)return;const now=perfor
     G.LL.passes.map(p=>p.rid+p.st+p.start).join(),LIVE.got,CONF&&CONF.ver,Math.floor(G.t/(G.real?1:5)),DPV.clr,AUTO.on,pk,G.LL.tapped,PV.tab,AUTO.unseen?1:0].join('|');
   PV.last=now;if(!force&&sig===PV.sig)return;PV.sig=sig;
   const el=$('#pvIn'),sc=$('#pv').scrollTop;let html,v=null;
-  if(G.plan){v=planViewHTML();html=`<div class="pvh"><h2>Your plan · ${dpParksLabel(G.plan.res)}</h2><span>${G.real?'● Real time':fmtClock(G.t)}</span></div>${PV.tab==='plan'?pvPlanTabHTML(v):PV.tab==='waits'?pvWaitsHTML(pk):pvNowTabHTML(v)}`}
+  if(G.plan){v=planViewHTML();html=`<div class="pvh"><h2>Your plan · ${dpParksLabel(G.plan.res)}</h2><span>${G.real?'● Real time':fmtClock(G.t)}</span></div>${PV.tab==='plan'?pvPlanTabHTML(v):PV.tab==='waits'?pvWaitsHTML(pk):PV.tab==='ll'?pvLLTabHTML():pvNowTabHTML(v)}`}
   else html=`<div class="pvh"><h2>No plan yet</h2><span>${G.real?'● Real time':fmtClock(G.t)}</span></div>${pvLLHTML()}<p class="note">Pick your must-dos and the sim plans the rest of today from where you are.</p>${pvWaitsHTML(pk)}`;
   el.innerHTML=html;$('#pv').scrollTop=sc;
   try{if(v)planBind(el,v);else nowBind(el)}catch(e){showErr(e)}
   try{nowBarRender(v)}catch(e){showErr(e)}
-  // bottom tab bar (row 72, Nick: mockup's bottom tabs; the Now card shows on every tab)
+  // bottom tab bar (row 72): Now · Plan · ⚡ LL · Waits · ⋯; the Now card and task card show on the Now tab only (Nick, Nov 25)
   pvTabsUI()
-  bindAll(el,{'[data-pvr]':b=>openRide(RIDE_BY[b.dataset.pvr]),'[data-pvll]':()=>{llView.confirm=null;openLL()},'[data-auto-undo]':()=>autoUndo(),'[data-pvtab]':b=>pvTab(b.dataset.pvtab)});{const d=el.querySelector('details.confc');if(d)d.addEventListener('toggle',()=>{PV.confOpen=d.open})}planDotUI()}
-$('#bNow').onclick=()=>pvTab('now');$('#bWaits').onclick=()=>pvTab('waits');$('#bMore').onclick=()=>openMore();
+  bindAll(el,{'[data-llt]':b=>llTaskDo(b),'[data-pvr]':b=>openRide(RIDE_BY[b.dataset.pvr]),'[data-pvll]':()=>{llView.confirm=null;openLL()},'[data-auto-undo]':()=>autoUndo(),'[data-pvtab]':b=>pvTab(b.dataset.pvtab)});{const d=el.querySelector('details.confc');if(d)d.addEventListener('toggle',()=>{PV.confOpen=d.open})}planDotUI()}
+$('#bNow').onclick=()=>pvTab('now');$('#bWaits').onclick=()=>pvTab('waits');$('#bLL').onclick=()=>pvTab('ll');$('#bMore').onclick=()=>openMore();
 function pvSizes(){const t=$('#top'),b=$('#bottom'),n=$('#pvNow'),r=document.documentElement.style;r.setProperty('--topH',(t.hidden?0:t.offsetHeight)+'px');r.setProperty('--botH',(b.hidden?0:b.offsetHeight)+'px');r.setProperty('--nowH',(n&&n.firstChild?n.offsetHeight:0)+'px');const sp=$('#pvStrip'),sh=sp&&sp.firstChild?sp.offsetHeight:0;r.setProperty('--stripH',sh+'px');
   if(PV.on&&PV.stripH!=null&&sh!==PV.stripH){const pv=$('#pv');if(pv&&pv.scrollTop>0)pv.scrollTop+=sh-PV.stripH}PV.stripH=sh}
 if(window.ResizeObserver){const ro=new ResizeObserver(pvSizes);ro.observe($('#top'));ro.observe($('#bottom'));ro.observe($('#pvNow'));ro.observe($('#pvStrip'))}

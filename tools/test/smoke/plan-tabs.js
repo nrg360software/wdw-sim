@@ -1,7 +1,7 @@
 // Plan view tabs (row 72): Now · Plan · Waits. Plan tab = 🔒 commitments (held passes, dining reservations), Done (collapsed,
 // actual vs planned times from the results log), Now (one row), Later, per-step why / 🔒 / confidence, change log; edit buttons
 // on Now and Plan. Tabs are the dock's row (Nick: mockup's bottom tab bar): Now · Plan · Waits · ⋯ (Rides, Top picks, Eat · shop);
-// the Now card shows on every tab; the change dot shows on Plan; map view keeps the old dock row.
+// the Now card shows on the Now tab only (Nick, Nov 25: Plan and Waits need the room; was every tab), and the page gives back its space; the change dot shows on Plan; map view keeps the old dock row.
 await pg.waitForTimeout(4000);const fail=[],out={};const ck=(c,m)=>{if(!c)fail.push(m)};const W=ms=>pg.waitForTimeout(ms);
 await lib.startDay(pg,'MK','plan',660);
 await pg.evaluate(()=>{const b=document.querySelector('#speedSeg [data-s="0"]');if(b)b.click()});
@@ -11,21 +11,22 @@ const tabs=()=>pg.evaluate(()=>{const t=[...document.querySelectorAll('#dock [da
     secs:[...document.querySelectorAll('#pvIn h3.pvsec')].map(h=>h.childNodes[0].textContent.trim()).join(',')}});
 const tab=async k=>{await pg.evaluate(k=>document.querySelector(`#dock [data-tab="${k}"]`).click(),k);await W(250)};
 const cardOn=()=>pg.evaluate(()=>{const n=document.getElementById('pvNow');return !n.hidden&&n.offsetHeight>0&&!!n.querySelector('.ncgo')});
+const cardOff=()=>pg.evaluate(async()=>{await new Promise(r=>setTimeout(r,150));const n=document.getElementById('pvNow');return n.offsetHeight===0&&!n.querySelector('.ncgo,#llTask')&&parseInt(getComputedStyle(document.documentElement).getPropertyValue('--nowH'))===0});
 
 // 1) Now tab by default: edit buttons, coming up, no waits grid
 let t=await tabs();out.now=t;
-ck(t.tabs==='now*,plan,waits','tab bar '+t.tabs);
+ck(t.tabs==='now*,plan,ll,waits','tab bar '+t.tabs);
 out.dock=await pg.evaluate(()=>{const vis=id=>!!document.getElementById(id).offsetParent;const hit=id=>{const b=document.getElementById(id),r=b.getBoundingClientRect(),e=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);return e===b||b.contains(e)};
-  return{old:['bRides','bPicks','bBreak'].filter(vis),hit:['bNow','bPlan','bWaits','bMore'].filter(hit),top:!!document.querySelector('#pvIn .pvtabs')}});
-ck(!out.dock.old.length&&out.dock.hit.length===4&&!out.dock.top,'dock tab bar '+JSON.stringify(out.dock));
+  return{old:['bRides','bPicks','bBreak'].filter(vis),hit:['bNow','bPlan','bLL','bWaits','bMore'].filter(hit),top:!!document.querySelector('#pvIn .pvtabs')}});
+ck(!out.dock.old.length&&out.dock.hit.length===5&&!out.dock.top,'dock tab bar '+JSON.stringify(out.dock));
 ck(await cardOn(),'Now card missing on the Now tab');ck(t.edit&&t.up&&!t.waits&&!t.planH,'Now tab content '+JSON.stringify(t));
 // 2) Waits tab: the grid only
-await tab('waits');t=await tabs();out.waits=t;ck(t.tabs==='now,plan,waits*'&&t.waits&&!t.planH&&!t.edit,'Waits tab '+JSON.stringify(t));ck(await cardOn(),'Now card hidden on the Waits tab');
+await tab('waits');t=await tabs();out.waits=t;ck(t.tabs==='now,plan,ll,waits*'&&t.waits&&!t.planH&&!t.edit,'Waits tab '+JSON.stringify(t));ck(await cardOff(),'Now card still over the Waits tab');
 // 3) dock Plan → Plan tab: Done / Now / Later, exactly one highlighted Now row, edit buttons
 await pg.evaluate(()=>document.querySelector('#bPlan').click());await W(300);t=await tabs();out.plan=t;
-ck(t.tabs==='now,plan*,waits'&&t.planH&&t.edit&&!t.waits,'dock Plan did not open the Plan tab '+JSON.stringify(t));
+ck(t.tabs==='now,plan*,ll,waits'&&t.planH&&t.edit&&!t.waits,'dock Plan did not open the Plan tab '+JSON.stringify(t));
 ck(/^Done,Now(,Later)?$/.test(t.secs)&&t.nx===1,'Plan tab sections '+JSON.stringify(t));
-ck(await cardOn(),'Now card hidden on the Plan tab');
+ck(await cardOff(),'Now card still over the Plan tab');await tab('now');ck(await cardOn(),'Now card not back on the Now tab');await tab('plan');
 // ⋯ More: Rides, Top picks, Eat · shop still reachable
 out.more=await pg.evaluate(async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));document.getElementById('bMore').click();await w(250);const it=[...document.querySelectorAll('#sheet [data-more]')].map(b=>b.dataset.more);
   document.querySelector('#sheet [data-more="bRides"]').click();await w(300);const rides=!document.getElementById('sheet').hidden&&!document.querySelector('#sheet [data-more]');WDW.closeSheet();await w(150);return{it,rides}});

@@ -35,11 +35,12 @@ const later=()=>pg.evaluate(()=>{const b=document.querySelector('#pvNow [data-ll
 ck(await later(),'no Not now');c=await card();out.c5=c;ck(c.rid!=='btm','Not now did not snooze '+JSON.stringify(c));
 await pg.evaluate(()=>{WDW.G.LL.used++});c=await card();out.c5b=c;ck(c.rid==='btm','not back after a pass was used '+JSON.stringify(c));
 ck(await later(),'no Not now (2)');await pg.evaluate(()=>{WDW.G.t+=21});c=await card();out.c5c=c;ck(c.rid==='btm','not back after 20 min '+JSON.stringify(c));
-// 6) always visible like the Now card: on every tab, right above it, buttons tappable, not under the dock
-out.tabs=await pg.evaluate(async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms)),o={};for(const k of ['plan','waits','now']){WDW.pvTab(k);await w(250);const c=document.querySelector('#pvNow #llTask'),n=document.getElementById('ncard'),b=c&&c.querySelector('[data-llt="book"]');
+// 6) pinned above the Now card on the Now tab only (Nick, Nov 25); on the Lightning Lanes tab it's in the page; gone from Plan and Waits
+out.tabs=await pg.evaluate(async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms)),o={};for(const k of ['plan','waits','ll','now']){WDW.pvTab(k);await w(250);const c=document.querySelector(k==='ll'?'#pvIn #llTask':'#pvNow #llTask'),n=document.getElementById('ncard'),b=c&&c.querySelector('[data-llt="book"]');
   let hit=false;if(b){const q=b.getBoundingClientRect(),e=document.elementFromPoint(q.left+q.width/2,q.top+q.height/2);hit=e===b||b.contains(e)}
-  o[k]={on:!!c,above:!!(c&&n&&c.getBoundingClientRect().bottom<=n.getBoundingClientRect().top+1),hit,inPage:!!document.querySelector('#pvIn #llTask')}}return o});
-ck(['plan','waits','now'].every(k=>out.tabs[k].on&&out.tabs[k].above&&out.tabs[k].hit&&!out.tabs[k].inPage),'task card not pinned on every tab '+JSON.stringify(out.tabs));
+  o[k]={on:!!c,pinned:!!document.querySelector('#pvNow #llTask'),above:!!(c&&n&&c.getBoundingClientRect().bottom<=n.getBoundingClientRect().top+1),hit,inPage:!!document.querySelector('#pvIn #llTask')}}return o});
+const T=out.tabs;ck(T.now.on&&T.now.above&&T.now.hit&&!T.now.inPage,'task card not pinned on the Now tab '+JSON.stringify(T));ck(!T.plan.on&&!T.plan.pinned&&!T.waits.on&&!T.waits.pinned,'task card still over Plan/Waits '+JSON.stringify(T));
+ck(T.ll.on&&T.ll.hit&&!T.ll.pinned,'task card not in the Lightning Lanes tab '+JSON.stringify(T));
 // 6b) purple for using a Lightning Lane too: the Now card for a step that uses a held pass is purple (card + button), standby isn't
 out.purple=await pg.evaluate(async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms)),G=WDW.G;G.LL.passes=[];WDW.pvRefresh(true);await w(150);
   const rd=()=>{const n=document.getElementById('ncard'),b=n&&n.querySelector('.ncgo');return{ll:!!(n&&n.classList.contains('ll')),btn:b?b.className:'',tag:n?n.querySelector('.nct').innerText:''}};const a=rd();

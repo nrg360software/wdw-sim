@@ -62,7 +62,7 @@ out.edU2=await pg.evaluate(()=>({back:WDW.G.plan===window.__P0,m:JSON.stringify(
 ck(out.edU&&/New plan/.test(out.edU)&&out.edU2.back&&out.edU2.m&&out.edU2.saved,'Undo new plan '+JSON.stringify([out.edU,out.edU2]));
 
 // 7) no redraw while a finger is down; the forced redraw asked for meanwhile runs after it lifts; a stuck pointer can't freeze it
-out.hold=await pg.evaluate(async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));WDW.closeSheet();WDW.pvRefresh(true);await w(100);
+out.hold=await pg.evaluate(async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));WDW.closeSheet();WDW.pvTab('now');WDW.pvRefresh(true);await w(100);
   const b0=document.querySelector('#pvNow .ncgo'),p0=document.querySelector('#pvIn .pvh');
   b0.dispatchEvent(new PointerEvent('pointerdown',{pointerId:41,bubbles:true,isPrimary:true,pointerType:'touch'}));
   WDW.pvRefresh(true);WDW.G.t+=6;await w(2600);WDW.pvRefresh(true);const during={btn:b0.isConnected,page:p0.isConnected,pend:WDW.PV.pend};
