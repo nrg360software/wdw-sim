@@ -15,10 +15,13 @@ await setup("G.LL.mp=null;");let c=await card();out.c1=c;ck(!c.on&&!c.oldBk,'car
 // 2) Multi Pass, nothing planned: the best free slot, tappable; sim day books the return shown
 await setup("G.LL.mp='MK';G.LL.tapped=true;");c=await card();out.c2=c;
 out.c2pk=await pg.evaluate(rid=>WDW.RIDE_BY[rid].pk,c.rid);ck(out.c2pk==='MK','free slot suggested a ride outside the plan\'s park (from the resort, MK plan) '+out.c2pk+' '+c.rid);
-ck(c.on&&/free Lightning Lane slot/i.test(c.txt)&&/Book .+ Aim for about \d+:\d\d [AP]M/.test(c.txt)&&/Book · returns/.test(c.txt)&&c.book&&c.later&&!c.oldBk,'free-slot task card '+JSON.stringify(c));
-out.b2=await pg.evaluate(async rid=>{const ret=WDW.llNext(WDW.RIDE_BY[rid],WDW.G.t);document.querySelector('#pvNow [data-llt="book"]').click();await new Promise(r=>setTimeout(r,200));
-  const p=WDW.G.LL.passes.find(p=>p.rid===rid);return{p:p&&[p.st,p.start],ret}},c.rid);
-ck(out.b2.p&&out.b2.p[0]==='active'&&out.b2.p[1]===out.b2.ret,'sim book did not book the shown return '+JSON.stringify(out.b2));
+ck(c.on&&/free Lightning Lane slot/i.test(c.txt)&&/Book .+ Aim for about \d+:\d\d [AP]M/.test(c.txt)&&/Book · ~\d/.test(c.txt)&&c.book&&c.later&&!c.oldBk,'free-slot task card '+JSON.stringify(c));
+// sim day too: Book asks for the time actually booked (Nick, Nov 24), prefilled with the prediction; a later time is kept as entered
+out.b2=await pg.evaluate(async rid=>{const w=ms=>new Promise(r=>setTimeout(r,ms)),ret=WDW.llNext(WDW.RIDE_BY[rid],WDW.G.t);document.querySelector('#pvNow [data-llt="book"]').click();await w(200);
+  const inp=document.querySelector('#sheet:not([hidden]) #llT');if(!inp)return{noSheet:true,passes:WDW.G.LL.passes.length};const pre=inp.value,t=ret+30;inp.value=String(Math.floor(t/60)).padStart(2,'0')+':'+String(t%60).padStart(2,'0');
+  document.querySelector('#sheet #llTok').click();await w(250);const p=WDW.G.LL.passes.find(p=>p.rid===rid);const hh=String(Math.floor(ret/60)).padStart(2,'0')+':'+String(ret%60).padStart(2,'0');
+  return{pre,hh,t,p:p&&[p.st,p.start]}},c.rid);
+ck(!out.b2.noSheet&&out.b2.pre===out.b2.hh&&out.b2.p&&out.b2.p[0]==='active'&&out.b2.p[1]===out.b2.t,'sim Book: no time box / not prefilled with the prediction / booked time not kept '+JSON.stringify(out.b2));
 // 3) booking not allowed (holding 3): no card
 await setup("G.LL.mp='MK';G.LL.tapped=true;['tron','sdmt','hm'].forEach((rid,i)=>G.LL.passes.push({id:9900+i,rid,type:WDW.RIDE_BY[rid].llType,start:780+60*i,end:840+60*i,st:'active'}));G.LL.passes.forEach(p=>p.type='mp');G.plan.res.steps[0].books=[{rid:'btm',at:G.t,ret:Math.round(G.t)+150}];");
 c=await card();out.c3=c;ck(!c.on,'card while holding 3 '+JSON.stringify(c));

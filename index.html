@@ -3717,7 +3717,7 @@ function openLL(){const L=G.LL,t=G.t,D=dijkstra(effectiveStart().node,t/60),held
 function llHHMM(m){m=Math.round(m);return String(Math.floor(m/60)%24).padStart(2,'0')+':'+String(m%60).padStart(2,'0')}
 function openLLEnter(r,p){const c=p?null:llCanBook(r,G.t);if(!p&&!c.ok){toast(c.why);return}const est=p?p.start:c.ret;
   openSheet(`<div class="sh"><h2>${r.short} · return time</h2><button class="x" aria-label="Close">×</button></div><div class="sb">
-  <p class="note">Enter the start of the return window from the Disney app (windows run an hour). ${p?`Now ${fmtClock(p.start)}–${fmtClock(p.end)}.`:c.noEst?'Our model thinks this one has sold out; if the app gave you a time, enter it.':`Our estimate was ${fmtClock(c.ret)}.`}</p>
+  <p class="note">Enter the start of the return window from the Disney app (windows run an hour). ${p?`Now ${fmtClock(p.start)}–${fmtClock(p.end)}.`:!G.real?`Sim day: the earliest return is ${fmtClock(c.ret)} (an earlier time is moved up to it). Enter the time you actually booked.`:c.noEst?'Our model thinks this one has sold out; if the app gave you a time, enter it.':`Our estimate was ${fmtClock(c.ret)}.`}</p>
   <input type="time" id="llT" step="300" value="${llHHMM(est)}" style="width:100%;box-sizing:border-box;font:600 22px var(--body);padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--chip);color:var(--text);-webkit-user-select:text;margin:4px 0 12px">
   ${p||!G.real?'':`<label class="note" style="display:flex;gap:8px;align-items:flex-start;margin:0 0 12px"><input type="checkbox" id="llEarl" checked style="margin-top:2px"> <span>This was the earliest return the app offered. WDW Sim learns ${PARKS[r.pk].short}'s return times from these (the odds in your plan use them).</span></label>`}
   <button class="btn ll" id="llTok" style="width:100%">${p?'Save new time':'Book '+r.short}</button></div>`);
@@ -4935,10 +4935,10 @@ function llTask(){const P=G.plan;if(!P||!G.started||G.over)return null;const pr=
 function llTaskHTML(k){if(!k)return '';const r=k.r;
   return `<div class="lltask" id="llTask" role="region" aria-label="Lightning Lane to book"><div class="ltt">⚡ To do · ${k.src==='free'?'free Lightning Lane slot':'you can book another'}</div><div class="ltb">Book ${r.name}</div>
   <div class="lts">Aim for about ${fmtClock(k.aim)}${k.save>=3?` · saves ~${fmtDur(Math.round(k.save))}`:''}${k.odds?' · '+k.odds:''}${k.more.length?` · then ${k.more.join(', ')}`:''}</div>
-  <div class="ltr"><button class="btn ll" data-llt="book" data-rid="${r.id}" ${G.real?'aria-label="I booked it: enter the return time from Disney\'s app"':''}>${G.real?'I booked it':`Book · returns ${fmtClock(k.c.ret)}`}</button><button class="btn" data-llt="later" data-rid="${r.id}">Not now</button></div></div>`}
+  <div class="ltr"><button class="btn ll" data-llt="book" data-rid="${r.id}" ${G.real?'aria-label="I booked it: enter the return time from Disney\'s app"':''}>${G.real?'I booked it':`Book · ~${fmtClock(k.c.ret)}`}</button><button class="btn" data-llt="later" data-rid="${r.id}">Not now</button></div></div>`}
 function llTaskDo(b){const r=RIDE_BY[b.dataset.rid];if(!r)return;
   if(b.dataset.llt==='later'){LLT.dis[r.id]={t:G.t,n:llHeld().length,u:G.LL.used};toast(`OK · ${r.short} can wait. It comes back in ${LLT_SNOOZE} min or when you use a pass`);planRefresh();return}
-  if(G.real){openLLEnter(r);return}const res=llBook(r,G.t);toast(res.ok?`Booked ${r.short} · ${fmtClock(res.p.start)}–${fmtClock(res.p.end)}`:res.why);if(res.ok)try{autoKick('Lightning Lane changed')}catch(e){}planRefresh()}
+  openLLEnter(r)}
 function pvNowTabHTML(v){const{todo}=pvRows(v),up=todo.slice(1,4);
   return `${pvLLHTML()}${v.head}${up.length?`<h3>Coming up</h3>${up.join('')}`:''}<button class="btn pvmore" data-pvtab="plan">Full plan · done, later, changes ›</button>${v.edit}`}
 // in the plan view with a plan, the dock's row is the tab bar: Now · Plan · Waits · ⋯ (Rides, Top picks, Eat · shop)
