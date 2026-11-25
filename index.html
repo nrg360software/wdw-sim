@@ -235,12 +235,15 @@ body.pvmode #start,body.pvmode #end{background:var(--night)}
 .pvc .pll{color:var(--ll);font-size:11px}
 #speedSeg button{padding:6px 7px}#bFollow,#bMap,#bView{padding:7px 8px}
 .pvll{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
-.lltask{border:2px solid var(--ll);border-radius:16px;background:rgba(182,156,255,.08);padding:12px 14px;margin:0 0 12px;display:flex;flex-direction:column;gap:6px}
+.lltask{pointer-events:auto;max-width:560px;margin:0 auto 6px;box-sizing:border-box;border:2px solid var(--ll);border-radius:16px;background:linear-gradient(180deg,#2a2150,#1c1838);padding:8px 12px 10px;display:flex;flex-direction:column;gap:3px;box-shadow:0 -6px 24px rgba(0,0,0,.45)}
 .lltask .ltt{font-size:11.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--ll)}
-.lltask .ltb{font-size:18px;font-weight:800;line-height:1.2}
-.lltask .lts{font-size:13.5px;color:var(--text);opacity:.85;line-height:1.35}
+.lltask .ltb{font-size:17px;font-weight:800;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lltask .lts{font-size:12.5px;color:var(--text);opacity:.85;line-height:1.3}
 .lltask .ltr{display:flex;gap:8px;margin-top:4px}
-.lltask .ltr .btn{min-height:46px;margin:0}
+.lltask .ltr .btn{min-height:44px;margin:0}
+.ncard.ll{border:2px solid var(--ll);background:linear-gradient(180deg,#2a2150,#1c1838)}
+.ncard.ll .nct{color:var(--ll)}
+.cds.ll{border-color:rgba(182,156,255,.7)}.cds.ll b{color:var(--ll)}
 .lltask .ltr .btn.ll{flex:1}
 .lltask .note{margin:0}
 /* countdown strip (row 71) */
@@ -4057,7 +4060,7 @@ function planViewHTML(){
   let bkH=books.map(({r,b})=>{const c=llCanBook(r,G.t);return `<button class="btn ll" data-bk="${r.id}" ${c.ok?'':'disabled'}>Book ${r.short} · ${c.ok?'returns '+fmtClock(c.ret):c.why}</button>`}).join('');
   // a free Multi Pass slot the plan didn't fill (its bookings sit on steps you may not follow, and it only books for must-dos
   // or ≥10 min savings): offer the best booking now, whatever you're doing
-  if(!books.some(x=>llCanBook(x.r,G.t).ok)&&G.LL.mp&&llCanBookAny(G.t)){const pks=new Set([currentPark()]);(P.res.legs||[]).forEach((l,i)=>{if(i>=(P.legI||0))pks.add(l.pk)});
+  if(!books.some(x=>llCanBook(x.r,G.t).ok)&&G.LL.mp&&llCanBookAny(G.t)){const pks=llPlanParks(P);
     const rec=llRecs(G.t,true).find(x=>x.save>=3&&pks.has(x.r.pk)&&(x.away==null||x.ret>=G.t+x.away-5));
     if(rec)bkH+=`<button class="btn ll" data-bk="${rec.r.id}">⚡ Free slot · book ${rec.r.short} · returns ~${fmtClock(rec.ret)} (saves ~${fmtDur(rec.save)})</button>`}
   // plan-only view: what to do now and its button live in the Now card at the bottom (row 70)
@@ -4315,7 +4318,7 @@ function nowModel(v){if(!G.started||G.over)return null;const R=G.real,segs=G.seg
       m.tag='Next';m.big=`Head to ${r.short}`;m.sub=`${how}${q&&q.ll?'':' ~'+fmtDur(rawWait(r,G.t))} · ${there?'you should be there about now':'~'+fmtDur(Math.max(1,left))+' to get there'}`;
       if(!there&&st[c]&&st[c].k!=='walk')m.sub+=` · ${st[c].label.replace(/ · .*$/,'').toLowerCase()}`;
       if(R&&G.trip&&G.t-(G.trip.start+G.trip.est)>10)m.nudge='Taking longer than the estimate. The plan waits for your tap.'}
-    if(t&&R)m.btn={k:'tap',tk:t.k,j:t.j,label:t.k==='rode'?'Off the ride ✓':t.label,cls:'pri'};
+    m.ll=!!(q&&q.ll);if(t&&R)m.btn={k:'tap',tk:t.k,j:t.j,label:t.k==='rode'?'Off the ride ✓':t.label,cls:m.ll?'ll':'pri'};
     m.foot=inQ||onR?nowThen():nowLastDone();return m}
   const n=NODES[G.node];m.foot=nowLastDone();
   if(!G.plan){m.big=`📍 At ${n.ride?n.ride.short:n.label}`;m.sub='No plan yet: pick your must-dos and the sim plans the rest of today from here.';m.btn={k:'make',label:'🗺 Plan my day from here',cls:'pri'};return m}
@@ -4328,11 +4331,11 @@ function nowModel(v){if(!G.started||G.over)return null;const R=G.real,segs=G.seg
     m.sub=x.hp?`First there: ${r.short} · leave ${fmtClock(x.hop.leave)}`:`${how}${eta!=null?' · '+fmtDur(eta)+' to get there':''}${x.late<-2&&x.early==null?' · leave by '+fmtClock(x.s.leave):''}`;
     m.btn=x.early!=null?{k:'wait',label:`Leave by ${fmtClock(x.early)}`,cls:'ll',dis:1}:x.busyNow?{k:'wait',label:'Finish this first',cls:'',dis:1}:{k:'go',label:x.hp?`Go · hop to ${PARKS[x.hop.to].short}`:`Go · ${x.canLL?'⚡ ':''}${r.short}`,cls:x.canLL?'ll':'pri'};
     if(rideState(r,G.t)==='down')m.nudge=`${r.short} is down right now. Wait it out or replan.`;else if(x.late>10&&!x.hp)m.nudge=`About ${fmtDur(x.late)} behind plan.`;
-    if(!x.hp){const g=dinGraceFor({rid:r.id,i:pr.next});if(g)m.warn=dinGraceMsg(g)}}
+    if(!x.hp){m.ll=!!x.canLL;const g=dinGraceFor({rid:r.id,i:pr.next});if(g)m.warn=dinGraceMsg(g)}}
   else{m.big=G.plan.res.nMust?'All planned rides done':'Nothing left in your plan';m.sub='Add must-dos and the sim plans the rest of today from here.';m.btn={k:'more',label:'＋ Add must-dos',cls:'pri'}}
   return m}
 function nowBarHTML(m){if(!m)return '';
-  return `<div class="ncard" id="ncard"><div class="nct">${m.tag}</div><div class="ncb">${m.big}</div>${m.sub?`<div class="ncs">${m.sub}</div>`:''}${m.nudge?`<div class="ncn">${m.nudge}</div>`:''}${m.warn?`<div class="ncw" role="note">${m.warn}</div>`:''}${m.btn?`<button class="btn ${m.btn.cls} ncgo" data-nc="${m.btn.k}" ${m.btn.dis?'disabled':''}>${m.btn.label}</button>`:''}<div class="ncf">${m.fix?'<button class="ncfix" data-nc="fix" type="button">Fix steps</button>':'<span></span>'}<span class="ncft">${m.foot||''}</span></div></div>`}
+  return `<div class="ncard${m.ll?' ll':''}" id="ncard"><div class="nct">${m.tag}${m.ll?' · ⚡ Lightning Lane':''}</div><div class="ncb">${m.big}</div>${m.sub?`<div class="ncs">${m.sub}</div>`:''}${m.nudge?`<div class="ncn">${m.nudge}</div>`:''}${m.warn?`<div class="ncw" role="note">${m.warn}</div>`:''}${m.btn?`<button class="btn ${m.btn.cls} ncgo" data-nc="${m.btn.k}" ${m.btn.dis?'disabled':''}>${m.btn.label}</button>`:''}<div class="ncf">${m.fix?'<button class="ncfix" data-nc="fix" type="button">Fix steps</button>':'<span></span>'}<span class="ncft">${m.foot||''}</span></div></div>`}
 function nowBarBind(root){bindAll(root,{'[data-nc]':b=>{const k=b.dataset.nc,m=NOWC.m;
   if(k==='fix'){openFix();return}if(k==='make'){DPV.edit=false;DPV.S=null;openPlan();return}if(k==='more'){DPV.edit=true;DPV.S=null;openPlan();return}
   if(k==='actdone'){actDone();stepsRefresh();return}if(k==='blk'){dpStartBlk(dpProgress());return}if(k==='lunch'){dpTakeLunch();return}
@@ -4342,7 +4345,8 @@ function nowBarBind(root){bindAll(root,{'[data-nc]':b=>{const k=b.dataset.nc,m=N
     // only do what the button said: if the day moved on since it was drawn, just redraw
     if(!t||!m||!m.btn||t.k!==m.btn.tk||t.j!==m.btn.j){stepsRefresh();return}const r=G.segs[G.segs.length-1].ride||{short:''};
     nowDo(t.k==='there'?'✓ You\'re there':t.k==='rode'?`✓ Rode ${r.short}`:t.k==='line'?`✓ In line · ${r.short}`:'✓ '+t.label.replace(/^I'm /,''),()=>nowTap(t.j))}}})}
-function nowBarRender(v){const el=$('#pvNow');if(!el)return;NOWC.v=v;NOWC.m=nowModel(v);el.innerHTML=nowBarHTML(NOWC.m);nowBarBind(el)}
+function nowBarRender(v){const el=$('#pvNow');if(!el)return;NOWC.v=v;NOWC.m=nowModel(v);let tk='';if(NOWC.m)try{tk=llTaskHTML(llTask())}catch(e){showErr(e)}
+  el.innerHTML=tk+nowBarHTML(NOWC.m);nowBarBind(el);bindAll(el,{'[data-llt]':b=>llTaskDo(b)})}
 // ---- Fix steps: "Where are you now?" for the current trip
 function fixGuess(){const segs=G.segs,r=segs[segs.length-1].ride,q=nowQ(),start=G.trip?G.trip.start:G.t;
   const max=G.t-(r.dur||5),min=G.t-240;let T=q&&q.started&&q.tap&&q.t0!=null?q.t0:start+(G.trip&&G.trip.est||0);
@@ -4409,13 +4413,13 @@ function cdHTML(o){if(!o)return '';const t=G.t,away=`${fmtDur(Math.max(1,Math.ro
   const when=o.k==='ll'?`window ${nowHM(o.p.start)}–${fmtClock(o.p.end)}`:o.k==='hop'?`leave by ${fmtClock(o.dl)}`:`${o.k==='dine'?'booked':o.b.meet?'line up':'starts'} ${fmtClock(o.dl)}`;
   if(o.tier==='act'){const busy=!!(G.segs&&o.rem>0),sf=Math.round(o.slackFin),sn=Math.round(o.slackNow);
     const why=busy?(sf<0?`Finishing ${cdDoing()} gets you there ~${fmtDur(-sf)} late.`:`Finishing ${cdDoing()} leaves only ${fmtDur(Math.max(0,sf))} to spare.`):(sn<0?`You'll be ~${fmtDur(-sn)} late${o.k==='ll'?' (tap points often allow some grace)':''}.`:`Leave within ${fmtDur(Math.max(1,sn))}.`);
-    let go='';if(o.k==='ll'){try{if(planTo(o.r,true).st.can)go='<button class="btn pri" data-cd="go">Go now</button>'}catch(e){}}
+    let go='';if(o.k==='ll'){try{if(planTo(o.r,true).st.can)go='<button class="btn ll" data-cd="go">⚡ Go now</button>'}catch(e){}}
     return `<div class="cds act" role="alert"><span class="cdt">Act now</span><b class="big">${o.ic} Leave now for ${o.name}</b>${o.k==='ll'?'Window ends':'Booked for'} ${fmtClock(o.dl)} · ${away}. ${why}<div class="cdb">${go}<button class="btn" data-cd="dis">Not going</button></div></div>`}
   if(o.tier==='late')return `<div class="cds late">⚠ <b>${o.name}</b> · ${when} · you'd get there ~${fmtClock(t+o.tNow)}${o.onWay?' (on your way)':''}</div>`;
   // a meal the plan seats late on purpose (within grace): say so instead of "time to head there"
   if((o.tier==='heads'||o.tier==='fyi')&&o.k==='dine'&&o.b.late>0&&o.b.late<=15&&o.slackFin<0)return `<div class="cds heads">🍽 <b>${o.name}</b> · ${when} · plan gets you there ~${fmtDur(Math.round(-o.slackFin))} late (within the 15-min grace)</div>`;
   if(o.tier==='heads')return `<div class="cds heads">${o.ic} <b>${o.k==='hop'?'Time to hop to '+o.name:'Time to head to '+o.name}</b> · ${when}${o.k==='hop'?'':' · '+away}</div>`;
-  const lv=o.latest-t;return `<div class="cds">${o.ic} <b>${o.name}</b> · ${when}${o.onWay?' · on your way':o.k==='hop'?` · in ${fmtDur(Math.max(1,Math.round(lv)))}`:` · leave by ${fmtClock(o.latest)} · in ${fmtDur(Math.max(1,Math.round(lv)))}`}</div>`}
+  const lv=o.latest-t;return `<div class="cds${o.k==='ll'?' ll':''}">${o.ic} <b>${o.name}</b> · ${when}${o.onWay?' · on your way':o.k==='hop'?` · in ${fmtDur(Math.max(1,Math.round(lv)))}`:` · leave by ${fmtClock(o.latest)} · in ${fmtDur(Math.max(1,Math.round(lv)))}`}</div>`}
 function cdRender(){const el=$('#pvStrip');if(!el)return;const o=cdTop(),h=cdHTML(o);CD.top=o;if(h===CD.html)return;CD.html=h;el.innerHTML=h;
   bindAll(el,{'[data-cd]':b=>{const o=CD.top;if(!o)return;if(b.dataset.cd==='dis'){CD.dis[o.key]=G.t;toast(`OK · no more alarms for ${o.name}`)}else if(b.dataset.cd==='go'&&o.r){go(o.r,true);stepsRefresh()}CD.html='';cdRender()}})}
 // plan changes: what the Now card would show next, so a replan only interrupts when that changes
@@ -4896,6 +4900,10 @@ function pvPlanTabHTML(v){const{sum,todo}=pvRows(v);
 // bookings that are due (dpPendingBooks), else the best use of a free Multi Pass slot (same rule as the old "Free slot" button).
 // Real day: "I booked it" → enter the return time from Disney's app (openLLEnter). Sim day: books the return shown.
 // "Not now" snoozes that ride for LLT_SNOOZE min, or until a pass is used or your held count changes.
+// parks a free-slot booking may suggest: the park you're in (only when actually inside one) plus the plan's parks still ahead.
+// Before Nov 24 this used currentPark(), which from a resort is the nearest park (Pop Century → HS on an MK plan).
+function llPlanParks(P){const pks=new Set(),n=NODES[effectiveStart().node];if(n&&n.park)pks.add(n.park);const legs=P.res.legs||[];
+  if(legs.length)legs.forEach((l,i)=>{if(i>=(P.legI||0))pks.add(l.pk)});else if(P.res.pk)pks.add(P.res.pk);return pks}
 const LLT_SNOOZE=20;var LLT={dis:{}};
 function llOddsWord(o){if(!o)return '';const m=o.by!=null?o.by:o.p;return m>=0.8?'likely available':m>=0.5?'may go soon':'often gone by now'}
 function llTask(){const P=G.plan;if(!P||!G.started||G.over)return null;const pr=dpProgress();if(!pr)return null;const held=llHeld().length;
@@ -4904,20 +4912,19 @@ function llTask(){const P=G.plan;if(!P||!G.started||G.over)return null;const pr=
   for(const x of books){if(snoozed(x.r))continue;const r=x.r,c=llCanBook(r,G.t),j=P.res.steps.findIndex((s,j)=>s.k==='ride'&&s.rid===r.id&&!pr.done[j]&&s.how!=='standby'&&s.how!=='rope');
     const need=j>=0?P.res.steps[j].q0:null,aim=x.b.ret!=null?Math.max(x.b.ret,c.ret):c.ret;let odds=null;try{odds=llOdds(r,G.t,need)}catch(e){}
     pick={src:'plan',r,c,aim,save:Math.max(0,waitAt(r,Math.min(aim+30,PARKS[r.pk].close*60-1))-8),odds:c.noEst?'may be sold out':llOddsWord(odds)};break}
-  if(!pick&&!books.length&&G.LL.mp&&llCanBookAny(G.t)){const pks=new Set([currentPark()]);(P.res.legs||[]).forEach((l,i)=>{if(i>=(P.legI||0))pks.add(l.pk)});
+  if(!pick&&!books.length&&G.LL.mp&&llCanBookAny(G.t)){const pks=llPlanParks(P);
     const rec=llRecs(G.t,true).find(x=>x.save>=3&&pks.has(x.r.pk)&&(x.away==null||x.ret>=G.t+x.away-5)&&!snoozed(x.r));
     if(rec)pick={src:'free',r:rec.r,c:llCanBook(rec.r,G.t),aim:rec.ret,save:rec.save,odds:rec.why.includes('sells out soon')?'sells out soon':''}}
   if(pick)pick.more=books.filter(x=>x.r!==pick.r).map(x=>x.r.short);return pick}
 function llTaskHTML(k){if(!k)return '';const r=k.r;
-  return `<div class="lltask" id="llTask"><div class="ltt">⚡ To do · ${k.src==='free'?'you have a free Lightning Lane slot':'you can book another'}</div><div class="ltb">Book ${r.name}</div>
-  <div class="lts">Aim for about ${fmtClock(k.aim)}${k.save>=3?` · saves ~${fmtDur(Math.round(k.save))}`:''}${k.odds?' · '+k.odds:''}${k.more.length?`<br>Then: ${k.more.join(', ')}`:''}</div>
-  <div class="ltr"><button class="btn ll" data-llt="book" data-rid="${r.id}">${G.real?'I booked it':`Book · returns ${fmtClock(k.c.ret)}`}</button><button class="btn" data-llt="later" data-rid="${r.id}">Not now</button></div>
-  <p class="note">${G.real?'Book in Disney\'s app, then enter the return time here.':'Sim day: books the return time shown.'}</p></div>`}
+  return `<div class="lltask" id="llTask" role="region" aria-label="Lightning Lane to book"><div class="ltt">⚡ To do · ${k.src==='free'?'free Lightning Lane slot':'you can book another'}</div><div class="ltb">Book ${r.name}</div>
+  <div class="lts">Aim for about ${fmtClock(k.aim)}${k.save>=3?` · saves ~${fmtDur(Math.round(k.save))}`:''}${k.odds?' · '+k.odds:''}${k.more.length?` · then ${k.more.join(', ')}`:''}</div>
+  <div class="ltr"><button class="btn ll" data-llt="book" data-rid="${r.id}" ${G.real?'aria-label="I booked it: enter the return time from Disney\'s app"':''}>${G.real?'I booked it':`Book · returns ${fmtClock(k.c.ret)}`}</button><button class="btn" data-llt="later" data-rid="${r.id}">Not now</button></div></div>`}
 function llTaskDo(b){const r=RIDE_BY[b.dataset.rid];if(!r)return;
   if(b.dataset.llt==='later'){LLT.dis[r.id]={t:G.t,n:llHeld().length,u:G.LL.used};toast(`OK · ${r.short} can wait. It comes back in ${LLT_SNOOZE} min or when you use a pass`);planRefresh();return}
   if(G.real){openLLEnter(r);return}const res=llBook(r,G.t);toast(res.ok?`Booked ${r.short} · ${fmtClock(res.p.start)}–${fmtClock(res.p.end)}`:res.why);if(res.ok)try{autoKick('Lightning Lane changed')}catch(e){}planRefresh()}
 function pvNowTabHTML(v){const{todo}=pvRows(v),up=todo.slice(1,4);
-  return `${llTaskHTML(llTask())}${pvLLHTML()}${v.head}${up.length?`<h3>Coming up</h3>${up.join('')}`:''}<button class="btn pvmore" data-pvtab="plan">Full plan · done, later, changes ›</button>${v.edit}`}
+  return `${pvLLHTML()}${v.head}${up.length?`<h3>Coming up</h3>${up.join('')}`:''}<button class="btn pvmore" data-pvtab="plan">Full plan · done, later, changes ›</button>${v.edit}`}
 // in the plan view with a plan, the dock's row is the tab bar: Now · Plan · Waits · ⋯ (Rides, Top picks, Eat · shop)
 function pvTabsUI(){const on=!!(PV.on&&G.plan&&G.started&&!G.over),sig=on+PV.tab;if(sig===PV.tabSig)return;PV.tabSig=sig;document.body.classList.toggle('pvtabs-on',on);
   document.querySelectorAll('#dock [data-tab]').forEach(b=>{if(on){b.setAttribute('role','tab');b.setAttribute('aria-selected',String(PV.tab===b.dataset.tab))}else{b.removeAttribute('role');b.removeAttribute('aria-selected')}})}
@@ -4941,7 +4948,7 @@ function pvRefresh0(force){if(!PV.on||!G.started||G.over)return;const now=perfor
   try{nowBarRender(v)}catch(e){showErr(e)}
   // bottom tab bar (row 72, Nick: mockup's bottom tabs; the Now card shows on every tab)
   pvTabsUI()
-  bindAll(el,{'[data-pvr]':b=>openRide(RIDE_BY[b.dataset.pvr]),'[data-pvll]':()=>{llView.confirm=null;openLL()},'[data-auto-undo]':()=>autoUndo(),'[data-pvtab]':b=>pvTab(b.dataset.pvtab),'[data-llt]':b=>llTaskDo(b)});planDotUI()}
+  bindAll(el,{'[data-pvr]':b=>openRide(RIDE_BY[b.dataset.pvr]),'[data-pvll]':()=>{llView.confirm=null;openLL()},'[data-auto-undo]':()=>autoUndo(),'[data-pvtab]':b=>pvTab(b.dataset.pvtab)});planDotUI()}
 $('#bNow').onclick=()=>pvTab('now');$('#bWaits').onclick=()=>pvTab('waits');$('#bMore').onclick=()=>openMore();
 function pvSizes(){const t=$('#top'),b=$('#bottom'),n=$('#pvNow'),r=document.documentElement.style;r.setProperty('--topH',(t.hidden?0:t.offsetHeight)+'px');r.setProperty('--botH',(b.hidden?0:b.offsetHeight)+'px');r.setProperty('--nowH',(n&&n.firstChild?n.offsetHeight:0)+'px');const sp=$('#pvStrip');r.setProperty('--stripH',(sp&&sp.firstChild?sp.offsetHeight:0)+'px')}
 if(window.ResizeObserver){const ro=new ResizeObserver(pvSizes);ro.observe($('#top'));ro.observe($('#bottom'));ro.observe($('#pvNow'));ro.observe($('#pvStrip'))}
